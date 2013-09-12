@@ -1617,6 +1617,7 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 {
 	struct ci13xxx *udc = container_of(_gadget, struct ci13xxx, gadget);
 	unsigned long flags;
+	bool skip_fpr = false;
 	int ret = 0;
 
 	trace();
@@ -1629,6 +1630,18 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	}
 	spin_unlock_irqrestore(udc->lock, flags);
 
+	if ((udc->udc_driver->in_lpm != NULL) &&
+	    (udc->udc_driver->in_lpm(udc))) {
+		if (udc->udc_driver->set_fpr_flag) {
+			/* When USB HW is in low-power mode we set a flag
+			 * for the OTG layer to set the FPR bit during the
+			 * low-power mode mode exit sequence.
+			 */
+			udc->udc_driver->set_fpr_flag(udc);
+			skip_fpr = true;
+		}
+	}
+
 	pm_runtime_get_sync(&_gadget->dev);
 
 	udc->udc_driver->notify_event(udc,
@@ -1638,13 +1651,15 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 		usb_phy_set_suspend(udc->transceiver, 0);
 
 	spin_lock_irqsave(udc->lock, flags);
-	if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
-		ret = -EINVAL;
-		dbg_trace("port is not suspended\n");
-		pm_runtime_put(&_gadget->dev);
-		goto out;
+	if (!skip_fpr) {
+		if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
+			ret = -EINVAL;
+			dbg_trace("port is not suspended\n");
+			pm_runtime_put(&_gadget->dev);
+			goto out;
+		}
+		hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
 	}
-	hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
 
 	pm_runtime_mark_last_busy(&_gadget->dev);
 	pm_runtime_put_autosuspend(&_gadget->dev);

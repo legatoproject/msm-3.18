@@ -267,6 +267,9 @@ enum usb_id_state {
  * @vddmin_gpio: dedictaed gpio in the platform that is used for
  *		pullup the D+ line in case of bus suspend with
  *		phy retention.
+ * @rw_during_lpm_workaround: Determines whether remote-wakeup
+ *		during low-power mode workaround will be
+ *		applied.
  * @enable_ahb2ahb_bypass: Indicates whether enable AHB2AHB BYPASS
  *		mode with controller in device mode.
  * @bool disable_retention_with_vdd_min: Indicates whether to enable
@@ -449,6 +452,7 @@ struct msm_otg {
 	atomic_t pm_suspended;
 	struct notifier_block pm_notify;
 	atomic_t in_lpm;
+	atomic_t set_fpr_with_lpm_exit;
 	bool err_event_seen;
 	int async_int;
 	unsigned cur_power;
