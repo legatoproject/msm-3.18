@@ -317,6 +317,7 @@ struct msm_otg_platform_data {
 	bool l1_supported;
 	bool dpdm_pulldown_added;
 	int vddmin_gpio;
+	bool rw_during_lpm_workaround;
 	bool enable_ahb2ahb_bypass;
 	bool disable_retention_with_vdd_min;
 	bool enable_phy_id_pullup;
