@@ -34,13 +34,13 @@
 	register unsigned long long __n   asm("r0") = n;	\
 	register unsigned long long __res asm("r2");		\
 	register unsigned int __rem       asm(__xh);		\
-	asm(	__asmeq("%0", __xh)				\
+	asm(	__asmeq("%R0", __xh)				\
 		__asmeq("%1", "r2")				\
 		__asmeq("%2", "r0")				\
 		__asmeq("%3", "r4")				\
 		"bl	__do_div64"				\
-		: "=r" (__rem), "=r" (__res)			\
-		: "r" (__n), "r" (__base)			\
+		: "=r" (__n), "=r" (__res)			\
+		: "0"(__n), "r" (__base)			\
 		: "ip", "lr", "cc");				\
 	n = __res;						\
 	__rem;							\
