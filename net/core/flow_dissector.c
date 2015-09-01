@@ -76,6 +76,7 @@ bool __skb_flow_dissect(const struct sk_buff *skb, struct flow_keys *flow,
 			void *data, __be16 proto, int nhoff, int hlen)
 {
 	u8 ip_proto;
+	bool ret = false;
 
 	if (!data) {
 		data = skb->data;
@@ -94,7 +95,7 @@ again:
 ip:
 		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
 		if (!iph || iph->ihl < 5)
-			return false;
+			goto out_bad;
 		nhoff += iph->ihl * 4;
 
 		ip_proto = iph->protocol;
@@ -119,7 +120,7 @@ ip:
 ipv6:
 		iph = __skb_header_pointer(skb, nhoff, sizeof(_iph), data, hlen, &_iph);
 		if (!iph)
-			return false;
+			goto out_bad;
 
 		ip_proto = iph->nexthdr;
 		nhoff += sizeof(struct ipv6hdr);
@@ -154,7 +155,7 @@ ipv6:
 
 		vlan = __skb_header_pointer(skb, nhoff, sizeof(_vlan), data, hlen, &_vlan);
 		if (!vlan)
-			return false;
+			goto out_bad;
 
 		proto = vlan->h_vlan_encapsulated_proto;
 		nhoff += sizeof(*vlan);
@@ -167,7 +168,7 @@ ipv6:
 		} *hdr, _hdr;
 		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
 		if (!hdr)
-			return false;
+			goto out_bad;
 		proto = hdr->proto;
 		nhoff += PPPOE_SES_HLEN;
 		switch (proto) {
@@ -176,7 +177,7 @@ ipv6:
 		case htons(PPP_IPV6):
 			goto ipv6;
 		default:
-			return false;
+			goto out_bad;
 		}
 	}
 	case __constant_htons(ETH_P_MAP): {
@@ -188,18 +189,18 @@ ipv6:
 
 		map = skb_header_pointer(skb, nhoff, sizeof(_map), &_map);
 		if (!map)
-			return false;
+			goto out_bad;
 
 		/* Is MAP command? */
 		if (map->map.cd_bit)
-			return false;
+			goto out_bad;
 
 		/* Is aggregated frame? */
 		maplen = ntohs(map->map.pkt_len);
 		maplen += map->map.pad_len;
 		maplen += sizeof(struct rmnet_map_header_s);
 		if (maplen < skb->len)
-			return false;
+			goto out_bad;
 
 		nhoff += sizeof(struct rmnet_map_header_s);
 		switch (map->proto & RMNET_IP_VER_MASK) {
@@ -229,7 +230,7 @@ ipv6:
 
 		hdr = __skb_header_pointer(skb, nhoff, sizeof(_hdr), data, hlen, &_hdr);
 		if (!hdr)
-			return false;
+			goto out_bad;
 		/*
 		 * Only look inside GRE if version zero and no
 		 * routing
@@ -251,7 +252,7 @@ ipv6:
 							   sizeof(_eth),
 							   data, hlen, &_eth);
 				if (!eth)
-					return false;
+					goto out_bad;
 				proto = eth->h_proto;
 				nhoff += sizeof(*eth);
 			}
@@ -269,16 +270,20 @@ ipv6:
 		break;
 	}
 
-	flow->n_proto = proto;
-	flow->ip_proto = ip_proto;
-	flow->thoff = (u16) nhoff;
-
 	/* unless skb is set we don't need to record port info */
 	if (skb)
 		flow->ports = __skb_flow_get_ports(skb, nhoff, ip_proto,
 						   data, hlen);
 
-	return true;
+out_good:
+	ret = true;
+
+out_bad:
+	flow->n_proto = proto;
+	flow->ip_proto = ip_proto;
+	flow->thoff = (u16) nhoff;
+
+	return ret;
 }
 EXPORT_SYMBOL(__skb_flow_dissect);
 
