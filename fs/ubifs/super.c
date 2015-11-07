@@ -2445,7 +2445,7 @@ static struct dentry *ubifs_mount(struct file_system_type *fs_type, int flags,
 #ifndef CONFIG_UBIFS_ATIME_SUPPORT
 		sb->s_flags |= MS_NOATIME;
 #else
-		ubifs_msg("full atime support is enabled.");
+		ubifs_msg(c, "full atime support is enabled.");
 #endif
 	}
 

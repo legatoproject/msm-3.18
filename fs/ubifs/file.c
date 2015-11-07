@@ -1418,6 +1418,7 @@ static inline int mctime_update_needed(const struct inode *inode,
 	return 0;
 }
 
+#ifdef CONFIG_UBIFS_ATIME_SUPPORT
 /**
  * ubifs_update_time - update time of inode.
  * @inode: inode to update
@@ -1458,6 +1459,7 @@ int ubifs_update_time(struct inode *inode, struct timespec *time,
 		ubifs_release_budget(c, &req);
 	return 0;
 }
+#endif
 
 /**
  * update_ctime - update mtime and ctime of an inode.
