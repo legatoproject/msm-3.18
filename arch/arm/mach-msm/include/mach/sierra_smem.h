@@ -87,7 +87,7 @@
 #define ERDUMP_PROC_TYPE_APPS              0x41505053 /* "APPS" in ascii hex */
 
 /* Shared Memory Sub-region offsets */
-#define BS_SMEM_CRC_SIZE               0x0004   /* 4 bytes CRC value for each shared memory area */
+#define BS_SMEM_CRC_SIZE                   0x0004   /* 4 bytes CRC value for each shared memory area */
 #define BS_SMEM_CWE_SIZE                   0x1000   /* 512 * 8 slots              */
 #define BS_SMEM_MSG_SIZE                   0x0400   /* 1 kB, fixed for expansion  */
 #define BS_SMEM_ERR_SIZE                   0x1000   /* (0x07F8 + 0x07F8 + 0x0010) */

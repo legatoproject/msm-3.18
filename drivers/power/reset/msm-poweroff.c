@@ -33,6 +33,12 @@
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
@@ -234,6 +240,16 @@ void msm_set_restart_mode(int mode)
 	restart_mode = mode;
 }
 EXPORT_SYMBOL(msm_set_restart_mode);
+
+/* SWISTART */
+#if defined (CONFIG_SIERRA)
+void msm_set_download_mode_swi(int mode)
+{
+	download_mode = mode;
+}
+EXPORT_SYMBOL(msm_set_download_mode_swi);
+#endif
+/* SWISTOP */
 
 /*
  * Force the SPMI PMIC arbiter to shutdown so that no more SPMI transactions
@@ -570,6 +586,12 @@ skip_sysfs_create:
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	download_mode = sierra_smem_get_download_mode();
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	set_dload_mode(download_mode);
 	if (!download_mode)
