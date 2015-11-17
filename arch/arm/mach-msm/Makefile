@@ -12,3 +12,7 @@ obj-$(CONFIG_ARCH_MSM8909) += board-8909.o
 #SMP
 obj-$(CONFIG_SMP) += headsmp.o platsmp.o
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
+
+# SWISTART
+obj-y += sierra_smem.o sierra_smem_msg.o sierra_smem_errdump.o
+# SWISTOP
