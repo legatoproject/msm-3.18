@@ -28,7 +28,7 @@
  * WARNING:  These definitions must be kept in sync
  *
  * boot_images/build/ms/9x45.target.builds
- * modem_proc/config/9645/cust_config.xml
+ * modem_proc/config/9645.legen/cust_config.xml
  * modem_proc/sierra/bs/api/bsaddress.h
  * apps_proc/kernel/arch/arm/mach-msm/include/mach/sierra_smem.h
  * apps_proc/kernel/arch/arm/boot/dts/qcom/mdm9640.dtsi
@@ -107,8 +107,29 @@
 #define BSMEM_FWUP_OFFSET                  (BSMEM_EFSLOG_OFFSET + BS_SMEM_EFSLOG_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_IM_OFFSET                    (BSMEM_FWUP_OFFSET + BS_SMEM_FWUP_SIZE + BS_SMEM_CRC_SIZE )
 
+/* 32-bit random magic numbers - written to indicate that message
+ * structure in the shared memory region was initialized
+ */
+#define BC_SMEM_MSG_MAGIC_BEG      0x92B15380U
+#define BC_SMEM_MSG_MAGIC_END      0x31DDF742U
+
+/* Version of the shared memory structure which is used by this 
+ * module.  Module is compatible with earlier versions 
+ */
+#define BC_SMEM_MSG_VERSION                  2
+#define BC_SMEM_MSG_CRC32_VERSION_MIN        2
+
+#define BC_MSG_LAUNCH_CODE_INVALID ((uint32_t)(-1))
+#define BC_MSG_RECOVER_CNT_INVALID ((uint32_t)(-1))
+#define BC_MSG_HWCONFIG_INVALID    ((uint32_t)(-1))
+#define BC_MSG_USB_DESC_INVALID    ((void *)(-1))
+#define BC_COMP_CHECK              0xFFFFFFFF
+
 #define BC_MSG_SIZE_MAX                    340 /* 1/3 of 1kB, on 4-byte boundaries */
 #define BC_SMEM_MSG_SZ                     (sizeof(struct bc_smem_message_s))
+
+/* CRC check on the structure minus crc32 field */
+#define BC_MSG_CRC_SZ             (BC_SMEM_MSG_SZ - sizeof(uint32_t))
 
 /* Padding inside bc_smem_message_s
  *
@@ -126,14 +147,6 @@
 #define BSMEM_MSG_APPL_MAILBOX_OFFSET      (BSMEM_MSG_OFFSET + (BC_MSG_SIZE_MAX * BCMSG_MBOX_APPL))
 #define BSMEM_MSG_BOOT_MAILBOX_OFFSET      (BSMEM_MSG_OFFSET + (BC_MSG_SIZE_MAX * BCMSG_MBOX_BOOT))
 
-#define BC_SMEM_MSG_MAGIC_BEG              0x92B15380U
-#define BC_SMEM_MSG_MAGIC_END              0x31DDF742U
-#define BC_SMEM_MSG_VERSION                1
-#define BC_MSG_LAUNCH_CODE_INVALID         ((uint32_t)(-1))
-#define BC_MSG_RECOVER_CNT_INVALID         ((uint32_t)(-1))
-#define BC_MSG_HWCONFIG_INVALID            ((uint32_t)(-1))
-#define BC_MSG_USB_DESC_INVALID            ((void *)(-1))
-
 #define BC_MSG_B2A_ADB_EN                  0x0000000000000004ULL
 #define BC_MSG_B2A_DLOAD_MODE              0x0000000000000008ULL
 #define BC_MSG_A2B_BOOT_HOLD               0x0000000000000001ULL
@@ -142,7 +155,6 @@
 #define IMSW_SMEM_MAGIC_BEG                0x92B15380U
 #define IMSW_SMEM_MAGIC_END                0x31DDF742U
 #define IMSW_SMEM_MAGIC_RECOVERY           0x52425679U
-#define IMSW_SMEM_RECOVERY_CRC             0x3F535010U
 
 /************
  *
@@ -261,9 +273,14 @@ struct __attribute__((packed)) bc_smem_message_s
   uint8_t pad0[BCMSG_MAILBOX_PAD];
 
   struct bsmsg_mailbox_s out;
-  uint8_t pad1[BCMSG_MAILBOX_PAD];
-
+  uint8_t pad1[BCMSG_MAILBOX_PAD - sizeof(uint32_t)];
+                                       /* -4 for crc32 for backward
+                                        * compatibility
+                                        */
   uint32_t               magic_end;    /* End Marker        */
+  uint32_t               crc32;        /* CRC32 of above fields 
+                                        * added in V2
+                                        */
 };
 
 /************

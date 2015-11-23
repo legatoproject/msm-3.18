@@ -24,6 +24,7 @@
 #include <linux/uaccess.h>
 #include <linux/time.h>
 #include <linux/random.h>
+#include <linux/crc32.h>
 
 #include <mach/sierra_smem.h>
 
@@ -44,8 +45,13 @@ int sierra_smem_get_download_mode(void)
                 if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
                     b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
                     (b2amsgp->in.flags & BC_MSG_B2A_DLOAD_MODE)) {
-                        download_mode = 1;
-                }
+                        /* doube check CRC */
+                        if (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
+                            b2amsgp->crc32 == 
+                              crc32_le(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)) { 
+                                download_mode = 1;
+                        }
+                 }
         }
 
         return download_mode;
@@ -75,7 +81,9 @@ int sierra_smem_boothold_mode_set(void)
          * bcmsg.c defines and APIs 
          */
         if (a2bmsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
-            a2bmsgp->magic_end == BC_SMEM_MSG_MAGIC_END) {
+            a2bmsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
+            (a2bmsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
+             a2bmsgp->crc32 == crc32_le(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ))) {
 
                 a2bflags = a2bmsgp->out.flags;
         }
@@ -98,6 +106,7 @@ int sierra_smem_boothold_mode_set(void)
 
         a2bflags |= BC_MSG_A2B_BOOT_HOLD;
         a2bmsgp->out.flags = a2bflags;
+        a2bmsgp->crc32 = crc32_le(~0, (void *)a2bmsgp, BC_MSG_CRC_SZ);
   
         return 0;
 }
@@ -128,7 +137,8 @@ int sierra_smem_im_recovery_mode_set(void)
         immsgp->magic_recovery = IMSW_SMEM_MAGIC_RECOVERY;
         immsgp->magic_end = IMSW_SMEM_MAGIC_END;
         /* precalcualted CRC */
-        immsgp->crc32 = IMSW_SMEM_RECOVERY_CRC;
+        immsgp->crc32 = crc32_le(~0, (void *)immsgp, 
+                                 sizeof(struct imsw_smem_im_s) - sizeof(immsgp->crc32));
 
         return 0;
 }
