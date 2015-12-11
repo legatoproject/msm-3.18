@@ -24,10 +24,6 @@ struct tzrow_data_s {
 
 #define TZFUSE_IOCTL_MAGIC	       0x9A
 
-#define TZFUSE_IOC_OEM_CONFIG_RD       _IOR( TZFUSE_IOCTL_MAGIC, 0x10, uint64_t)
-#define TZFUSE_IOC_OEM_CONFIG_WR       _IOW( TZFUSE_IOCTL_MAGIC, 0x11, uint64_t)
-#define TZFUSE_IOC_PROG_DISABLE        _IO(  TZFUSE_IOCTL_MAGIC, 0x12)
-#define TZFUSE_IOC_TEST                _IOWR(TZFUSE_IOCTL_MAGIC, 0x13, uint64_t)
 #define TZFUSE_IOC_ROW_READ            _IOWR(TZFUSE_IOCTL_MAGIC, 0x14, struct tzrow_data_s)
 #define TZFUSE_IOC_ROW_WRITE           _IOW( TZFUSE_IOCTL_MAGIC, 0x15, struct tzrow_data_s)
 

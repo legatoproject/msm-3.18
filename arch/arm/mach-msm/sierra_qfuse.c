@@ -25,19 +25,10 @@
 #include <linux/io.h>
 #include <linux/msm_sierra.h>
 
-
-#define TZFUSE_RD_WR_PERM_ADDR         0xE04A0130
-#define TZFUSE_OEM_CONFIG_ROW1_ADDR    0xE04A0158
-#define TZFUSE_TEST_RDWR_ADDR          0xE04A0150
-#define TZFUSE_CORR_ADDR_START         0xE04A4000
-
-
 #define SCM_QFPROM_WRITE_ROW_CMD       0x3
 #define SCM_QFPROM_READ_ROW_CMD        0x5
 #define QFPROM_NO_ERR                  0
-
-#define SW_FUSE_PROG_DISABLE_BIT       0x0000004000000000
-
+#define TZFUSE_CORR_ADDR_START         0x000A4000
 
 static DEFINE_MUTEX(ioctl_lock);
 
@@ -94,13 +85,6 @@ ssize_t sierra_qfuse_read_row(uint32_t row_address, uint64_t *fuse_pidp)
         return ret;
 }
 
-ssize_t sierra_qfuse_read_oem_config(uint64_t *fuse_pidp)
-{
-        pr_info("%s: address:%08X", 
-                __func__, TZFUSE_OEM_CONFIG_ROW1_ADDR);
-        return sierra_qfuse_read_row(TZFUSE_OEM_CONFIG_ROW1_ADDR, fuse_pidp);
-}
-
 static ssize_t sierra_qfuse_write_row(uint32_t row_address, uint64_t rowdata)
 {
         ssize_t ret = 0;
@@ -145,51 +129,6 @@ static ssize_t sierra_qfuse_write_row(uint32_t row_address, uint64_t rowdata)
         return ret;
 }
 
-ssize_t sierra_qfuse_write_oem_config(uint64_t fuse_pid)
-{
-        pr_info("%s: address:%08X, data:%016llX\n", 
-                __func__, TZFUSE_OEM_CONFIG_ROW1_ADDR, fuse_pid);
-        return sierra_qfuse_write_row(TZFUSE_OEM_CONFIG_ROW1_ADDR, fuse_pid);
-}
-
-ssize_t sierra_qfuse_write_disable(void)
-{
-        /* set SW_FUSE_PROG_DISABLE bit */
-        return sierra_qfuse_write_row(TZFUSE_RD_WR_PERM_ADDR, (uint64_t)SW_FUSE_PROG_DISABLE_BIT);
-}
-
-ssize_t sierra_qfuse_test_rdwr(uint64_t fuse_pid)
-{
-        pr_info("%s: address:%08X, data:%016llX\n", 
-                __func__, TZFUSE_TEST_RDWR_ADDR, fuse_pid);
-        return sierra_qfuse_write_row(TZFUSE_TEST_RDWR_ADDR, fuse_pid);
-}
-
-
-/* Character driver */
-static ssize_t sierra_qfuse_read(struct file *fp, char __user *buf,
-                                 size_t count, loff_t *posp)
-{
-        uint64_t fusedata;
-        ssize_t len = 0;
-        ssize_t ret = -EFAULT;
-
-
-        len = sierra_qfuse_read_oem_config(&fusedata);        
-  
-        if (len > 0) {
-
-                if (copy_to_user(buf, (void *)&fusedata, sizeof(fusedata))) {
-                        pr_err("%s: copy to user failed\n", __func__);
-                }
-                else {
-                        ret = len;
-                }
-        }
-  
-        return ret;
-}
-
 static long sierra_qfuse_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 {
 	ssize_t ret = 0;
@@ -203,100 +142,6 @@ static long sierra_qfuse_ioctl(struct file *file, unsigned cmd, unsigned long ar
 	mutex_lock(&ioctl_lock);
 
 	switch (cmd) {
-
-        /* read oem_config qfuse*/
-	case TZFUSE_IOC_OEM_CONFIG_RD:
-        {
-                void __user *user_out = (void __user *)arg;
-                uint64_t fusedata;
-                ssize_t len = 0;
-
-                if (!user_out) {
-                        ret = -EINVAL;
-                        break;
-                }
-
-                len = sierra_qfuse_read_oem_config(&fusedata);
-
-                if (len < 0) {
-                        ret = len;
-                        break;
-                }
-
-                pr_info("%s: OEM config read, %016llX\n", __func__, fusedata);
-
-                if (copy_to_user(user_out, (void *)&fusedata, sizeof(fusedata))) {
-                        printk(KERN_ERR "%s: copy_to_user failed\n", __func__);
-                        ret = -EFAULT;
-                        break;
-                }
-        }
-        break;
-
-        /* write oem_config qfuse*/
-	case TZFUSE_IOC_OEM_CONFIG_WR:
-        {
-                void __user *user_in  = (void __user *)arg;
-                uint64_t fusedata;
-
-                if (!user_in) {
-                        ret = -EINVAL;
-                        break;
-                }
-                
-                if (copy_from_user((void *)&fusedata, user_in, sizeof(fusedata))) {
-                        printk(KERN_ERR "%s: copy_from_user failed\n", __func__);
-                        ret = -EFAULT;
-                        break;
-                }
-
-                pr_info("%s: OEM config write, %016llX\n", __func__, fusedata);
-
-                if (0 > sierra_qfuse_write_oem_config(fusedata)) {
-                        ret = -EFAULT;
-                        break;
-                }
-        }
-        break;
-
-        /* disable fuse sw programming */
-	case TZFUSE_IOC_PROG_DISABLE:
-        {
-                pr_info("%s: Programming disable\n", __func__);
-
-                if (0 > sierra_qfuse_write_disable()) {
-                        ret = -EFAULT;
-                        break;
-                }
-        }
-        break;
-
-        /* qfuse test RDWR*/
-	case TZFUSE_IOC_TEST:
-        {
-                void __user *user_in  = (void __user *)arg;
-                uint64_t fusedata;
-
-                if (!user_in) {
-                        ret = -EINVAL;
-                        break;
-                }
-                
-                if (copy_from_user((void *)&fusedata, user_in, sizeof(fusedata))) {
-                        printk(KERN_ERR "%s: copy_from_user failed\n", __func__);
-                        ret = -EFAULT;
-                        break;
-                }
-
-                pr_info("%s: Test, %016llX\n", __func__, fusedata);
-
-                if (0 > sierra_qfuse_test_rdwr(fusedata)) {
-                        ret = -EFAULT;
-                        break;
-                }
-        }
-        break;
-
         /* qfuse row read */
 	case TZFUSE_IOC_ROW_READ:
         {
@@ -380,8 +225,7 @@ static int sierra_qfuse_release(struct inode *inode, struct file *file)
 
 static struct file_operations sierra_qfuse_fops = {
         .owner = THIS_MODULE,
-	.unlocked_ioctl = sierra_qfuse_ioctl,
-        .read = sierra_qfuse_read,
+        .unlocked_ioctl = sierra_qfuse_ioctl,
         .open = sierra_qfuse_open,
         .release = sierra_qfuse_release,
 };
