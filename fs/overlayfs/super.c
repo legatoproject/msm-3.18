@@ -9,6 +9,7 @@
 
 #include <linux/fs.h>
 #include <linux/namei.h>
+#include <linux/pagemap.h>
 #include <linux/xattr.h>
 #include <linux/security.h>
 #include <linux/mount.h>
@@ -736,6 +737,7 @@ static int ovl_fill_super(struct super_block *sb, void *data, int silent)
 
 	/* FIXME: workdir is not needed for a R/O mount */
 	err = -EINVAL;
+	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	if (!ufs->config.upperdir || !ufs->config.lowerdir ||
 	    !ufs->config.workdir) {
 		pr_err("overlayfs: missing upperdir or lowerdir or workdir\n");
