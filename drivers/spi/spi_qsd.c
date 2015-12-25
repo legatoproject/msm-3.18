@@ -51,6 +51,10 @@ static inline void msm_spi_dma_unmap_buffers(struct msm_spi *dd);
 static int get_local_resources(struct msm_spi *dd);
 static void put_local_resources(struct msm_spi *dd);
 
+/* SWISTART */
+static u8 gDeassertTime = 0x14;
+/* SWISTOP */
+
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
 {
@@ -90,7 +94,7 @@ static inline void msm_spi_register_init(struct msm_spi *dd)
 /* SWISTART */
 /* SWI_TBD [YM:2015-12-23]: NEW86544, need to be improved later */
 #ifdef CONFIG_SIERRA
-	writel_relaxed(0x00000014, dd->base + SPI_DEASSERT_WAIT);
+	writel_relaxed(gDeassertTime, dd->base + SPI_DEASSERT_WAIT);
 #endif
 /* SWISTOP */
 	if (dd->qup_ver)
@@ -1816,6 +1820,9 @@ int swi_read_deassert_time(struct spi_device *spi)
 void swi_write_deassert_time(struct spi_device *spi,u8 value)
 {
 	struct msm_spi	*dd;
+/* SWISTART */
+	gDeassertTime = value;
+/* SWISTOP */
 	dd = spi_master_get_devdata(spi->master);
 	clk_prepare_enable(dd->pclk);
 	writel_relaxed(value, dd->base + SPI_DEASSERT_WAIT);

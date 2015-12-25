@@ -683,7 +683,7 @@ static int __init swi_spidev_init(void)
           .modalias  = "sierra_spi1",
           .mode    = SPI_MODE_3,
           .bus_num  = 2, 
-          .chip_select  = 0, //change by Alin SPI0.1
+          .chip_select  = 0, //change by Alin SPI2.0
           .max_speed_hz  = 9600000,
   };
   
