@@ -102,7 +102,7 @@ static int gpio_map_name_to_num(const char *buf, bool *alias)
 			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
 			{
 				gpio_num = ext_gpio[i].gpio_num;
-				pr_debug("%s: find GPIO %s\n", __func__, gpio_num);
+				pr_debug("%s: find GPIO %d\n", __func__, gpio_num);
 				return gpio_num;
 			}
 		}
@@ -549,7 +549,7 @@ static ssize_t export_store(struct class *class,
 #ifdef CONFIG_SIERRA
 	bool alias = false;
 	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--find GPIO: %d \n", __func__,gpio);
+	pr_debug("%s: sierra--find GPIO: %d \n", __func__, (int)gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
@@ -601,7 +601,7 @@ static ssize_t unexport_store(struct class *class,
 	bool alias = false;
 
 	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--unexport GPIO: %d \n", __func__,gpio);
+	pr_debug("%s: sierra--unexport GPIO: %d \n", __func__, (int)gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
@@ -722,7 +722,7 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
 	ioname = ioname_buf;
 	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
-		__func__,desc->chip->dev,desc->chip->ngpio,desc->chip->base);
+		__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
