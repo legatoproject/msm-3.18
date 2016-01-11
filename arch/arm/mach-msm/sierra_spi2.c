@@ -542,14 +542,14 @@ static int swi_spidev_open(struct inode *inode, struct file *filp)
   int  status = 0;
   
   if (!swi_spidev->buffer) {
-    swi_spidev->buffer = kmalloc(bufsiz, GFP_KERNEL);
+    swi_spidev->buffer = kmalloc(bufsiz, GFP_ATOMIC);
     if (!swi_spidev->buffer) {
       dev_dbg(&swi_spidev->spi->dev, "open/ENOMEM\n");
       status = -ENOMEM;
     }
   }
   if (!swi_spidev->bufferrx) {
-    swi_spidev->bufferrx = kmalloc(bufsiz, GFP_KERNEL);
+    swi_spidev->bufferrx = kmalloc(bufsiz, GFP_ATOMIC);
     if (!swi_spidev->bufferrx) {
       dev_dbg(&swi_spidev->spi->dev, "open/ENOMEM\n");
       kfree(swi_spidev->buffer);
