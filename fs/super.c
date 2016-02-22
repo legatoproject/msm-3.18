@@ -218,6 +218,12 @@ static struct super_block *alloc_super(struct file_system_type *type, int flags)
 	atomic_set(&s->s_active, 1);
 	mutex_init(&s->s_vfs_rename_mutex);
 	lockdep_set_class(&s->s_vfs_rename_mutex, &type->s_vfs_rename_key);
+	/*
+	 * For now MAXQUOTAS check in do_quotactl() will limit quota type
+	 * appropriately. When each fs sets allowed_types, we can remove the
+	 * line below
+	 */
+	s->s_quota_types = QTYPE_MASK_USR | QTYPE_MASK_GRP | QTYPE_MASK_PRJ;
 	mutex_init(&s->s_dquot.dqio_mutex);
 	mutex_init(&s->s_dquot.dqonoff_mutex);
 	s->s_maxbytes = MAX_NON_LFS;
@@ -290,7 +296,6 @@ void deactivate_locked_super(struct super_block *s)
 		up_write(&s->s_umount);
 	}
 }
-
 EXPORT_SYMBOL(deactivate_locked_super);
 
 /**
@@ -308,7 +313,6 @@ void deactivate_super(struct super_block *s)
 		deactivate_locked_super(s);
 	}
 }
-
 EXPORT_SYMBOL(deactivate_super);
 
 /**
@@ -418,7 +422,6 @@ void generic_shutdown_super(struct super_block *sb)
 	spin_unlock(&sb_lock);
 	up_write(&sb->s_umount);
 }
-
 EXPORT_SYMBOL(generic_shutdown_super);
 
 /**
@@ -479,7 +482,6 @@ retry:
 	register_shrinker(&s->s_shrink);
 	return s;
 }
-
 EXPORT_SYMBOL(sget);
 
 void drop_super(struct super_block *sb)
@@ -487,7 +489,6 @@ void drop_super(struct super_block *sb)
 	up_read(&sb->s_umount);
 	put_super(sb);
 }
-
 EXPORT_SYMBOL(drop_super);
 
 /**
@@ -557,22 +558,21 @@ void iterate_supers_type(struct file_system_type *type,
 		__put_super(p);
 	spin_unlock(&sb_lock);
 }
-
 EXPORT_SYMBOL(iterate_supers_type);
 
-/**
- *	get_super - get the superblock of a device
- *	@bdev: device to get the superblock for
- *	
- *	Scans the superblock list and finds the superblock of the file system
- *	mounted on the device given. %NULL is returned if no match is found.
+/*
+ * __get_super - helper function for the other functions in get_super class
+ * @compare: function pointer to compare sb in list and key
+ * @key: key of the sb you want
+ *
+ * Scans the superblock list and finds the superblock you want. %NULL is
+ * returned if no match is found.
  */
-
-struct super_block *get_super(struct block_device *bdev)
+static struct super_block *__get_super(int (*compare)(struct super_block *, void *), void *key)
 {
 	struct super_block *sb;
 
-	if (!bdev)
+	if (!key)
 		return NULL;
 
 	spin_lock(&sb_lock);
@@ -580,7 +580,7 @@ rescan:
 	list_for_each_entry(sb, &super_blocks, s_list) {
 		if (hlist_unhashed(&sb->s_instances))
 			continue;
-		if (sb->s_bdev == bdev) {
+		if (compare(sb, key)) {
 			sb->s_count++;
 			spin_unlock(&sb_lock);
 			down_read(&sb->s_umount);
@@ -598,21 +598,51 @@ rescan:
 	return NULL;
 }
 
-EXPORT_SYMBOL(get_super);
+static int bdev_compare(struct super_block *sb, void *key)
+{
+   return (sb->s_bdev == (struct block_device *)key);
+}
 
 /**
- *	get_super_thawed - get thawed superblock of a device
- *	@bdev: device to get the superblock for
+ * get_super - get the superblock of a device
+ * @bdev: device to get the superblock for
+ */
+struct super_block *get_super(struct block_device *bdev)
+{
+   return __get_super(bdev_compare, bdev);
+}
+
+EXPORT_SYMBOL(get_super);
+
+static int cdev_compare(struct super_block *sb, void *key)
+{
+	return (sb->s_cdev == (struct cdev *)key);
+}
+
+/**
+ * get_super_cdev - get the superblock of a cdev
+ * @cdev: char device to get the superblock for
+ */
+struct super_block *get_super_cdev(struct cdev *cdev)
+{
+	return __get_super(cdev_compare, cdev);
+}
+EXPORT_SYMBOL(get_super_cdev);
+
+/**
+ * __get_super_thawed - get thawed superblock
+ * @func: function pointer to get superblock by key
+ * @key: key to find superblock
  *
  *	Scans the superblock list and finds the superblock of the file system
  *	mounted on the device. The superblock is returned once it is thawed
  *	(or immediately if it was not frozen). %NULL is returned if no match
  *	is found.
  */
-struct super_block *get_super_thawed(struct block_device *bdev)
+static struct super_block *__get_super_thawed(int (*compare)(struct super_block *, void *), void *key)
 {
 	while (1) {
-		struct super_block *s = get_super(bdev);
+		struct super_block *s = __get_super(compare, key);
 		if (!s || s->s_writers.frozen == SB_UNFROZEN)
 			return s;
 		up_read(&s->s_umount);
@@ -621,7 +651,26 @@ struct super_block *get_super_thawed(struct block_device *bdev)
 		put_super(s);
 	}
 }
+
+/**
+ * get_super_thawed - get thawed superblock of a device
+ * @bdev: device to get the superblock for
+ */
+struct super_block *get_super_thawed(struct block_device *bdev)
+{
+   return __get_super_thawed(bdev_compare, bdev);
+}
 EXPORT_SYMBOL(get_super_thawed);
+
+/**
+ * get_super_cdev_thawed - get thawed superblock of a char device
+ * @cdev: device to get the superblock for
+ */
+struct super_block *get_super_cdev_thawed(struct cdev *cdev)
+{
+   return __get_super_thawed(cdev_compare, cdev);
+}
+EXPORT_SYMBOL(get_super_cdev_thawed);
 
 /**
  * get_active_super - get an active reference to the superblock of a device
@@ -653,32 +702,15 @@ restart:
 	spin_unlock(&sb_lock);
 	return NULL;
 }
- 
+
+static int user_compare(struct super_block *sb, void *key)
+{
+   return (sb->s_dev == *(dev_t *)key);
+}
+
 struct super_block *user_get_super(dev_t dev)
 {
-	struct super_block *sb;
-
-	spin_lock(&sb_lock);
-rescan:
-	list_for_each_entry(sb, &super_blocks, s_list) {
-		if (hlist_unhashed(&sb->s_instances))
-			continue;
-		if (sb->s_dev ==  dev) {
-			sb->s_count++;
-			spin_unlock(&sb_lock);
-			down_read(&sb->s_umount);
-			/* still alive? */
-			if (sb->s_root && (sb->s_flags & MS_BORN))
-				return sb;
-			up_read(&sb->s_umount);
-			/* nope, got unmounted */
-			spin_lock(&sb_lock);
-			__put_super(sb);
-			goto rescan;
-		}
-	}
-	spin_unlock(&sb_lock);
-	return NULL;
+	return __get_super(user_compare, &dev);
 }
 
 /**
@@ -883,7 +915,6 @@ int set_anon_super(struct super_block *s, void *data)
 		s->s_bdi = &noop_backing_dev_info;
 	return error;
 }
-
 EXPORT_SYMBOL(set_anon_super);
 
 void kill_anon_super(struct super_block *sb)
@@ -892,7 +923,6 @@ void kill_anon_super(struct super_block *sb)
 	generic_shutdown_super(sb);
 	free_anon_bdev(dev);
 }
-
 EXPORT_SYMBOL(kill_anon_super);
 
 void kill_litter_super(struct super_block *sb)
@@ -901,7 +931,6 @@ void kill_litter_super(struct super_block *sb)
 		d_genocide(sb->s_root);
 	kill_anon_super(sb);
 }
-
 EXPORT_SYMBOL(kill_litter_super);
 
 static int ns_test_super(struct super_block *sb, void *data)
@@ -937,7 +966,6 @@ struct dentry *mount_ns(struct file_system_type *fs_type, int flags,
 
 	return dget(sb->s_root);
 }
-
 EXPORT_SYMBOL(mount_ns);
 
 #ifdef CONFIG_BLOCK
@@ -1047,7 +1075,6 @@ void kill_block_super(struct super_block *sb)
 	WARN_ON_ONCE(!(mode & FMODE_EXCL));
 	blkdev_put(bdev, mode | FMODE_EXCL);
 }
-
 EXPORT_SYMBOL(kill_block_super);
 #endif
 

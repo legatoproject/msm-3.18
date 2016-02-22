@@ -418,6 +418,9 @@ struct ubifs_inode {
 	loff_t synced_i_size;
 	loff_t ui_size;
 	int flags;
+#ifdef CONFIG_QUOTA
+	struct dquot *i_dquot[MAXQUOTAS];
+#endif
 	pgoff_t last_page_read;
 	pgoff_t read_in_a_row;
 	int data_len;
@@ -854,6 +857,8 @@ struct ubifs_compressor {
  *               have to be re-calculated
  * @new_page: non-zero if the operation adds a new page
  * @dirtied_page: non-zero if the operation makes a page dirty
+ * @new_block: non-zero if the operation adds a new block
+ * @dirtied_block: non-zero if the operation makes a block dirty
  * @new_dent: non-zero if the operation adds a new directory entry
  * @mod_dent: non-zero if the operation removes or modifies an existing
  *            directory entry
@@ -885,6 +890,8 @@ struct ubifs_budget_req {
 #ifndef UBIFS_DEBUG
 	unsigned int new_page:1;
 	unsigned int dirtied_page:1;
+	unsigned int new_block:1;
+	unsigned int dirtied_block:1;
 	unsigned int new_dent:1;
 	unsigned int mod_dent:1;
 	unsigned int new_ino:1;
@@ -895,6 +902,8 @@ struct ubifs_budget_req {
 	/* Not bit-fields to check for overflows */
 	unsigned int new_page;
 	unsigned int dirtied_page;
+	unsigned int new_block;
+	unsigned int dirtied_block;
 	unsigned int new_dent;
 	unsigned int mod_dent;
 	unsigned int new_ino;
@@ -983,6 +992,7 @@ struct ubifs_budg_info {
 	int page_budget;
 	int inode_budget;
 	int dent_budget;
+	int block_budget;
 };
 
 struct ubifs_debug_info;
@@ -1034,6 +1044,8 @@ struct ubifs_debug_info;
  * @bulk_read: enable bulk-reads
  * @default_compr: default compression algorithm (%UBIFS_COMPR_LZO, etc)
  * @rw_incompat: the media is not R/W compatible
+ * @usrquota: enable usrquota
+ * @grpquota: enable grpquota
  *
  * @tnc_mutex: protects the Tree Node Cache (TNC), @zroot, @cnext, @enext, and
  *             @calc_idx_sz
@@ -1275,6 +1287,8 @@ struct ubifs_info {
 	unsigned int bulk_read:1;
 	unsigned int default_compr:2;
 	unsigned int rw_incompat:1;
+	unsigned int usrquota:1;
+	unsigned int grpquota:1;
 
 	struct mutex tnc_mutex;
 	struct ubifs_zbranch zroot;
@@ -1743,11 +1757,14 @@ const struct ubifs_lprops *ubifs_fast_find_frdi_idx(struct ubifs_info *c);
 int ubifs_calc_dark(const struct ubifs_info *c, int spc);
 
 /* file.c */
+int ubifs_read_block(struct inode *inode, void *addr, unsigned int block,
+		      struct ubifs_data_node *dn);
 int ubifs_fsync(struct file *file, loff_t start, loff_t end, int datasync);
 int ubifs_setattr(struct dentry *dentry, struct iattr *attr);
 #ifdef CONFIG_UBIFS_ATIME_SUPPORT
 int ubifs_update_time(struct inode *inode, struct timespec *time, int flags);
 #endif
+ssize_t ubifs_get_qsize(struct inode *inode);
 
 /* dir.c */
 struct inode *ubifs_new_inode(struct ubifs_info *c, const struct inode *dir,

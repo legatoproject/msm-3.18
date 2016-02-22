@@ -55,8 +55,18 @@
 #include <linux/namei.h>
 #include <linux/slab.h>
 #include <linux/migrate.h>
+#include <linux/quotaops.h>
 
-static int read_block(struct inode *inode, void *addr, unsigned int block,
+/**
+ * ubifs_read_block - read a block from inode
+ * @inode: inode we want to read
+ * @addr: memory address to put data in
+ * @block:: block number we want to read
+ * @dn: ubifs_data_node to search block
+ *
+ * This function read a specified block from tnc or media to addr.
+ */
+int ubifs_read_block(struct inode *inode, void *addr, unsigned int block,
 		      struct ubifs_data_node *dn)
 {
 	struct ubifs_info *c = inode->i_sb->s_fs_info;
@@ -143,7 +153,7 @@ static int do_readpage(struct page *page)
 			err = -ENOENT;
 			memset(addr, 0, UBIFS_BLOCK_SIZE);
 		} else {
-			ret = read_block(inode, addr, block, dn);
+			ret = ubifs_read_block(inode, addr, block, dn);
 			if (ret) {
 				err = ret;
 				if (err != -ENOENT)
@@ -433,14 +443,26 @@ static int ubifs_write_begin(struct file *file, struct address_space *mapping,
 	struct ubifs_inode *ui = ubifs_inode(inode);
 	pgoff_t index = pos >> PAGE_CACHE_SHIFT;
 	int uninitialized_var(err), appending = !!(pos + len > inode->i_size);
+	int quota_size = 0;
 	int skipped_read = 0;
 	struct page *page;
+	int ret = 0;
 
 	ubifs_assert(ubifs_inode(inode)->ui_size == inode->i_size);
 	ubifs_assert(!c->ro_media && !c->ro_mount);
 
 	if (unlikely(c->ro_error))
 		return -EROFS;
+
+	quota_size = ((pos + len) - inode->i_size);
+	if (quota_size < 0)
+		quota_size = 0;
+	if (S_ISREG(inode->i_mode)) {
+		dquot_initialize(inode);
+		ret = dquot_alloc_space_nodirty(inode, quota_size);
+		if (unlikely(ret))
+			return ret;
+	}
 
 	/* Try out the fast-path part first */
 	page = grab_cache_page_write_begin(mapping, index, flags);
@@ -547,6 +569,7 @@ static int ubifs_write_end(struct file *file, struct address_space *mapping,
 	struct ubifs_inode *ui = ubifs_inode(inode);
 	struct ubifs_info *c = inode->i_sb->s_fs_info;
 	loff_t end_pos = pos + len;
+	int quota_size = 0;
 	int appending = !!(end_pos > inode->i_size);
 
 	dbg_gen("ino %lu, pos %llu, pg %lu, len %u, copied %d, i_size %lld",
@@ -565,6 +588,12 @@ static int ubifs_write_end(struct file *file, struct address_space *mapping,
 		dbg_gen("copied %d instead of %d, read page and repeat",
 			copied, len);
 		cancel_budget(c, page, ui, appending);
+		quota_size = ((pos + len) - inode->i_size);
+		if (quota_size < 0)
+			quota_size = 0;
+		if (S_ISREG(inode->i_mode)) {
+			dquot_free_space_nodirty(inode, quota_size);
+		}
 		ClearPageChecked(page);
 
 		/*
@@ -1110,6 +1139,7 @@ static int do_truncation(struct ubifs_info *c, struct inode *inode,
 	int err;
 	struct ubifs_budget_req req;
 	loff_t old_size = inode->i_size, new_size = attr->ia_size;
+	loff_t quota_size = (old_size - new_size);
 	int offset = new_size & (UBIFS_BLOCK_SIZE - 1), budgeted = 1;
 	struct ubifs_inode *ui = ubifs_inode(inode);
 
@@ -1189,6 +1219,10 @@ static int do_truncation(struct ubifs_info *c, struct inode *inode,
 	do_attr_changes(inode, attr);
 	err = ubifs_jnl_truncate(c, inode, old_size, new_size);
 	mutex_unlock(&ui->ui_mutex);
+	if (quota_size < 0)
+		quota_size = 0;
+	if (S_ISREG(inode->i_mode))
+		dquot_free_space_nodirty(inode, quota_size);
 
 out_budg:
 	if (budgeted)
@@ -1225,6 +1259,17 @@ static int do_setattr(struct ubifs_info *c, struct inode *inode,
 
 	if (attr->ia_valid & ATTR_SIZE) {
 		dbg_gen("size %lld -> %lld", inode->i_size, new_size);
+		if (S_ISREG(inode->i_mode)) {
+			if (new_size > inode->i_size) {
+				err = dquot_alloc_space_nodirty(inode, new_size - inode->i_size);
+				if (err) {
+					ubifs_release_budget(c, &req);
+					return err;
+				}
+			} else {
+				dquot_free_space_nodirty(inode, inode->i_size - new_size);
+			}
+		}
 		truncate_setsize(inode, new_size);
 	}
 
@@ -1271,6 +1316,15 @@ int ubifs_setattr(struct dentry *dentry, struct iattr *attr)
 	err = dbg_check_synced_i_size(c, inode);
 	if (err)
 		return err;
+
+	if (is_quota_modification(inode, attr))
+		dquot_initialize(inode);
+	if ((attr->ia_valid & ATTR_UID && !uid_eq(attr->ia_uid, inode->i_uid)) ||
+	    (attr->ia_valid & ATTR_GID && !gid_eq(attr->ia_gid, inode->i_gid))) {
+		err = dquot_transfer(inode, attr);
+		if (err)
+			return err;
+	}
 
 	if ((attr->ia_valid & ATTR_SIZE) && attr->ia_size < inode->i_size)
 		/* Truncation to a smaller size */
@@ -1405,6 +1459,47 @@ int ubifs_update_time(struct inode *inode, struct timespec *time,
 	return 0;
 }
 #endif
+
+/**
+ * ubifs_update_time - update time of inode.
+ * @inode: inode to update
+ *
+ * This function updates time of the inode.
+ */
+int ubifs_update_time(struct inode *inode, struct timespec *time,
+			     int flags)
+{
+	struct ubifs_inode *ui = ubifs_inode(inode);
+	struct ubifs_info *c = inode->i_sb->s_fs_info;
+	struct ubifs_budget_req req = {
+			.dirtied_ino = 1,
+			.dirtied_ino_d = ALIGN(ui->data_len, 8)
+	};
+	int iflags = I_DIRTY_TIME;
+	int err, release;
+
+	err = ubifs_budget_space(c, &req);
+	if (err)
+		return err;
+
+	mutex_lock(&ui->ui_mutex);
+	if (flags & S_ATIME)
+		inode->i_atime = *time;
+	if (flags & S_CTIME)
+		inode->i_ctime = *time;
+	if (flags & S_MTIME)
+		inode->i_mtime = *time;
+
+	if (!(inode->i_sb->s_flags & MS_LAZYTIME))
+		iflags |= I_DIRTY_SYNC;
+
+	release = ui->dirty;
+	__mark_inode_dirty(inode, iflags);
+	mutex_unlock(&ui->ui_mutex);
+	if (release)
+		ubifs_release_budget(c, &req);
+	return 0;
+}
 
 /**
  * update_ctime - update mtime and ctime of an inode.
@@ -1616,6 +1711,22 @@ static int ubifs_file_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
+/*
+ * ubifs_get_qsize: get the quota size of a file
+ * @inode: inode which we are going to get the qsize
+ *
+ * We only care the size of regular file in ubifs
+ * for quota. The reason is similar with the comment
+ * in ubifs_getattr().
+ */
+ssize_t ubifs_get_qsize(struct inode *inode)
+{
+	if (S_ISREG(inode->i_mode))
+		return i_size_read(inode);
+	else
+		return 0;
+}
+
 const struct address_space_operations ubifs_file_address_operations = {
 	.readpage       = ubifs_readpage,
 	.writepage      = ubifs_writepage,
@@ -1638,6 +1749,9 @@ const struct inode_operations ubifs_file_inode_operations = {
 	.removexattr = ubifs_removexattr,
 #ifdef CONFIG_UBIFS_ATIME_SUPPORT
 	.update_time = ubifs_update_time,
+#endif
+#ifdef CONFIG_QUOTA
+	.get_qsize	= ubifs_get_qsize,
 #endif
 };
 

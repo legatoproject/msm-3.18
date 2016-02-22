@@ -17,6 +17,7 @@
 #include <linux/quotaops.h>
 #include <linux/types.h>
 #include <linux/writeback.h>
+#include <linux/cdev.h>
 
 static int check_quotactl_permission(struct super_block *sb, int type, int cmd,
 				     qid_t id)
@@ -47,8 +48,11 @@ static int check_quotactl_permission(struct super_block *sb, int type, int cmd,
 
 static void quota_sync_one(struct super_block *sb, void *arg)
 {
-	if (sb->s_qcop && sb->s_qcop->quota_sync)
-		sb->s_qcop->quota_sync(sb, *(int *)arg);
+	int type = *(int *)arg;
+
+	if (sb->s_qcop && sb->s_qcop->quota_sync &&
+		(sb->s_quota_types & (1 << type)))
+		sb->s_qcop->quota_sync(sb, type);
 }
 
 static int quota_sync_all(int type)
@@ -409,8 +413,14 @@ static int do_quotactl(struct super_block *sb, int type, int cmd, qid_t id,
 
 	if (type >= (XQM_COMMAND(cmd) ? XQM_MAXQUOTAS : MAXQUOTAS))
 		return -EINVAL;
+	/*
+	 * Quota not supported on this fs? Check this before s_quota_types
+	 * since they needn't be set if quota is not supported at all.
+	 */
 	if (!sb->s_qcop)
 		return -ENOSYS;
+	if (!(sb->s_quota_types & (1 << type)))
+		return -EINVAL;
 
 	ret = check_quotactl_permission(sb, type, cmd, id);
 	if (ret < 0)
@@ -486,29 +496,40 @@ static int quotactl_cmd_write(int cmd)
  */
 static struct super_block *quotactl_block(const char __user *special, int cmd)
 {
+	struct super_block *sb = NULL;
+	struct filename *tmp = getname(special);
+	struct cdev *cdev = NULL;
+
 #ifdef CONFIG_BLOCK
 	struct block_device *bdev;
-	struct super_block *sb;
-	struct filename *tmp = getname(special);
 
 	if (IS_ERR(tmp))
 		return ERR_CAST(tmp);
 	bdev = lookup_bdev(tmp->name);
-	putname(tmp);
 	if (IS_ERR(bdev))
-		return ERR_CAST(bdev);
+		goto not_block;
 	if (quotactl_cmd_write(cmd))
 		sb = get_super_thawed(bdev);
 	else
 		sb = get_super(bdev);
 	bdput(bdev);
-	if (!sb)
-		return ERR_PTR(-ENODEV);
+	goto out;
 
-	return sb;
-#else
-	return ERR_PTR(-ENODEV);
+not_block:
 #endif
+	cdev = lookup_cdev(tmp->name);
+	if (IS_ERR(cdev))
+		goto out;
+	if (quotactl_cmd_write(cmd))
+		sb = get_super_cdev_thawed(cdev);
+	else
+		sb = get_super_cdev(cdev);
+	cdev_put(cdev);
+out:
+	putname(tmp);
+	if (sb)
+		return sb;
+	return ERR_PTR(-ENODEV);
 }
 
 /*
