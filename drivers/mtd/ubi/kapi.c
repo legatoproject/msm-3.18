@@ -886,3 +886,8 @@ int get_ubi_name(int ubi_num,char *ubi_name)
 EXPORT_SYMBOL_GPL(get_ubi_name);
 /* SWISTOP */
 
+inline struct cdev *ubi_get_volume_cdev(struct ubi_volume_desc *desc)
+{
+	return &(desc->vol->cdev);
+}
+EXPORT_SYMBOL_GPL(ubi_get_volume_cdev);
