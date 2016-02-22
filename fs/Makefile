@@ -6,6 +6,7 @@
 #
 
 obj-y :=	open.o read_write.o file_table.o super.o \
+		open.o read_write.o file_table.o super.o dev.o \
 		char_dev.o stat.o exec.o pipe.o namei.o fcntl.o \
 		ioctl.o readdir.o select.o dcache.o inode.o \
 		attr.o bad_inode.o file.o filesystems.o namespace.o \
