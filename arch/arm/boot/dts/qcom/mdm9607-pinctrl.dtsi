@@ -192,7 +192,22 @@
 				bias-pull-up;
 			};
 		};
+
+/* SWISTART */
+		sdc1_wlan_gpio_sleep: sdc1_wlan_gpio_sleep {
+			mux {
+				pins = "gpio38", "gpio25";
+				function  = "gpio";
+			};
+			config {
+				pins  = "gpio38", "gpio25";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
 	};
+/* SWISTOP */	
 
 		i2c_4 {
 			i2c_4_active: i2c_4_active {
