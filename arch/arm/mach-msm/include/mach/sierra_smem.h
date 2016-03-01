@@ -97,6 +97,7 @@
 #define BS_SMEM_EFSLOG_SIZE                0x0400   /* 1 KB */
 #define BS_SMEM_FWUP_SIZE                  0x0400   /* 1 KB */
 #define BS_SMEM_IM_SIZE                    0x0400   /* 1 KB */
+#define BS_SMEM_MIBIB_SIZE                 0x0814   /* 2KB + 20 bytes */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -106,6 +107,7 @@
 #define BSMEM_EFSLOG_OFFSET                (BSMEM_CACHE_OFFSET+ BS_SMEM_CACHE_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_FWUP_OFFSET                  (BSMEM_EFSLOG_OFFSET + BS_SMEM_EFSLOG_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_IM_OFFSET                    (BSMEM_FWUP_OFFSET + BS_SMEM_FWUP_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_MIBIB_OFFSET                 (BSMEM_IM_OFFSET + BS_SMEM_IM_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -155,6 +157,12 @@
 #define IMSW_SMEM_MAGIC_BEG                0x92B15380U
 #define IMSW_SMEM_MAGIC_END                0x31DDF742U
 #define IMSW_SMEM_MAGIC_RECOVERY           0x52425679U
+
+/* MIBIB region constant */
+#define MIBIB_SMEM_MAGIC_BEG                0x4D494242U  /* "MIBB" in ASCII */
+#define MIBIB_SMEM_MAGIC_END                0x4D494245U  /* "MIBE" in ASCII */
+#define MIBIB_UPDATE_FLAG                   0xBBDAEFA0U  /* indicates MIBIB update */
+#define MIBIB_MAX_SIZE                      0x0800  /* 2KB */
 
 /************
  *
@@ -301,6 +309,28 @@ struct __attribute__((packed)) imsw_smem_im_s
   uint8_t  pad[BS_SMEM_IM_SIZE - (5 * sizeof(uint32_t))];  /* padding zone      */
   uint32_t magic_end;                                /* Beginning marker  */
   uint32_t crc32;                                    /* crc32             */
+};
+
+/************
+ *
+ * Name:     mibib_smem_s
+ *
+ * Purpose:  MIBIB region structure
+ *
+ * Notes:    Structure is packed and uses fixed-width types to ensure
+ *           compatibility between images and processors
+ *           
+ *           Must reside in uninitialized shared memory
+ *
+ ************/
+struct __attribute__((packed)) mibib_smem_s
+{
+  uint32_t magic_beg;             /* Beginning marker */
+  uint32_t mibib_length;          /* Valid mibib length */
+  uint32_t update_flag;           /* MIBIB update flag */
+  uint8_t  data[MIBIB_MAX_SIZE];  /* store MIBIB raw data */
+  uint32_t magic_end;             /* End Marker */
+  uint32_t crc32;                 /* CRC32 of above fields */
 };
 
 void sierra_smem_errdump_save_start(void);
