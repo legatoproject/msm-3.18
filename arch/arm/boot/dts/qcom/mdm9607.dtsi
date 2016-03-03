@@ -274,17 +274,14 @@
 		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
 					<&clock_gcc clk_a7sspll>;
 		clock-names = "clk-1", "clk-5";
-/* SWISTART */		
 		qcom,speed4-bin-v0 =
 				<          0 0>,
-				<  400000000 1>,
-				<  800000000 2>,
+				<  806400000 2>,
 				<  998400000 3>,
 				< 1094400000 4>,
 				< 1190400000 5>,
 				< 1248000000 6>,
 				< 1305600000 7>;
-/* SWISTOP */				
 		qcom,a7ssmux-opp-store-vcorner = <&CPU0>;
 		#clock-cells = <1>;
 	};
@@ -303,19 +300,16 @@
 			< 2291 /* 300.3 MHZ */>;
 	};
 
-/* SWISTART */
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
 			cpu-to-dev-map =
-				 <  400000   732>,
-				 <  800000   915>,
+				 <  806400   915>,
 				 <  998400  1145>,
 				 < 1094400  1831>,
 				 < 1305600  2291>;
 		};
 	};
-/* SWISTOP */	
 
 	qcom,cpu-bwmon {
 		compatible = "qcom,bimc-bwmon2";
@@ -331,16 +325,13 @@
 		compatible = "qcom,msm-cpufreq";
 		clocks = <&clock_cpu  clk_a7ssmux>;
 		clock-names = "cpu0_clk";
-/* SWISTART */		
 		qcom,cpufreq-table =
-				<  400000 >,
-				<  800000 >,
+				<  806400 >,
 				<  998400 >,
 				< 1094400 >,
 				< 1190400 >,
 				< 1248000 >,
 				< 1305600 >;
-/* SWISTOP */				
 	};
 
 	qcom,sps {
@@ -508,11 +499,6 @@
 
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
-/* SWISTART */		
-		reg = <0x87a00000 0x200000>;
-		reg-names = "ramdump";
-		subsys-name = "AR6320";
-/* SWISTOP */		
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-dsrc-supply = <&sdcard_ext_vreg>;
 		vdd-wlan-io-supply = <&mdm9607_l11>;
@@ -535,11 +521,6 @@
 		HSUSB_3p3-supply = <&mdm9607_l4>;
 		qcom,vdd-voltage-level = <0 1225000 1225000>;
 
-/* SWISTART */
-		qcom,hsusb-otg-phy-init-seq =
-			<0x44 0x80 0x38 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
-/* SWISTOP */			
-
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC control */
@@ -553,9 +534,6 @@
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
 		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
 		qcom,hsusb-otg-delay-lpm;
-/* SWISTART */		
-		qcom,enable-phy-id-pullup;
-/* SWISTOP */		
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <3>;
@@ -616,19 +594,14 @@
 
 	hsic: hsic@7c00000 {
 		compatible = "qcom,hsic-peripheral";
-/* SWISTART */		
 		reg = <0x7c00000 0x352>,
-		      <0x1100000 0x1200c>;
-/* SWISTOP */		      
+		      <0x1112000 0xc>;
 		interrupts = <0 141 0>, <0 142 0>;
 		qcom,hsic-usb-core-id = <1>;
 		vdd-supply = <&mdm9607_l9>;
 		qcom,vdd-voltage-level = <0 1225000 1225000>;
-
-/* SWISTART */		
 		qcom,hsic-tlmm-init-seq =
-			<0x12008 0x5 0x12004 0x5 0x12000 0x1 0x8 0x400000>;
-/* SWISTOP */			
+			<0x8 0x5 0x4 0x5 0x0 0x1>;
 		qcom,hsic-disable-on-boot;
 
 		clocks = <&clock_gcc clk_gcc_usb_hsic_ahb_clk>,
@@ -739,10 +712,7 @@
 		qcom,slope = <3000 3000 3000 3000 3000>;
 		qcom,sensor-id = <0 1 2 3 4>;
 		qcom,temp1-offset = <1 (-4) 4 (-3) (-4)>;
-
-/* SWISTART */		
-		qcom,temp2-offset = <1 (-2) 8 (-5) (-4)>;
-/* SWISTOP */		
+		qcom,temp2-offset = <1 (-4) 4 (-3) (-4)>;
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
@@ -1323,9 +1293,7 @@
 
 	emac0: qcom,emac@7c40000 {
 		cell-index = <0>;
-/* SWISTART */		
-		compatible = "qcom,mdm9607-emac";
-/* SWISTOP */		
+		compatible = "qcom,emac";
 		reg-names = "emac", "emac_csr", "emac_1588", "emac_sgmii";
 		reg = <0x7c40000 0x10000>,
 			<0x7c56000 0x1000>,
@@ -1343,12 +1311,8 @@
 				"emac_sgmii_irq",
 				"emac_wol_irq";
 		emac_vreg1-supply = <&mdm9607_l1>;
-/* SWISTART */		
-		emac_vreg2-supply = <&mdm9607_l3>;
-		emac_vreg3-supply = <&mdm9607_l5>;
-		emac_vreg4-supply = <&mdm9607_l11>;
-		emac_vreg5-supply = <&emac_lan_vreg>;
-/* SWISTOP */		
+		emac_vreg2-supply = <&mdm9607_l5>;
+		emac_vreg3-supply = <&emac_lan_vreg>;
 		clocks = <&clock_gcc clk_gcc_emac_0_axi_clk>,
 			 <&clock_gcc clk_gcc_emac_0_ahb_clk>,
 			 <&clock_gcc clk_gcc_emac_0_125m_clk>,
@@ -1385,32 +1349,15 @@
 	};
 };
 
-
-&pm8019_vadc {
 /* SWISTART */
-	chan@6 {
-		label = "vbat_sns";
-		reg = <6>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <1>;
-		qcom,calibration-type = "absolute";
-		qcom,scale-function = <0>;
-		qcom,hw-settle-time = <0>;
-		qcom,fast-avg-setup = <0>;
-	};
-
-	chan@7 {
-		label = "vph_pwr";
-		reg = <7>;
-		qcom,decimation = <0>;
-		qcom,pre-div-channel-scaling = <1>;
-		qcom,calibration-type = "absolute";
-		qcom,scale-function = <0>;
-		qcom,hw-settle-time = <0>;
-		qcom,fast-avg-setup = <0>;
-	};
+/*
+&usb_otg {
+	vbus_otg-supply = <&smb358_otg_vreg>;
+};
+*/
 /* SWISTOP */
 
+&pm8019_vadc {
 	chan@31 {
 		label = "batt_id_therm";
 		reg = <0x31>;

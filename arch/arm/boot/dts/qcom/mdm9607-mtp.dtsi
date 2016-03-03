@@ -99,19 +99,6 @@
 		status = "okay";
 	};
 
-/* SWISTART */
-	/* ROME 32k Sleep Clock */
-	gpio@c500 {
-		qcom,mode = <1>;               /* Digital output */
-		qcom,output-type = <0>;        /* CMOS logic */
-		qcom,invert = <0>;             /* no inversion */
-		qcom,vin-sel = <2>;            /* VIN 2 */
-		qcom,src-sel = <2>;            /* Function 2 */
-		qcom,out-strength = <2>;       /* Medium */
-		qcom,master-en = <1>;          /* Enable GPIO */
-		status = "ok";
-	};
-/* SWISTOP */	
 };
 
 &sdhc_1 {
@@ -123,10 +110,7 @@
 	pinctrl-names = "active", "sleep";
 	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on
 						&sdc1_wlan_gpio_active>;
-/* SWISTART */						
-	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off
-						&sdc1_wlan_gpio_sleep>;
-/* SWISTOP */						
+	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off>;
 	qcom,nonremovable;
 	qcom,core_3_0v_support;
 	status = "ok";
