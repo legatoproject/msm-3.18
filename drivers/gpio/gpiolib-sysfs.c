@@ -8,6 +8,11 @@
 #include <linux/kdev_t.h>
 
 #include "gpiolib.h"
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_gpio.h>
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 
 static DEFINE_IDR(dirent_idr);
 
@@ -19,50 +24,6 @@ static DEFINE_MUTEX(sysfs_lock);
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
-/* Define use cases for GPIO */
-#define FUNCTION_UNALLOCATED   0
-#define FUNCTION_EMBEDDED_HOST 1
-
-#define IONAME_PREFIX "gpio"
-#define GPIO_NAME_MAX 4 /* max characters in ioname following the prefix, any more will be ignored */
-#define IONAME_MAX (sizeof(IONAME_PREFIX) + GPIO_NAME_MAX)
-#define GPIO_NAME_RI "RI"
-
-struct ext_gpio_map{
-	char *gpio_name;
-	int gpio_num;
-	unsigned function;
-};
-
-/* customer has 30 standard GPIO + PM GPIO1-4*/
-#define NR_EXT_GPIOS_AR ARRAY_SIZE(ext_gpio_ar)
-static struct ext_gpio_map ext_gpio_ar[]={
-	{"1", 86+924,FUNCTION_UNALLOCATED},
-	{"2", 96+924,FUNCTION_UNALLOCATED},
-	{"3", 98+924,FUNCTION_UNALLOCATED},
-	{"4", 97+924,FUNCTION_UNALLOCATED},
-	{"5",  1+924,FUNCTION_UNALLOCATED},
-	{"6", 93+924,FUNCTION_UNALLOCATED},
-	{"7", 82+924,FUNCTION_UNALLOCATED},
-	{"8", 34+924,FUNCTION_UNALLOCATED},
-	{"9", 30+924,FUNCTION_UNALLOCATED},
-	{"10", 43+924,FUNCTION_UNALLOCATED},
-	{"11", 90+924,FUNCTION_UNALLOCATED},
-/* Remove GPIO12 in order to use it as SPI1_CS1 */
-	/* {"12", 68+924,FUNCTION_UNALLOCATED}, */
-	{"13", 53+924,FUNCTION_UNALLOCATED},
-	{"14", 52+924,FUNCTION_UNALLOCATED},
-	{"15", 50+924,FUNCTION_UNALLOCATED},
-	{"16", 42+924,FUNCTION_UNALLOCATED},
-	{"17", 88+924,FUNCTION_UNALLOCATED},
-	{"18" ,60+924,FUNCTION_UNALLOCATED},
-	{"19", 99+924,FUNCTION_UNALLOCATED},
-	{"20", 94+924,FUNCTION_UNALLOCATED},
-	{"M1", 920,FUNCTION_UNALLOCATED},
-	{"M2", 921,FUNCTION_UNALLOCATED},
-	{"M3", 923,FUNCTION_UNALLOCATED},
-	{"M4", 922,FUNCTION_UNALLOCATED}
-};
 
 /* Product specific assignments in gpiolib_sysfs_init() */
 static struct ext_gpio_map *ext_gpio = NULL;
@@ -140,6 +101,9 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 	pr_debug("%s: Can not find GPIO %d\n", __func__, gpio_num);
 	return NULL;
 }
+
+static int gRmode = -1;
+extern int sierra_smem_get_factory_mode(void);
 
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
@@ -548,6 +512,17 @@ static ssize_t export_store(struct class *class,
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	gRmode = sierra_smem_get_factory_mode();
+	if(gRmode == 1)
+	{
+		ext_gpio = ext_gpio_mft;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+	}
+	else	
+	{
+		ext_gpio = ext_gpio_ar;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+	}
 	bool alias = false;
 	status = gpio = gpio_map_name_to_num(buf, &alias);
 	pr_debug("%s: sierra--find GPIO: %d \n", __func__, (int)gpio);
@@ -599,8 +574,18 @@ static ssize_t unexport_store(struct class *class,
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	gRmode = sierra_smem_get_factory_mode();
+	if(gRmode == 1)
+	{
+		ext_gpio = ext_gpio_mft;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+	}
+	else	
+	{
+		ext_gpio = ext_gpio_ar;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+	}
 	bool alias = false;
-
 	status = gpio = gpio_map_name_to_num(buf, &alias);
 	pr_debug("%s: sierra--unexport GPIO: %d \n", __func__, (int)gpio);
 #else
@@ -720,10 +705,21 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	gRmode = sierra_smem_get_factory_mode();
+	if(gRmode == 1)
+	{
+		ext_gpio = ext_gpio_mft;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+	}
+	else	
+	{
+		ext_gpio = ext_gpio_ar;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+	}
 	strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
 	ioname = ioname_buf;
 	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
-		__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);
+		__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);	
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 

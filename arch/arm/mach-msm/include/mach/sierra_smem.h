@@ -98,6 +98,7 @@
 #define BS_SMEM_FWUP_SIZE                  0x0400   /* 1 KB */
 #define BS_SMEM_IM_SIZE                    0x0400   /* 1 KB */
 #define BS_SMEM_MIBIB_SIZE                 0x0814   /* 2KB + 20 bytes */
+#define BS_SMEM_MODE_SIZE                  0x0010   /* 16 bytes for mode switching */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -108,6 +109,7 @@
 #define BSMEM_FWUP_OFFSET                  (BSMEM_EFSLOG_OFFSET + BS_SMEM_EFSLOG_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_IM_OFFSET                    (BSMEM_FWUP_OFFSET + BS_SMEM_FWUP_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MIBIB_OFFSET                 (BSMEM_IM_OFFSET + BS_SMEM_IM_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -132,6 +134,16 @@
 
 /* CRC check on the structure minus crc32 field */
 #define BC_MSG_CRC_SZ             (BC_SMEM_MSG_SZ - sizeof(uint32_t))
+
+/* 32-bit random magic numbers - written to indicate that message
+ * structure in the shared memory region was initialized
+ */
+#define BS_SMEM_MODE_MAGIC_BEG      0x6D6F6465U
+#define BS_SMEM_MODE_MAGIC_END      0x6D6F6465U
+
+/* bs_smem_mode_switch CRC32 field*/
+#define BS_SMEM_MODE_SZ            (sizeof(struct bs_smem_mode_switch))
+#define BS_MODE_CRC_SIZE           (BS_SMEM_MODE_SZ - sizeof(uint32_t))
 
 /* Padding inside bc_smem_message_s
  *
@@ -335,6 +347,24 @@ struct __attribute__((packed)) mibib_smem_s
   uint8_t  data[MIBIB_MAX_SIZE];  /* store MIBIB raw data */
   uint32_t magic_end;             /* End Marker */
   uint32_t crc32;                 /* CRC32 of above fields */
+};
+
+/************
+ *
+ * Name:     bs_smem_mode_switch
+ *
+ * Purpose:  gobi SMEM structure
+ *
+ * Notes:    Must be fit in BS_SMEM_MODE_SWITCH
+ *           
+ *
+ ************/
+struct __attribute__((packed)) bs_smem_mode_switch
+{
+  uint32_t magic_beg;                                /* Beginning marker  */
+  uint32_t  mode;                                    /* factory or normal mode */
+  uint32_t magic_end;                                /* Beginning marker  */
+  uint32_t crc32;                                    /* crc32             */
 };
 
 void sierra_smem_errdump_save_start(void);
