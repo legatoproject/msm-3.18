@@ -189,4 +189,11 @@ config ARCH_MSMTITANIUM
 	select MSM_JTAGV8 if CORESIGHT_ETMV4
 
 endmenu
+# SWISTART
+config SIERRA
+	bool "Activates/Deactivates Sierra Wireless changes"
+	help
+	  All Sierra Wireless changes are controlled by this define
+	default y
+#SWISTOP
 endif

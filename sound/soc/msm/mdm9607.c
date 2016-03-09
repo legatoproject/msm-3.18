@@ -1250,12 +1250,23 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.stream_name = "Primary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+#else
 		.codec_name = "tomtom_codec",
 		.codec_dai_name = "tomtom_i2s_rx1",
+#endif /* SIERRA */
+/* SWISTOP */
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		.init  = &mdm_mi2s_audrx_init,
+#endif /* SIERRA */
+/* SWISTOP */
 		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
 		.ops = &mdm_mi2s_be_ops,
 		.ignore_pmdown_time = 1,
@@ -1266,8 +1277,15 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.stream_name = "Primary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+#else
 		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_i2s_tx1",
+		.codec_dai_name = "tomtom_i2s_rx1",
+#endif /* SIERRA */
+/* SWISTOP */
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
