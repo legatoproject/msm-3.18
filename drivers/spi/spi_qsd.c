@@ -51,10 +51,6 @@ static inline void msm_spi_dma_unmap_buffers(struct msm_spi *dd);
 static int get_local_resources(struct msm_spi *dd);
 static void put_local_resources(struct msm_spi *dd);
 
-/* SWISTART */
-static u8 gDeassertTime = 0x14;
-/* SWISTOP */
-
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
 {
@@ -94,7 +90,7 @@ static inline void msm_spi_register_init(struct msm_spi *dd)
 /* SWISTART */
 /* SWI_TBD [YM:2015-12-23]: NEW86544, need to be improved later */
 #ifdef CONFIG_SIERRA
-	writel_relaxed(gDeassertTime, dd->base + SPI_DEASSERT_WAIT);
+	writel_relaxed(dd->deassert_wait, dd->base + SPI_DEASSERT_WAIT);
 #endif
 /* SWISTOP */
 	if (dd->qup_ver)
@@ -1785,53 +1781,6 @@ err_setup_exit:
 	return rc;
 }
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-void swi_reg_bit_set(struct spi_device *spi, int reg_addr, int bit_offset,int set_flag)
-{
-	u32 spi_ioc;
-	u32 spi_ioc_orig;
-	struct msm_spi	*dd;
-	dd = spi_master_get_devdata(spi->master);
-	clk_prepare_enable(dd->pclk);
-	spi_ioc = readl_relaxed(dd->base + reg_addr);
-	spi_ioc_orig = spi_ioc;
-	if (set_flag)
-		spi_ioc |= bit_offset;
-	else
-		spi_ioc &= ~bit_offset;
-
-	if (spi_ioc != spi_ioc_orig)
-		writel_relaxed(spi_ioc,dd->base + reg_addr);
-	clk_disable_unprepare(dd->pclk);
-}
-
-int swi_read_deassert_time(struct spi_device *spi)
-{
-	struct msm_spi	*dd;
-	int ret;
-	dd = spi_master_get_devdata(spi->master);
-	clk_prepare_enable(dd->pclk);
-	ret = readl_relaxed(dd->base + SPI_DEASSERT_WAIT);
-	clk_disable_unprepare(dd->pclk);
-	return ret;
-}
-
-void swi_write_deassert_time(struct spi_device *spi,u8 value)
-{
-	struct msm_spi	*dd;
-/* SWISTART */
-	gDeassertTime = value;
-/* SWISTOP */
-	dd = spi_master_get_devdata(spi->master);
-	clk_prepare_enable(dd->pclk);
-	writel_relaxed(value, dd->base + SPI_DEASSERT_WAIT);
-	clk_disable_unprepare(dd->pclk);
-}
-#endif
-/* SWISTOP */
-
-
 #ifdef CONFIG_DEBUG_FS
 
 
@@ -2235,6 +2184,12 @@ struct msm_spi_platform_data *msm_spi_dt_to_pdata(
 			&pdata->rt_priority,		 DT_OPT,  DT_BOOL,  0},
 		{"qcom,shared",
 			&pdata->is_shared,		 DT_OPT,  DT_BOOL,  0},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		{"sierra,deassert-time",
+			&dd->deassert_wait, DT_OPT,  DT_U32,   0},
+#endif
+/* SWISTOP */
 		{NULL,  NULL,                            0,       0,        0},
 		};
 
@@ -2740,6 +2695,11 @@ static struct of_device_id msm_spi_dt_match[] = {
 	{
 		.compatible = "qcom,spi-qup-v2",
 	},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{   .compatible = "sierra,spidev" },
+#endif
+/* SWISTOP */
 	{}
 };
 

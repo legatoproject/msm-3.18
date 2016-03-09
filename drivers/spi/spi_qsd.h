@@ -367,6 +367,11 @@ struct msm_spi {
 	struct pinctrl_state	*pins_active;
 	struct pinctrl_state	*pins_sleep;
 	bool			is_init_complete;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	u32			deassert_wait;
+#endif
+/* SWISTOP */
 };
 
 /* Forward declaration */
