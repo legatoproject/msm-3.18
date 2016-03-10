@@ -161,8 +161,12 @@
 /* MIBIB region constant */
 #define MIBIB_SMEM_MAGIC_BEG                0x4D494242U  /* "MIBB" in ASCII */
 #define MIBIB_SMEM_MAGIC_END                0x4D494245U  /* "MIBE" in ASCII */
-#define MIBIB_UPDATE_FLAG                   0xBBDAEFA0U  /* indicates MIBIB update */
 #define MIBIB_MAX_SIZE                      0x0800  /* 2KB */
+
+/* MIBIB image state machine, for MIBIB smart update feature */
+#define MIBIB_TO_UPDATE_IN_SBL              0xBBDAEFA0U  /* LK post to SBL, to smart update MIBIB */
+#define MIBIB_UPDATED_IN_SBL                0xBBDAEFAFU  /* SBL post to LK, smart update MIBIB done. LK should update whole spkg in this state */
+#define MIBIB_UPDATE_CLEAR                  0x00000000U  /* LK clear state machine when spkg update done */
 
 /************
  *
