@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -410,6 +410,12 @@
 /* EMAC_QSERDES_COM_RESETSM_CNTRL */
 #define FRQ_TUNE_MODE                                              0x10
 
+/* EMAC_QSERDES_COM_RES_TRIM_SEARCH */
+#define RESTRIM_SEARCH						   0x0
+
+/* EMAC_QSERDES_COM_BGTC */
+#define BGTC							   0x7
+
 /* EMAC_QSERDES_COM_PLLLOCK_CMP_EN */
 #define PLLLOCK_CMP_EN                                             0x01
 
@@ -470,6 +476,11 @@
 #define CLKBUF_L_EN                                                0x08
 #define PLL_TXCLK_EN                                               0x02
 #define PLL_RXCLK_EN                                               0x01
+
+/* EMAC_QSERDES_COM_PLL_VCOTAIL_EN */
+#define PLL_VCO_TAIL_MUX					   0x80
+#define PLL_VCO_TAIL						   0x7c
+#define PLL_EN_VCOTAIL_EN					   0x1
 
 /* EMAC_SGMII_PHY_RX_PWR_CTRL */
 #define L0_RX_SIGDET_EN                                            0x80

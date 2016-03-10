@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1443,6 +1443,22 @@ int ipa_uc_reg_rdyCB(
 EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
 
 /**
+ * ipa_uc_dereg_rdyCB() - To de-register uC ready CB
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ */
+int ipa_uc_dereg_rdyCB(void)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_uc_dereg_rdyCB);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_uc_dereg_rdyCB);
+
+/**
  * ipa_rm_create_resource() - create resource
  * @create_params: [in] parameters needed
  *                  for resource initialization
@@ -2771,11 +2787,13 @@ int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 }
 EXPORT_SYMBOL(ipa_usb_xdci_suspend);
 
-int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
+int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+	enum ipa_usb_teth_prot teth_prot)
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_resume, ul_clnt_hdl, dl_clnt_hdl);
+	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_resume, ul_clnt_hdl,
+		dl_clnt_hdl, teth_prot);
 
 	return ret;
 }

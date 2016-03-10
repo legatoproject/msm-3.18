@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -303,11 +303,24 @@ static int msm_vidc_load_imem_ab_table(struct msm_vidc_platform_resources *res)
 	return 0;
 }
 
-/*
- * this is a generic implementation to load single or
- * multiple array table (array elements should be of u32)
+/**
+ * msm_vidc_load_u32_table() - load dtsi table entries
+ * @pdev: A pointer to the platform device.
+ * @of_node:      A pointer to the device node.
+ * @table_name:   A pointer to the dtsi table entry name.
+ * @struct_size:  The size of the structure which is nothing but
+ *                a single entry in the dtsi table.
+ * @table:        A pointer to the table pointer which needs to be
+ *                filled by the dtsi table entries.
+ * @num_elements: Number of elements pointer which needs to be filled
+ *                with the number of elements in the table.
+ *
+ * This is a generic implementation to load single or multiple array
+ * table from dtsi. The array elements should be of size equal to u32.
+ *
+ * Return:        Return '0' for success else appropriate error value.
  */
-static int msm_vidc_load_u32_table(struct platform_device *pdev,
+int msm_vidc_load_u32_table(struct platform_device *pdev,
 		struct device_node *of_node, char *table_name, int struct_size,
 		u32 **table, u32 *num_elements)
 {
@@ -886,11 +899,13 @@ static int msm_vidc_load_clock_table(
 				"clock-names", c, &vc->name);
 
 		if (clock_props[c] & CLOCK_PROP_HAS_SCALING) {
+			vc->has_scaling = true;
 			vc->count = res->load_freq_tbl_size;
 			vc->load_freq_tbl = res->load_freq_tbl;
 		} else {
 			vc->count = 0;
 			vc->load_freq_tbl = NULL;
+			vc->has_scaling = false;
 		}
 
 		dprintk(VIDC_DBG, "Found clock %s: scale-able = %s\n", vc->name,

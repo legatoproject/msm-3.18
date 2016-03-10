@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -478,7 +478,7 @@ static int synaptics_i2c_change_pipe_owner(
 	/* number of arguments */
 	desc.arginfo = SCM_ARGS(2);
 	/* BLSPID (1-12) */
-	desc.args[0] = i2c->adapter->nr;
+	desc.args[0] = i2c->adapter->nr - 1;
 	 /* Owner if TZ or APSS */
 	desc.args[1] = subsystem;
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_TZ, TZ_BLSP_MODIFY_OWNERSHIP_ID),
@@ -3132,8 +3132,10 @@ static int synaptics_dsx_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 					bool on)
 {
 	int retval = 0;
+	struct synaptics_rmi4_device_info *rmi;
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
+	rmi = &(rmi4_data->rmi4_mod_info);
 
 	if (on) {
 		if (gpio_is_valid(bdata->irq_gpio)) {
@@ -3194,12 +3196,22 @@ static int synaptics_dsx_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 				 * fails, only leakage current will be more but
 				 * functionality will not be affected.
 				 */
-				retval = gpio_direction_input(
-							bdata->reset_gpio);
-				if (retval) {
-					dev_err(rmi4_data->pdev->dev.parent,
-					"unable to set direction for gpio "
-					"[%d]\n", bdata->irq_gpio);
+				if (rmi->package_id ==
+						SYNA_S332U_PACKAGE_ID &&
+					rmi->package_id_rev ==
+						SYNA_S332U_PACKAGE_ID_REV) {
+					gpio_set_value(bdata->
+						reset_gpio,
+						0);
+				} else {
+					retval = gpio_direction_input(
+						bdata->reset_gpio);
+					if (retval) {
+						dev_err(rmi4_data->pdev->
+						dev.parent,
+						"unable to set direction for gpio [%d]\n",
+						bdata->irq_gpio);
+					}
 				}
 				gpio_free(bdata->reset_gpio);
 			}

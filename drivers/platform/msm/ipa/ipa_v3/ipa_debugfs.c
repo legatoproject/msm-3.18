@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,8 @@
 #define IPA_DBG_CNTR_ON 127265
 #define IPA_DBG_CNTR_OFF 127264
 #define IPA_DBG_MAX_RULE_IN_TBL 128
+#define IPA_DBG_ACTIVE_CLIENT_BUF_SIZE ((IPA3_ACTIVE_CLIENTS_LOG_LINE_LEN \
+	* IPA3_ACTIVE_CLIENTS_LOG_BUFFER_SIZE_LINES) + IPA_MAX_MSG_LEN)
 
 #define IPA_DUMP_STATUS_FIELD(f) \
 	pr_err(#f "=0x%x\n", status->f)
@@ -112,7 +114,10 @@ static struct dentry *dfile_ip4_nat;
 static struct dentry *dfile_rm_stats;
 static struct dentry *dfile_status_stats;
 static struct dentry *dfile_active_clients;
+static struct dentry *dfile_ipa_usb;
 static char dbg_buff[IPA_MAX_MSG_LEN];
+static char *active_clients_buf;
+
 static s8 ep_reg_idx;
 
 /**
@@ -1507,6 +1512,75 @@ static ssize_t ipa3_read_nat4(struct file *file,
 	return 0;
 }
 
+static ssize_t ipa3_read_ipa_usb(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	struct ipa3_usb_status_dbg_info status;
+	int result;
+	int nbytes;
+	int cnt = 0;
+	int i;
+
+	result = ipa3_usb_get_status_dbg_info(&status);
+	if (result) {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+				"Fail to read IPA USB status\n");
+		cnt += nbytes;
+	} else {
+		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
+			"Tethering Data State: %s\n"
+			"DPL State: %s\n"
+			"Protocols in Initialized State: ",
+			status.teth_state,
+			status.dpl_state);
+		cnt += nbytes;
+
+		for (i = 0 ; i < status.num_init_prot ; i++) {
+			nbytes = scnprintf(dbg_buff + cnt,
+					IPA_MAX_MSG_LEN - cnt,
+					"%s ", status.inited_prots[i]);
+			cnt += nbytes;
+		}
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				status.num_init_prot ? "\n" : "None\n");
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				"Protocols in Connected State: ");
+		cnt += nbytes;
+		if (status.teth_connected_prot) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"%s ", status.teth_connected_prot);
+			cnt += nbytes;
+		}
+		if (status.dpl_connected_prot) {
+			nbytes = scnprintf(dbg_buff + cnt,
+				IPA_MAX_MSG_LEN - cnt,
+				"%s ", status.dpl_connected_prot);
+			cnt += nbytes;
+		}
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				(status.teth_connected_prot ||
+				status.dpl_connected_prot) ? "\n" : "None\n");
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				"USB Tethering Consumer State: %s\n",
+				status.teth_cons_state ?
+				status.teth_cons_state : "Invalid");
+		cnt += nbytes;
+
+		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
+				"DPL Consumer State: %s\n",
+				status.dpl_cons_state ? status.dpl_cons_state :
+				"Invalid");
+		cnt += nbytes;
+	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
+}
+
 static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -1588,9 +1662,23 @@ static ssize_t ipa_status_stats_read(struct file *file, char __user *ubuf,
 static ssize_t ipa3_print_active_clients_log(struct file *file,
 		char __user *ubuf, size_t count, loff_t *ppos)
 {
-	ipa3_active_clients_log_print_buffer();
+	int cnt;
+	int table_size;
 
-	return 0;
+	if (active_clients_buf == NULL) {
+		IPAERR("Active Clients buffer is not allocated");
+		return 0;
+	}
+	memset(active_clients_buf, 0, IPA_DBG_ACTIVE_CLIENT_BUF_SIZE);
+	ipa3_active_clients_lock();
+	cnt = ipa3_active_clients_log_print_buffer(active_clients_buf,
+			IPA_DBG_ACTIVE_CLIENT_BUF_SIZE - IPA_MAX_MSG_LEN);
+	table_size = ipa3_active_clients_log_print_table(active_clients_buf
+			+ cnt, IPA_MAX_MSG_LEN);
+	ipa3_active_clients_unlock();
+
+	return simple_read_from_buffer(ubuf, count, ppos,
+			active_clients_buf, cnt + table_size);
 }
 
 static ssize_t ipa3_clear_active_clients_log(struct file *file,
@@ -1694,6 +1782,10 @@ const struct file_operations ipa3_rm_stats = {
 	.read = ipa3_rm_read_stats,
 };
 
+const struct file_operations ipa3_ipa_usb_ops = {
+	.read = ipa3_read_ipa_usb,
+};
+
 const struct file_operations ipa3_active_clients = {
 	.read = ipa3_print_active_clients_log,
 	.write = ipa3_clear_active_clients_log,
@@ -1734,6 +1826,12 @@ void ipa3_debugfs_init(void)
 		IPAERR("fail to create file for debug_fs active_clients\n");
 		goto fail;
 	}
+
+	active_clients_buf = NULL;
+	active_clients_buf = kzalloc(IPA_DBG_ACTIVE_CLIENT_BUF_SIZE,
+			GFP_KERNEL);
+	if (active_clients_buf == NULL)
+		IPAERR("fail to allocate active clients memory buffer");
 
 	dfile_ep_reg = debugfs_create_file("ep_reg", read_write_mode, dent, 0,
 			&ipa3_ep_reg_ops);
@@ -1882,6 +1980,13 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	dfile_ipa_usb = debugfs_create_file("ipa_usb", read_only_mode, dent, 0,
+		&ipa3_ipa_usb_ops);
+	if (!dfile_ipa_usb || IS_ERR(dfile_ipa_usb)) {
+		IPAERR("fail to create file for debug_fs ipa_usb\n");
+		goto fail;
+	}
+
 	file = debugfs_create_u32("enable_clock_scaling", read_write_mode,
 		dent, &ipa3_ctx->enable_clock_scaling);
 	if (!file) {
@@ -1916,6 +2021,10 @@ void ipa3_debugfs_remove(void)
 	if (IS_ERR(dent)) {
 		IPAERR("ipa3_debugfs_remove: folder was not created.\n");
 		return;
+	}
+	if (active_clients_buf != NULL) {
+		kfree(active_clients_buf);
+		active_clients_buf = NULL;
 	}
 	debugfs_remove_recursive(dent);
 }

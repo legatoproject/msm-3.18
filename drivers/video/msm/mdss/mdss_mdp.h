@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -521,6 +521,11 @@ struct mdss_ad_info {
 	struct mdss_mdp_vsync_handler handle;
 	u32 last_str;
 	u32 last_bl;
+	u32 last_ad_data;
+	u16 last_calib[4];
+	bool last_ad_data_valid;
+	bool last_calib_valid;
+	u32 ipc_frame_count;
 	u32 bl_data;
 	u32 calc_itr;
 	uint32_t bl_lin[AD_BL_LIN_LEN];
@@ -944,7 +949,13 @@ static inline bool mdss_mdp_req_init_restore_cfg(struct mdss_data_type *mdata)
 	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
 				MDSS_MDP_HW_REV_108) ||
 	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-				MDSS_MDP_HW_REV_112))
+				MDSS_MDP_HW_REV_112) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_114) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_115) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_116))
 		return true;
 
 	return false;
@@ -967,7 +978,11 @@ static inline int mdss_mdp_panic_signal_support_mode(
 	else if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
 				MDSS_MDP_HW_REV_107) ||
 		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-				MDSS_MDP_HW_REV_114))
+				MDSS_MDP_HW_REV_114) ||
+		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_115) ||
+		IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_116))
 		signal_mode = MDSS_MDP_PANIC_PER_PIPE_CFG;
 
 	return signal_mode;
@@ -1150,6 +1165,11 @@ static inline bool mdss_mdp_is_lm_swap_needed(struct mdss_data_type *mdata,
 		 (mctl->panel_data->panel_info.dsc_enc_total == 2))) &&
 	       (!mctl->mixer_left->valid_roi) &&
 	       (mctl->mixer_right->valid_roi);
+}
+
+static inline int mdss_mdp_get_display_id(struct mdss_mdp_pipe *pipe)
+{
+	return (pipe && pipe->mfd) ? pipe->mfd->index : -1;
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);

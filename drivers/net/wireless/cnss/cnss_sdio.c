@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,13 @@
 #include <linux/slab.h>
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio_ids.h>
+#include <linux/io.h>
+#include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/ramdump.h>
+#include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
+#include <linux/pm_qos.h>
 
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_DSRC_NAME	"vdd-wlan-dsrc"
@@ -33,6 +39,11 @@
 #define WLAN_VREG_XTAL_MAX	1800000
 #define WLAN_VREG_XTAL_MIN	1800000
 #define POWER_ON_DELAY		4
+
+/* Values for Dynamic Ramdump Collection*/
+#define CNSS_DUMP_FORMAT_VER	0x11
+#define CNSS_DUMP_MAGIC_VER_V2	0x42445953
+#define CNSS_DUMP_NAME		"CNSS_WLAN"
 
 struct cnss_unsafe_channel_list {
 	u16 unsafe_ch_count;
@@ -57,13 +68,32 @@ struct cnss_sdio_info {
 	const struct sdio_device_id *id;
 };
 
+struct cnss_ssr_info {
+	struct subsys_device *subsys;
+	struct subsys_desc subsysdesc;
+	void *subsys_handle;
+	struct ramdump_device *ramdump_dev;
+	unsigned long ramdump_size;
+	void *ramdump_addr;
+	phys_addr_t ramdump_phys;
+	struct msm_dump_data dump_data;
+	bool ramdump_dynamic;
+	char subsys_name[10];
+};
+
 static struct cnss_sdio_data {
 	struct cnss_sdio_regulator regulator;
 	struct platform_device *pdev;
 	struct cnss_dfs_nol_info dfs_info;
 	struct cnss_unsafe_channel_list unsafe_list;
 	struct cnss_sdio_info cnss_sdio_info;
+	struct cnss_ssr_info ssr_info;
+	struct pm_qos_request qos_request;
 } *cnss_pdata;
+
+#define WLAN_RECOVERY_DELAY 1
+/* cnss sdio subsytem device name, required property */
+#define CNSS_SUBSYS_NAME_KEY "subsys-name"
 
 /* SDIO manufacturer ID and Codes */
 #define MANUFACTURER_ID_AR6320_BASE        0x500
@@ -106,6 +136,34 @@ static const struct sdio_device_id ar6k_id_table[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(sdio, ar6k_id_table);
+
+int cnss_request_bus_bandwidth(int bandwidth)
+{
+	return 0;
+}
+EXPORT_SYMBOL(cnss_request_bus_bandwidth);
+
+void cnss_request_pm_qos(u32 qos_val)
+{
+	if (!cnss_pdata)
+		return;
+
+	pr_debug("%s: PM QoS value: %d\n", __func__, qos_val);
+	pm_qos_add_request(
+		&cnss_pdata->qos_request,
+		PM_QOS_CPU_DMA_LATENCY, qos_val);
+}
+EXPORT_SYMBOL(cnss_request_pm_qos);
+
+void cnss_remove_pm_qos(void)
+{
+	if (!cnss_pdata)
+		return;
+
+	pm_qos_remove_request(&cnss_pdata->qos_request);
+	pr_debug("%s: PM QoS removed\n", __func__);
+}
+EXPORT_SYMBOL(cnss_remove_pm_qos);
 
 int cnss_set_wlan_unsafe_channel(u16 *unsafe_ch_list, u16 ch_count)
 {
@@ -202,6 +260,364 @@ int cnss_wlan_get_dfs_nol(void *info, u16 info_len)
 	return len;
 }
 EXPORT_SYMBOL(cnss_wlan_get_dfs_nol);
+
+static int cnss_sdio_shutdown(const struct subsys_desc *subsys, bool force_stop)
+{
+	struct cnss_sdio_info *cnss_info;
+	struct cnss_sdio_wlan_driver *wdrv;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	cnss_info = &cnss_pdata->cnss_sdio_info;
+	wdrv = cnss_info->wdrv;
+	if (wdrv && wdrv->shutdown)
+		wdrv->shutdown(cnss_info->func);
+	return 0;
+}
+
+static int cnss_sdio_powerup(const struct subsys_desc *subsys)
+{
+	struct cnss_sdio_info *cnss_info;
+	struct cnss_sdio_wlan_driver *wdrv;
+	int ret = 0;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	cnss_info = &cnss_pdata->cnss_sdio_info;
+	wdrv = cnss_info->wdrv;
+	if (wdrv && wdrv->reinit) {
+		ret = wdrv->reinit(cnss_info->func, cnss_info->id);
+		if (ret)
+			pr_err("%s: wlan reinit error=%d\n", __func__, ret);
+	}
+	return ret;
+}
+
+static void cnss_sdio_crash_shutdown(const struct subsys_desc *subsys)
+{
+	struct cnss_sdio_info *cnss_info;
+	struct cnss_sdio_wlan_driver *wdrv;
+
+	if (!cnss_pdata)
+		return;
+
+	cnss_info = &cnss_pdata->cnss_sdio_info;
+	wdrv = cnss_info->wdrv;
+	if (wdrv && wdrv->crash_shutdown)
+		wdrv->crash_shutdown(cnss_info->func);
+}
+
+static int cnss_sdio_ramdump(int enable, const struct subsys_desc *subsys)
+{
+	struct cnss_ssr_info *ssr_info;
+	struct ramdump_segment segment;
+	int ret;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	if (!cnss_pdata->ssr_info.ramdump_size)
+		return -ENOENT;
+
+	if (!enable)
+		return 0;
+
+	ssr_info = &cnss_pdata->ssr_info;
+
+	memset(&segment, 0, sizeof(segment));
+	segment.v_address = ssr_info->ramdump_addr;
+	segment.size = ssr_info->ramdump_size;
+	ret = do_ramdump(ssr_info->ramdump_dev, &segment, 1);
+	if (ret)
+		pr_err("%s: do_ramdump failed error=%d\n", __func__, ret);
+	return ret;
+}
+
+static int cnss_subsys_init(void)
+{
+	struct cnss_ssr_info *ssr_info;
+	int ret = 0;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	ssr_info = &cnss_pdata->ssr_info;
+	ssr_info->subsysdesc.name = ssr_info->subsys_name;
+	ssr_info->subsysdesc.owner = THIS_MODULE;
+	ssr_info->subsysdesc.shutdown = cnss_sdio_shutdown;
+	ssr_info->subsysdesc.powerup = cnss_sdio_powerup;
+	ssr_info->subsysdesc.ramdump = cnss_sdio_ramdump;
+	ssr_info->subsysdesc.crash_shutdown = cnss_sdio_crash_shutdown;
+	ssr_info->subsysdesc.dev = &cnss_pdata->pdev->dev;
+	ssr_info->subsys = subsys_register(&ssr_info->subsysdesc);
+	if (IS_ERR(ssr_info->subsys)) {
+		ret = PTR_ERR(ssr_info->subsys);
+		ssr_info->subsys = NULL;
+		dev_err(&cnss_pdata->pdev->dev, "Failed to subsys_register error=%d\n",
+			ret);
+		goto err_subsys_reg;
+	}
+	ssr_info->subsys_handle = subsystem_get(ssr_info->subsysdesc.name);
+	if (IS_ERR(ssr_info->subsys_handle)) {
+		ret = PTR_ERR(ssr_info->subsys_handle);
+		ssr_info->subsys_handle = NULL;
+		dev_err(&cnss_pdata->pdev->dev, "Failed to subsystem_get error=%d\n",
+			ret);
+		goto err_subsys_get;
+	}
+	return 0;
+err_subsys_get:
+	subsys_unregister(ssr_info->subsys);
+	ssr_info->subsys = NULL;
+err_subsys_reg:
+	return ret;
+}
+
+static void cnss_subsys_exit(void)
+{
+	struct cnss_ssr_info *ssr_info;
+
+	if (!cnss_pdata)
+		return;
+
+	ssr_info = &cnss_pdata->ssr_info;
+	if (ssr_info->subsys_handle)
+		subsystem_put(ssr_info->subsys_handle);
+	ssr_info->subsys_handle = NULL;
+	if (ssr_info->subsys)
+		subsys_unregister(ssr_info->subsys);
+	ssr_info->subsys = NULL;
+}
+
+static int cnss_configure_dump_table(struct cnss_ssr_info *ssr_info)
+{
+	struct msm_dump_entry dump_entry;
+	int ret;
+
+	ssr_info->dump_data.addr = ssr_info->ramdump_phys;
+	ssr_info->dump_data.len = ssr_info->ramdump_size;
+	ssr_info->dump_data.version = CNSS_DUMP_FORMAT_VER;
+	ssr_info->dump_data.magic = CNSS_DUMP_MAGIC_VER_V2;
+	strlcpy(ssr_info->dump_data.name, CNSS_DUMP_NAME,
+		sizeof(ssr_info->dump_data.name));
+
+	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
+	dump_entry.addr = virt_to_phys(&ssr_info->dump_data);
+
+	ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+	if (ret)
+		pr_err("%s: Dump table setup failed: %d\n", __func__, ret);
+
+	return ret;
+}
+
+static int cnss_configure_ramdump(void)
+{
+	struct cnss_ssr_info *ssr_info;
+	int ret = 0;
+	struct resource *res;
+	const char *name;
+	u32 ramdump_size = 0;
+	struct device *dev;
+
+	if (!cnss_pdata)
+		return -ENODEV;
+
+	dev = &cnss_pdata->pdev->dev;
+
+	ssr_info = &cnss_pdata->ssr_info;
+
+	ret = of_property_read_string(dev->of_node, CNSS_SUBSYS_NAME_KEY,
+				      &name);
+	if (ret) {
+		pr_err("%s: cnss missing DT key '%s'\n", __func__,
+		       CNSS_SUBSYS_NAME_KEY);
+		ret = -ENODEV;
+		goto err_subsys_name_query;
+	}
+
+	strlcpy(ssr_info->subsys_name, name, sizeof(ssr_info->subsys_name));
+
+	if (of_property_read_u32(dev->of_node, "qcom,wlan-ramdump-dynamic",
+				 &ramdump_size) == 0) {
+		ssr_info->ramdump_addr = dma_alloc_coherent(dev, ramdump_size,
+							&ssr_info->ramdump_phys,
+							GFP_KERNEL);
+		if (ssr_info->ramdump_addr)
+			ssr_info->ramdump_size = ramdump_size;
+		ssr_info->ramdump_dynamic = true;
+	} else {
+		res = platform_get_resource_byname(cnss_pdata->pdev,
+						   IORESOURCE_MEM, "ramdump");
+		if (res) {
+			ssr_info->ramdump_phys = res->start;
+			ramdump_size = resource_size(res);
+			ssr_info->ramdump_addr = ioremap(ssr_info->ramdump_phys,
+								ramdump_size);
+			if (ssr_info->ramdump_addr)
+				ssr_info->ramdump_size = ramdump_size;
+			ssr_info->ramdump_dynamic = false;
+		}
+	}
+
+	pr_info("%s: ramdump addr: %p, phys: %pa subsys:'%s'\n", __func__,
+		ssr_info->ramdump_addr, &ssr_info->ramdump_phys,
+		ssr_info->subsys_name);
+
+	if (ssr_info->ramdump_size == 0) {
+		pr_info("%s: CNSS ramdump will not be collected", __func__);
+		return 0;
+	}
+
+	if (ssr_info->ramdump_dynamic) {
+		ret = cnss_configure_dump_table(ssr_info);
+		if (ret)
+			goto err_configure_dump_table;
+	}
+
+	ssr_info->ramdump_dev = create_ramdump_device(ssr_info->subsys_name,
+									dev);
+	if (!ssr_info->ramdump_dev) {
+		ret = -ENOMEM;
+		pr_err("%s: ramdump dev create failed: error=%d\n",
+		       __func__, ret);
+		goto err_configure_dump_table;
+	}
+
+	return 0;
+
+err_configure_dump_table:
+	if (ssr_info->ramdump_dynamic)
+		dma_free_coherent(dev, ssr_info->ramdump_size,
+				  ssr_info->ramdump_addr,
+				  ssr_info->ramdump_phys);
+	else
+		iounmap(ssr_info->ramdump_addr);
+
+	ssr_info->ramdump_addr = NULL;
+	ssr_info->ramdump_size = 0;
+err_subsys_name_query:
+	return ret;
+}
+
+static void cnss_ramdump_cleanup(void)
+{
+	struct cnss_ssr_info *ssr_info;
+	struct device *dev;
+
+	if (!cnss_pdata)
+		return;
+
+	dev = &cnss_pdata->pdev->dev;
+	ssr_info = &cnss_pdata->ssr_info;
+	if (ssr_info->ramdump_addr) {
+		if (ssr_info->ramdump_dynamic)
+			dma_free_coherent(dev, ssr_info->ramdump_size,
+					  ssr_info->ramdump_addr,
+					  ssr_info->ramdump_phys);
+		else
+			iounmap(ssr_info->ramdump_addr);
+	}
+
+	ssr_info->ramdump_addr = NULL;
+	if (ssr_info->ramdump_dev)
+		destroy_ramdump_device(ssr_info->ramdump_dev);
+	ssr_info->ramdump_dev = NULL;
+}
+
+int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
+{
+	struct cnss_ssr_info *ssr_info;
+
+	if (!cnss_pdata || !cnss_pdata->pdev)
+		return -ENODEV;
+
+	ssr_info = &cnss_pdata->ssr_info;
+	*address = ssr_info->ramdump_phys;
+	*size = ssr_info->ramdump_size;
+
+	return 0;
+}
+EXPORT_SYMBOL(cnss_get_ramdump_mem);
+
+void *cnss_get_virt_ramdump_mem(unsigned long *size)
+{
+	if (!cnss_pdata || !cnss_pdata->pdev)
+		return NULL;
+
+	*size = cnss_pdata->ssr_info.ramdump_size;
+
+	return cnss_pdata->ssr_info.ramdump_addr;
+}
+EXPORT_SYMBOL(cnss_get_virt_ramdump_mem);
+
+void cnss_device_self_recovery(void)
+{
+	cnss_sdio_shutdown(NULL, false);
+	msleep(WLAN_RECOVERY_DELAY);
+	cnss_sdio_powerup(NULL);
+}
+EXPORT_SYMBOL(cnss_device_self_recovery);
+
+static void recovery_work_handler(struct work_struct *recovery)
+{
+	cnss_device_self_recovery();
+}
+
+DECLARE_WORK(recovery_work, recovery_work_handler);
+
+void cnss_schedule_recovery_work(void)
+{
+	schedule_work(&recovery_work);
+}
+EXPORT_SYMBOL(cnss_schedule_recovery_work);
+
+void cnss_device_crashed(void)
+{
+	struct cnss_ssr_info *ssr_info;
+
+	if (!cnss_pdata)
+		return;
+	ssr_info = &cnss_pdata->ssr_info;
+	if (ssr_info->subsys) {
+		subsys_set_crash_status(ssr_info->subsys, true);
+		subsystem_restart_dev(ssr_info->subsys);
+	}
+}
+EXPORT_SYMBOL(cnss_device_crashed);
+
+/**
+ * cnss_get_restart_level() - cnss get restart level API
+ *
+ * Wlan sdio function driver uses this API to get the current
+ * subsystem restart level.
+ *
+ * Return: CNSS_RESET_SOC - "SYSTEM", restart system
+ *         CNSS_RESET_SUBSYS_COUPLED - "RELATED",restart subsystem
+ */
+int cnss_get_restart_level(void)
+{
+	struct cnss_ssr_info *ssr_info;
+	int level;
+
+	if (!cnss_pdata)
+		return CNSS_RESET_SOC;
+	ssr_info = &cnss_pdata->ssr_info;
+	if (!ssr_info->subsys)
+		return CNSS_RESET_SOC;
+	level = subsys_get_restart_level(ssr_info->subsys);
+	switch (level) {
+	case RESET_SOC:
+		return CNSS_RESET_SOC;
+	case RESET_SUBSYS_COUPLED:
+		return CNSS_RESET_SUBSYS_COUPLED;
+	default:
+		return CNSS_RESET_SOC;
+	}
+}
+EXPORT_SYMBOL(cnss_get_restart_level);
 
 static int cnss_sdio_wlan_inserted(
 				struct sdio_func *func,
@@ -352,6 +768,51 @@ cnss_sdio_wlan_unregister_driver(struct cnss_sdio_wlan_driver *driver)
 	cnss_info->wdrv = NULL;
 }
 EXPORT_SYMBOL(cnss_sdio_wlan_unregister_driver);
+
+/**
+ * cnss_wlan_query_oob_status() - cnss wlan query oob status API
+ *
+ * Wlan sdio function driver uses this API to check whether oob is
+ * supported in platform driver.
+ *
+ * Return: 0 means oob is supported, others means unsupported.
+ */
+int cnss_wlan_query_oob_status(void)
+{
+	return -ENOSYS;
+}
+EXPORT_SYMBOL(cnss_wlan_query_oob_status);
+
+/**
+ * cnss_wlan_register_oob_irq_handler() - cnss wlan register oob callback API
+ * @handler: oob callback function pointer which registered to platform driver.
+ * @pm_oob : parameter which registered to platform driver.
+ *
+ * Wlan sdio function driver uses this API to register oob callback
+ * function to platform driver.
+ *
+ * Return: 0 means register successfully, others means failure.
+ */
+int cnss_wlan_register_oob_irq_handler(oob_irq_handler_t handler, void *pm_oob)
+{
+	return -ENOSYS;
+}
+EXPORT_SYMBOL(cnss_wlan_register_oob_irq_handler);
+
+/**
+ * cnss_wlan_unregister_oob_irq_handler() - cnss wlan unregister oob callback API
+ * @pm_oob: parameter which unregistered from platform driver.
+ *
+ * Wlan sdio function driver uses this API to unregister oob callback
+ * function from platform driver.
+ *
+ * Return: 0 means unregister successfully, others means failure.
+ */
+int cnss_wlan_unregister_oob_irq_handler(void *pm_oob)
+{
+	return -ENOSYS;
+}
+EXPORT_SYMBOL(cnss_wlan_unregister_oob_irq_handler);
 
 static int cnss_sdio_wlan_init(void)
 {
@@ -572,9 +1033,26 @@ static int cnss_sdio_probe(struct platform_device *pdev)
 		goto err_wlan_dsrc_enable_regulator;
 	}
 
+	error = cnss_configure_ramdump();
+	if (error) {
+		dev_err(&pdev->dev, "Failed to configure ramdump error=%d\n",
+			error);
+		goto err_ramdump_create;
+	}
+
+	error = cnss_subsys_init();
+	if (error) {
+		dev_err(&pdev->dev, "Failed to cnss_subsys_init error=%d\n",
+			error);
+		goto err_subsys_init;
+	}
+
 	dev_info(&pdev->dev, "CNSS SDIO Driver registered");
 	return 0;
-
+err_subsys_init:
+	cnss_ramdump_cleanup();
+err_ramdump_create:
+	cnss_sdio_wlan_exit();
 err_wlan_dsrc_enable_regulator:
 	regulator_put(cnss_pdata->regulator.wlan_vreg_dsrc);
 err_wlan_enable_regulator:
@@ -595,7 +1073,8 @@ static int cnss_sdio_remove(struct platform_device *pdev)
 
 	dfs_info = &cnss_pdata->dfs_info;
 	kfree(dfs_info->dfs_nol_info);
-
+	cnss_subsys_exit();
+	cnss_ramdump_cleanup();
 	cnss_sdio_release_resource();
 	return 0;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -62,6 +62,7 @@ struct wsa881x_pdata {
 	struct wsa881x_tz_priv tz_pdata;
 	int bg_cnt;
 	int clk_cnt;
+	int enable_cnt;
 	int version;
 	struct mutex bg_lock;
 	struct mutex res_lock;
@@ -119,7 +120,7 @@ static int wsa881x_spk_pa_gain_get(struct snd_kcontrol *kcontrol,
 
 	ucontrol->value.integer.value[0] = wsa881x->spk_pa_gain;
 
-	dev_err(codec->dev, "%s: spk_pa_gain = %ld\n", __func__,
+	dev_dbg(codec->dev, "%s: spk_pa_gain = %ld\n", __func__,
 				ucontrol->value.integer.value[0]);
 
 	return 0;
@@ -138,7 +139,7 @@ static int wsa881x_spk_pa_gain_put(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	}
 	wsa881x->spk_pa_gain = ucontrol->value.integer.value[0];
-	dev_err(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
+	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0] = %ld\n",
 			 __func__, ucontrol->value.integer.value[0]);
 
 	return 0;
@@ -213,7 +214,7 @@ static int wsa881x_i2c_write_device(struct wsa881x_pdata *wsa881x,
 				return ret;
 			}
 		}
-		pr_err("write success register = %x val = %x\n", reg, data[1]);
+		pr_debug("write success reg = %x val = %x\n", reg, data[1]);
 	}
 	return rc;
 }
@@ -247,7 +248,7 @@ static int wsa881x_i2c_read_device(struct wsa881x_pdata *wsa881x,
 			pr_err("Failed reading reg=%u rc=%d\n", reg, rc);
 			return rc;
 		}
-		pr_err("read success register = %x val = %x\n",
+		pr_debug("read success reg = %x val = %x\n",
 						reg, val);
 	} else {
 		reg_addr = (u8)reg;
@@ -884,8 +885,11 @@ static int wsa881x_startup(struct wsa881x_pdata *pdata)
 	struct snd_soc_codec *codec = pdata->codec;
 	struct snd_soc_card *card = codec->component.card;
 
-	pr_debug("%s(): wsa startup\n", __func__);
+	pr_debug("%s(): wsa startup, enable_cnt:%d\n", __func__,
+					pdata->enable_cnt);
 
+	if (pdata->enable_cnt++ > 0)
+		return 0;
 	ret = msm_gpioset_activate(CLIENT_WSA_BONGO_1, "wsa_clk");
 	if (ret) {
 		pr_err("%s: gpio set cannot be activated %s\n",
@@ -910,7 +914,10 @@ static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 	struct snd_soc_codec *codec = pdata->codec;
 	struct snd_soc_card *card = codec->component.card;
 
-	pr_debug("%s(): wsa shutdown\n", __func__);
+	pr_debug("%s(): wsa shutdown, enable_cnt:%d\n", __func__,
+					pdata->enable_cnt);
+	if (--pdata->enable_cnt > 0)
+		return 0;
 	ret = wsa881x_reset(pdata, false);
 	if (ret) {
 		pr_err("%s: wsa reset failed suspend %d\n",

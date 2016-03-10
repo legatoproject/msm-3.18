@@ -2,7 +2,7 @@
  * drivers/mmc/host/sdhci-msm.c - Qualcomm MSM SDHCI Platform
  * driver source file
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2292,6 +2292,9 @@ static void sdhci_msm_cfg_sdiowakeup_gpio_irq(struct sdhci_host *host,
 static irqreturn_t sdhci_msm_sdiowakeup_irq(int irq, void *data)
 {
 	struct sdhci_host *host = (struct sdhci_host *)data;
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
 	unsigned long flags;
 
 	pr_debug("%s: irq (%d) received\n", __func__, irq);
@@ -2299,6 +2302,7 @@ static irqreturn_t sdhci_msm_sdiowakeup_irq(int irq, void *data)
 	spin_lock_irqsave(&host->lock, flags);
 	sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
 	spin_unlock_irqrestore(&host->lock, flags);
+	msm_host->sdio_pending_processing = true;
 
 	return IRQ_HANDLED;
 }
@@ -3016,10 +3020,13 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 
 #define MAX_TEST_BUS 60
 #define DRV_NAME "cmdq-host"
-static void sdhci_msm_cmdq_dump_debug_ram(struct sdhci_msm_host *msm_host)
+static void sdhci_msm_cmdq_dump_debug_ram(struct sdhci_host *host)
 {
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int i = 0;
-	struct cmdq_host *cq_host = mmc_cmdq_private(msm_host->mmc);
+	struct cmdq_host *cq_host = host->cq_host;
+
 	u32 version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
 	u16 minor = version & CORE_VERSION_TARGET_MASK;
 	/* registers offset changed starting from 4.2.0 */
@@ -3050,7 +3057,7 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 
 	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
 	if (host->cq_host)
-		sdhci_msm_cmdq_dump_debug_ram(msm_host);
+		sdhci_msm_cmdq_dump_debug_ram(host);
 
 	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
 		readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
@@ -3155,19 +3162,6 @@ static void sdhci_msm_clear_set_dumpregs(struct sdhci_host *host, bool set)
 		value &= ~CORE_TESTBUS_ENA;
 		writel_relaxed(value, msm_host->core_mem + CORE_TESTBUS_CONFIG);
 	}
-}
-
-static void sdhci_msm_detect(struct sdhci_host *host, bool detected)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	struct mmc_host *mmc = msm_host->mmc;
-	struct mmc_card *card = mmc->card;
-
-	if (detected && mmc_card_sdio(card))
-		mmc->pm_caps |= MMC_PM_KEEP_POWER;
-	else
-		mmc->pm_caps &= ~MMC_PM_KEEP_POWER;
 }
 
 int sdhci_msm_notify_load(struct sdhci_host *host, enum mmc_load state)
@@ -3722,7 +3716,6 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.reset = sdhci_msm_reset,
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
 	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
-	.detect = sdhci_msm_detect,
 	.notify_load = sdhci_msm_notify_load,
 	.reset_workaround = sdhci_msm_reset_workaround,
 	.init = sdhci_msm_init,
@@ -4279,9 +4272,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 
 	msm_host->pdata->sdiowakeup_irq = platform_get_irq_byname(pdev,
 							  "sdiowakeup_irq");
-	dev_info(&pdev->dev, "%s: sdiowakeup_irq = %d\n", __func__,
-			msm_host->pdata->sdiowakeup_irq);
 	if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
+		dev_info(&pdev->dev, "%s: sdiowakeup_irq = %d\n", __func__,
+				msm_host->pdata->sdiowakeup_irq);
 		msm_host->is_sdiowakeup_enabled = true;
 		ret = request_irq(msm_host->pdata->sdiowakeup_irq,
 				  sdhci_msm_sdiowakeup_irq,
@@ -4296,6 +4289,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		} else {
 			spin_lock_irqsave(&host->lock, flags);
 			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+			msm_host->sdio_pending_processing = false;
 			spin_unlock_irqrestore(&host->lock, flags);
 		}
 	}
@@ -4429,6 +4423,7 @@ static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
 	if (!(host->mmc->card && mmc_card_sdio(host->mmc->card) &&
 	      sdhci_is_valid_gpio_wakeup_int(msm_host) &&
 	      mmc_card_wake_sdio_irq(host->mmc))) {
+		msm_host->sdio_pending_processing = false;
 		return 1;
 	}
 
@@ -4436,6 +4431,7 @@ static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
 	if (enable) {
 		/* configure DAT1 gpio if applicable */
 		if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
+			msm_host->sdio_pending_processing = false;
 			ret = enable_irq_wake(msm_host->pdata->sdiowakeup_irq);
 			if (!ret)
 				sdhci_msm_cfg_sdiowakeup_gpio_irq(host, true);
@@ -4448,6 +4444,7 @@ static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
 		if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
 			ret = disable_irq_wake(msm_host->pdata->sdiowakeup_irq);
 			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+			msm_host->sdio_pending_processing = false;
 		} else {
 			pr_err("%s: sdiowakeup_irq(%d)invalid\n",
 					mmc_hostname(host->mmc), enable);
@@ -4615,6 +4612,10 @@ static int sdhci_msm_suspend_noirq(struct device *dev)
 			mmc_hostname(host->mmc), __func__);
 		ret = -EAGAIN;
 	}
+
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card))
+		if (msm_host->sdio_pending_processing)
+			ret = -EBUSY;
 
 	return ret;
 }

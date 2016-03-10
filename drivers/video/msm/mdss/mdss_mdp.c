@@ -1,7 +1,7 @@
 /*
  * MDSS MDP Interface (used by framebuffer core)
  *
- * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 2007 Google Incorporated
  *
  * This software is licensed under the terms of the GNU General Public
@@ -742,6 +742,9 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 	if (enable) {
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_19_MHZ);
+		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
+				mdss_bus_scale_set_quota(MDSS_HW_RT,
+					SZ_1M, SZ_1M);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
@@ -749,6 +752,8 @@ static inline void __mdss_mdp_reg_access_clk_enable(
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
+		if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
+			mdss_bus_scale_set_quota(MDSS_HW_RT, 0, 0);
 		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_DISABLE);
 	}
@@ -827,14 +832,23 @@ int mdss_iommu_ctrl(int enable)
 		 * delay iommu attach until continous splash screen has
 		 * finished handoff, as it may still be working with phys addr
 		 */
-		if (!mdata->iommu_attached && !mdata->handoff_pending)
+		if (!mdata->iommu_attached && !mdata->handoff_pending) {
+			if (mdss_has_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE))
+				mdss_bus_scale_set_quota(MDSS_HW_RT,
+					 SZ_1M, SZ_1M);
 			rc = mdss_smmu_attach(mdata);
+		}
 		mdata->iommu_ref_cnt++;
 	} else {
 		if (mdata->iommu_ref_cnt) {
 			mdata->iommu_ref_cnt--;
-			if (mdata->iommu_ref_cnt == 0)
+			if (mdata->iommu_ref_cnt == 0) {
 				rc = mdss_smmu_detach(mdata);
+				if (mdss_has_quirk(mdata,
+					MDSS_QUIRK_MIN_BUS_VOTE))
+					mdss_bus_scale_set_quota(MDSS_HW_RT,
+								0, 0);
+			}
 		} else {
 			pr_err("unbalanced iommu ref\n");
 		}
@@ -845,6 +859,36 @@ int mdss_iommu_ctrl(int enable)
 		return rc;
 	else
 		return mdata->iommu_ref_cnt;
+}
+
+static void mdss_mdp_memory_retention_enter(void)
+{
+	struct clk *mdss_mdp_clk = NULL;
+	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
+
+	if (mdp_vote_clk) {
+		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
+		if (mdss_mdp_clk) {
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_SET);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_NORETAIN_PERIPH);
+		}
+	}
+}
+
+static void mdss_mdp_memory_retention_exit(void)
+{
+	struct clk *mdss_mdp_clk = NULL;
+	struct clk *mdp_vote_clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
+
+	if (mdp_vote_clk) {
+		mdss_mdp_clk = clk_get_parent(mdp_vote_clk);
+		if (mdss_mdp_clk) {
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_MEM);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_RETAIN_PERIPH);
+			clk_set_flags(mdss_mdp_clk, CLKFLAG_PERIPH_OFF_CLEAR);
+		}
+	}
 }
 
 /**
@@ -874,6 +918,14 @@ static int mdss_mdp_idle_pc_restore(void)
 	}
 	mdss_hw_init(mdata);
 	mdss_iommu_ctrl(0);
+
+	/**
+	 * sleep 10 microseconds to make sure AD auto-reinitialization
+	 * is done
+	 */
+	udelay(10);
+	mdss_mdp_memory_retention_exit();
+
 	mdss_mdp_ctl_restore(true);
 	mdata->idle_pc = false;
 
@@ -1279,11 +1331,17 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		break;
 	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_115:
+	case MDSS_MDP_HW_REV_116:
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 128;
 		mdata->min_prefill_lines = 14;
-		mdata->has_ubwc = true;
-		mdata->pixel_ram_size = 40 * 1024;
+		mdata->has_ubwc =
+			(mdata->mdp_rev == MDSS_MDP_HW_REV_115) ?
+			false : true;
+		mdata->pixel_ram_size =
+			(mdata->mdp_rev == MDSS_MDP_HW_REV_115) ?
+			(16 * 1024) : (40 * 1024);
 		mdata->apply_post_scale_bytes = false;
 		mdata->hflip_buffer_reused = false;
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
@@ -1294,6 +1352,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_mdp_init_default_prefill_factors(mdata);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		mdss_set_quirk(mdata, MDSS_QUIRK_DMA_BI_DIR);
+		mdss_set_quirk(mdata, MDSS_QUIRK_MIN_BUS_VOTE);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -1571,6 +1630,37 @@ static int mdss_mdp_get_cmdline_config(struct platform_device *pdev)
 	return rc;
 }
 
+static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
+	int pipe_cnt, char *type, char *buf, int *cnt)
+{
+	int i;
+	size_t len = PAGE_SIZE;
+
+#define SPRINT(fmt, ...) \
+		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
+
+	for (i = 0; i < pipe_cnt; i++) {
+		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d pipe_is_handoff:%d display_id:%d\n",
+			pipe->num, type, pipe->ndx, pipe->is_handed_off,
+			mdss_mdp_get_display_id(pipe));
+		pipe++;
+	}
+#undef SPRINT
+}
+
+static void mdss_mdp_update_sspp_info(struct mdss_data_type *mdata,
+	char *buf, int *cnt)
+{
+	__update_sspp_info(mdata->vig_pipes, mdata->nvig_pipes,
+		"vig", buf, cnt);
+	__update_sspp_info(mdata->rgb_pipes, mdata->nrgb_pipes,
+		"rgb", buf, cnt);
+	__update_sspp_info(mdata->dma_pipes, mdata->ndma_pipes,
+		"dma", buf, cnt);
+	__update_sspp_info(mdata->cursor_pipes, mdata->ncursor_pipes,
+		"cursor", buf, cnt);
+}
+
 static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1587,6 +1677,9 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 
 	SPRINT("mdp_version=5\n");
 	SPRINT("hw_rev=%d\n", mdata->mdp_rev);
+	SPRINT("pipe_count:%d\n", mdata->nvig_pipes + mdata->nrgb_pipes +
+		mdata->ndma_pipes + mdata->ncursor_pipes);
+	mdss_mdp_update_sspp_info(mdata, buf, &cnt);
 	SPRINT("rgb_pipes=%d\n", mdata->nrgb_pipes);
 	SPRINT("vig_pipes=%d\n", mdata->nvig_pipes);
 	SPRINT("dma_pipes=%d\n", mdata->ndma_pipes);
@@ -1647,6 +1740,7 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	if (mdata->max_bw_settings_cnt)
 		SPRINT(" dynamic_bw_limit");
 	SPRINT("\n");
+#undef SPRINT
 
 	return cnt;
 }
@@ -3743,6 +3837,8 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_114:
+	case MDSS_MDP_HW_REV_115:
+	case MDSS_MDP_HW_REV_116:
 		if ((res <= RES_1080p) && (params->frame_rate <= 30))
 			*ot_lim = 2;
 		else if (params->is_rot && params->is_yuv)
@@ -4007,6 +4103,7 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				mdata->idle_pc = true;
 				pr_debug("idle pc. active overlays=%d\n",
 					active_cnt);
+				mdss_mdp_memory_retention_enter();
 			} else {
 				mdss_mdp_cx_ctrl(mdata, false);
 				mdss_mdp_batfet_ctrl(mdata, false);

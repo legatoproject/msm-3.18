@@ -1,5 +1,12 @@
 Qualcomm audio devices for ALSA sound SoC
 
+* msmapr-audio
+
+Required properties:
+
+ - compatible : "qcom,msmapr-audio"
+
+
 * msm-pcm
 
 Required properties:
@@ -78,6 +85,14 @@ Required properties:
 Required properties:
 
  - compatible : "qcom,msm-stub-codec"
+
+* msm-hdmi-dba-codec-rx
+
+Required properties:
+
+ - compatible : "qcom,msm-hdmi-dba-codec-rx"
+ - qcom,dba-bridge-chip: String info to indicate which bridge-chip
+                         is used for HDMI using DBA.
 
 * msm-dai-fe
 
@@ -379,6 +394,11 @@ Example:
 
         qcom,msm-stub-codec {
                 compatible = "qcom,msm-stub-codec";
+        };
+
+        qcom,msm-hdmi-dba-codec-rx {
+                compatible = "qcom,msm-hdmi-dba-codec-rx";
+                qcom,dba-bridge-chip = "adv7533";
         };
 
         qcom,msm-dai-fe {
@@ -1370,6 +1390,7 @@ the flavor.
 - pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
 
 Optional properties:
+- qcom,hdmi-dba-codec-rx: Boolean. specifies if HDMI DBA audio support is enabled or not.
 - qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
 - qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
 - qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
@@ -1433,6 +1454,7 @@ Example:
 			    "csr_gp_io_mux_spkr_ctl",
 			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
 		qcom,msm-ext-pa = "primary";
+		qcom,hdmi-dba-codec-rx;
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
@@ -1676,8 +1698,6 @@ Each entry is a pair of strings, the first being the connection's sink,
 the second being the connection's source.
 - qcom,tomtom-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
 codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
-- pinctrl-names : pinctrl state names for each pin group configuration.
-- pinctrl-x : defines pinctrl state for each pin group
 - asoc-platform: This is phandle list containing the references to platform device
 		 nodes that are used as part of the sound card dai-links.
 - asoc-platform-names: This property contains list of platform names. The order of
@@ -1695,6 +1715,14 @@ codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
 - asoc-codec-names: This property contains list of codec dai names. The order of the
 		    codec dai names should match to that of the phandle order given
 		    in "asoc-codec".
+
+Optional Properties:
+- qcom,mi2s-interface-mode: This property contains mi2s interface modes master/ slave.
+			    Entry is a pair of strings, the first being for primary mi2s
+			    and the second for secondary mi2s and so on
+- qcom,auxpcm-interface-mode: This property contains auxpcm interface modes master/ slave.
+			      Entry is a pair of strings, the first being for primary auxpcm
+			      and the second for secondary auxpcm and so on
 
 Example:
 
@@ -1719,6 +1747,8 @@ sound {
 			"MIC BIAS3 External", "Digital Mic3";
 
 		qcom,tomtom-mclk-clk-freq = <12288000>;
+		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";
+		qcom,auxpcm-interface-mode = "pri_pcm_master", "sec_pcm_master";
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&hostless>, <&afe>, <&routing>,
 				<&pcm_dtmf>, <&host_pcm>;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1129,12 +1129,6 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		}
 	}
 
-	rc = msm_cpp_update_gdscr_status(cpp_dev, true);
-	if (rc < 0) {
-		pr_err("update cpp gdscr status failed\n");
-		goto req_irq_fail;
-	}
-
 	cpp_dev->hw_info.cpp_hw_version =
 		msm_camera_io_r(cpp_dev->cpp_hw_base);
 	if (cpp_dev->hw_info.cpp_hw_version == CPP_HW_VERSION_4_1_0) {
@@ -1198,19 +1192,22 @@ clk_failed:
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 fs_failed:
-	regulator_disable(cpp_dev->fs_camss);
-	regulator_put(cpp_dev->fs_camss);
+	if (cpp_dev->fs_camss) {
+		regulator_disable(cpp_dev->fs_camss);
+		regulator_put(cpp_dev->fs_camss);
+	}
 fs_camss_failed:
-	regulator_disable(cpp_dev->fs_mmagic_camss);
-	regulator_put(cpp_dev->fs_mmagic_camss);
+	if (cpp_dev->fs_mmagic_camss) {
+		regulator_disable(cpp_dev->fs_mmagic_camss);
+		regulator_put(cpp_dev->fs_mmagic_camss);
+	}
 fs_mmagic_failed:
 	if (cpp_dev->bus_master_flag)
 		msm_cpp_deinit_bandwidth_mgr(cpp_dev);
 	else
 		msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 bus_scale_register_failed:
-	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CPP, CAMERA_AHB_SUSPEND_VOTE);
-	if (rc < 0)
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CPP, CAMERA_AHB_SUSPEND_VOTE) < 0)
 		pr_err("%s: failed to remove vote for AHB\n", __func__);
 ahb_vote_fail:
 	return rc;
@@ -1375,6 +1372,10 @@ static int32_t cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 		pr_err("%s:%d] poll command %x failed %d", __func__, __LINE__,
 			MSM_CPP_MSG_ID_JUMP_ACK, rc);
 	}
+
+	rc = msm_cpp_update_gdscr_status(cpp_dev, true);
+	if (rc < 0)
+		pr_err("update cpp gdscr status failed\n");
 
 end:
 	return rc;
@@ -1735,7 +1736,7 @@ static void msm_cpp_set_micro_irq_mask(struct cpp_device *cpp_dev,
 static void msm_cpp_do_timeout_work(struct work_struct *work)
 {
 	uint32_t j = 0, i = 0, i1 = 0, i2 = 0;
-	int32_t queue_len = 0, rc = 0;
+	int32_t queue_len = 0, rc = 0, fifo_counter = 0;
 	struct msm_device_queue *queue = NULL;
 	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
 	struct cpp_device *cpp_dev = cpp_timer.data.cpp_dev;
@@ -1758,21 +1759,24 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 
 	disable_irq(cpp_timer.data.cpp_dev->irq->start);
+	/* make sure all the pending queued entries are scheduled */
+	tasklet_kill(&cpp_dev->cpp_tasklet);
 
 	queue = &cpp_timer.data.cpp_dev->processing_q;
 	queue_len = queue->len;
+	if (!queue_len) {
+		pr_err("%s:%d: irq serviced after timeout.Ignore timeout\n",
+			__func__, __LINE__);
+		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
+		goto end;
+	}
 
 	pr_debug("Reloading firmware %d\n", queue_len);
 	rc = cpp_load_fw(cpp_timer.data.cpp_dev,
 		cpp_timer.data.cpp_dev->fw_name_bin);
 	if (rc) {
 		pr_warn("Firmware loading failed\n");
-		cpp_dev->state = CPP_STATE_OFF;
-		/* clean buf queue here */
-		msm_cpp_flush_queue_and_release_buffer(cpp_dev, queue_len);
-		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x0);
-		cpp_dev->timeout_trial_cnt = 0;
-		goto end;
+		goto error;
 	} else {
 		pr_debug("Firmware loading done\n");
 	}
@@ -1809,34 +1813,33 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 			processed_frame[i]->identity,
 			processed_frame[i]->frame_id);
 
+		rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+		if (rc) {
+			pr_err("%s:%d: Reschedule payload failed %d\n",
+				__func__, __LINE__, rc);
+			goto error;
+		}
 		msm_cpp_write(0x6, cpp_dev->base);
+		fifo_counter++;
 		/* send top level and plane level */
-		for (j = 0; j < cpp_dev->payload_params.stripe_base; j++) {
-			if (j % MSM_CPP_RX_FIFO_LEVEL == 0) {
+		for (j = 0; j < cpp_dev->payload_params.stripe_base; j++,
+			fifo_counter++) {
+			if (fifo_counter % MSM_CPP_RX_FIFO_LEVEL == 0) {
 				rc = msm_cpp_poll_rx_empty(cpp_dev->base);
 				if (rc) {
 					pr_err("%s:%d] poll failed %d rc %d",
 						__func__, __LINE__, j, rc);
-					cpp_dev->state = CPP_STATE_OFF;
-					msm_cpp_set_micro_irq_mask(cpp_dev,
-						0, 0x0);
-					cpp_dev->timeout_trial_cnt = 0;
-					goto end;
+					goto error;
 				}
+				fifo_counter = 0;
 			}
 			msm_cpp_write(processed_frame[i]->cpp_cmd_msg[j],
 				cpp_dev->base);
 		}
 		if (rc) {
-			pr_err("%s: Rescheduling plane info failed %d\n",
-				__func__, rc);
-			/* flush the queue */
-			cpp_dev->state = CPP_STATE_OFF;
-			msm_cpp_flush_queue_and_release_buffer(cpp_dev,
-				queue_len);
-			msm_cpp_set_micro_irq_mask(cpp_dev, 0, 0x0);
-			cpp_dev->timeout_trial_cnt = 0;
-			goto end;
+			pr_err("%s:%d: Rescheduling plane info failed %d\n",
+				__func__, __LINE__, rc);
+			goto error;
 		}
 		/* send stripes */
 		i1 = cpp_dev->payload_params.stripe_base +
@@ -1845,14 +1848,15 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		i2 = cpp_dev->payload_params.stripe_size *
 			(processed_frame[i]->last_stripe_index -
 			processed_frame[i]->first_stripe_index + 1);
-		for (j = 0; j < i2; j++) {
-			if (j % MSM_CPP_RX_FIFO_LEVEL == 0) {
+		for (j = 0; j < i2; j++, fifo_counter++) {
+			if (fifo_counter % MSM_CPP_RX_FIFO_LEVEL == 0) {
 				rc = msm_cpp_poll_rx_empty(cpp_dev->base);
 				if (rc) {
 					pr_err("%s:%d] poll failed %d rc %d",
 						__func__, __LINE__, j, rc);
 					break;
 				}
+				fifo_counter = 0;
 			}
 			msm_cpp_write(processed_frame[i]->cpp_cmd_msg[j+i1],
 				cpp_dev->base);
@@ -1860,15 +1864,19 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		if (rc) {
 			pr_err("%s:%d] Rescheduling stripe info failed %d\n",
 				__func__, __LINE__, rc);
-			/* flush the queue */
-			cpp_dev->state = CPP_STATE_OFF;
-			msm_cpp_flush_queue_and_release_buffer(cpp_dev,
-				queue_len);
-			msm_cpp_set_micro_irq_mask(cpp_dev, 0, 0x0);
-			cpp_dev->timeout_trial_cnt = 0;
-			goto end;
+			goto error;
 		}
 		/* send trailer */
+
+		if (fifo_counter % MSM_CPP_RX_FIFO_LEVEL == 0) {
+			rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+			if (rc) {
+				pr_err("%s:%d] Reschedule trailer failed %d\n",
+					__func__, __LINE__, rc);
+				goto error;
+			}
+			fifo_counter = 0;
+		}
 		msm_cpp_write(0xabcdefaa, cpp_dev->base);
 		pr_debug("After frame:%d write\n", i+1);
 	}
@@ -1876,6 +1884,16 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 	cpp_timer.data.cpp_dev->timeout_trial_cnt++;
 
 end:
+	mutex_unlock(&cpp_dev->mutex);
+	pr_debug("%s:%d] exit\n", __func__, __LINE__);
+	return;
+error:
+	cpp_dev->state = CPP_STATE_OFF;
+	/* flush the queue */
+	msm_cpp_flush_queue_and_release_buffer(cpp_dev,
+		queue_len);
+	msm_cpp_set_micro_irq_mask(cpp_dev, 0, 0x0);
+	cpp_dev->timeout_trial_cnt = 0;
 	mutex_unlock(&cpp_dev->mutex);
 	pr_debug("%s:%d] exit\n", __func__, __LINE__);
 	return;
@@ -1895,10 +1913,9 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 	unsigned long flags;
 	uint32_t i, i1, i2;
 	int32_t rc = -EAGAIN;
-	int ret;
 	struct msm_cpp_frame_info_t *process_frame;
 	struct msm_queue_cmd *qcmd = NULL;
-	uint32_t queue_len = 0;
+	uint32_t queue_len = 0, fifo_counter = 0;
 
 	if (cpp_dev->processing_q.len < MAX_CPP_PROCESSING_FRAME) {
 		process_frame = frame_qcmd->command;
@@ -1915,25 +1932,33 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 
 		CPP_DBG("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 			CPP_CMD_TIMEOUT_MS, jiffies);
-		ret = mod_timer(&cpp_timer.cpp_timer,
-			jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
-		if (ret)
+		if (mod_timer(&cpp_timer.cpp_timer,
+			(jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS))) != 0)
 			CPP_DBG("Timer has not expired yet\n");
 
+		rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+		if (rc) {
+			pr_err("%s:%d: Scheduling payload failed %d",
+				__func__, __LINE__, rc);
+			goto dequeue_frame;
+		}
 		msm_cpp_write(0x6, cpp_dev->base);
+		fifo_counter++;
 		/* send top level and plane level */
-		for (i = 0; i < cpp_dev->payload_params.stripe_base; i++) {
-			if (i % MSM_CPP_RX_FIFO_LEVEL == 0) {
+		for (i = 0; i < cpp_dev->payload_params.stripe_base; i++,
+			fifo_counter++) {
+			if ((fifo_counter % MSM_CPP_RX_FIFO_LEVEL) == 0) {
 				rc = msm_cpp_poll_rx_empty(cpp_dev->base);
 				if (rc)
 					break;
+				fifo_counter = 0;
 			}
 			msm_cpp_write(process_frame->cpp_cmd_msg[i],
 				cpp_dev->base);
 		}
 		if (rc) {
-			pr_err("%s: Rescheduling plane info failed %d\n",
-				__func__, rc);
+			pr_err("%s:%d: Scheduling plane info failed %d\n",
+				__func__, __LINE__, rc);
 			goto dequeue_frame;
 		}
 		/* send stripes */
@@ -1943,21 +1968,31 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 		i2 = cpp_dev->payload_params.stripe_size *
 			(process_frame->last_stripe_index -
 			process_frame->first_stripe_index + 1);
-		for (i = 0; i < i2; i++) {
-			if (i % MSM_CPP_RX_FIFO_LEVEL == 0) {
+		for (i = 0; i < i2; i++, fifo_counter++) {
+			if ((fifo_counter % MSM_CPP_RX_FIFO_LEVEL) == 0) {
 				rc = msm_cpp_poll_rx_empty(cpp_dev->base);
 				if (rc)
 					break;
+				fifo_counter = 0;
 			}
 			msm_cpp_write(process_frame->cpp_cmd_msg[i+i1],
 				cpp_dev->base);
 		}
 		if (rc) {
-			pr_err("%s: Rescheduling stripe info failed %d\n",
-				__func__, rc);
+			pr_err("%s:%d: Scheduling stripe info failed %d\n",
+				__func__, __LINE__, rc);
 			goto dequeue_frame;
 		}
 		/* send trailer */
+		if ((fifo_counter % MSM_CPP_RX_FIFO_LEVEL) == 0) {
+			rc = msm_cpp_poll_rx_empty(cpp_dev->base);
+			if (rc) {
+				pr_err("%s: Scheduling trailer failed %d\n",
+				__func__, rc);
+				goto dequeue_frame;
+			}
+			fifo_counter = 0;
+		}
 		msm_cpp_write(MSM_CPP_MSG_ID_TRAILER, cpp_dev->base);
 
 		do_gettimeofday(&(process_frame->in_time));
@@ -2942,6 +2977,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				pr_err("%s: load firmware failure %d\n",
 					__func__, rc);
 				enable_irq(cpp_dev->irq->start);
+				mutex_unlock(&cpp_dev->mutex);
 				return rc;
 			}
 			rc = msm_cpp_fw_version(cpp_dev);
@@ -2949,6 +2985,7 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				pr_err("%s: get firmware failure %d\n",
 					__func__, rc);
 				enable_irq(cpp_dev->irq->start);
+				mutex_unlock(&cpp_dev->mutex);
 				return rc;
 			}
 			enable_irq(cpp_dev->irq->start);
@@ -3198,6 +3235,7 @@ STREAM_BUFF_END:
 			msm_cpp_core_clk_idx = get_clock_index("cpp_core_clk");
 			if (msm_cpp_core_clk_idx < 0) {
 				pr_err(" Fail to get clock index\n");
+				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
 			rc = msm_cpp_update_bandwidth_setting(cpp_dev,
@@ -3243,6 +3281,7 @@ STREAM_BUFF_END:
 
 		if (ioctl_ptr->len != sizeof(struct msm_pproc_queue_buf_info)) {
 			pr_err("%s: Not valid ioctl_ptr->len\n", __func__);
+			mutex_unlock(&cpp_dev->mutex);
 			return -EINVAL;
 		}
 		rc = msm_cpp_copy_from_ioctl_ptr(&queue_buf_info, ioctl_ptr);

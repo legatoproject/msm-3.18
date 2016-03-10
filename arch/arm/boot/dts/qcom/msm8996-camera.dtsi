@@ -39,7 +39,7 @@
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 266670000 0 0 200000000 0>;
+		qcom,clock-rates = <0 0 200000000 0 0 100000000 0>;
 	};
 
 	qcom,csiphy@a35000 {
@@ -60,7 +60,7 @@
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 266670000 0 0 200000000 0>;
+		qcom,clock-rates = <0 0 200000000 0 0 100000000 0>;
 	};
 
 	qcom,csiphy@a36000 {
@@ -81,7 +81,7 @@
 			"ispif_ahb_clk", "csiphy_timer_src_clk",
 			"csiphy_timer_clk", "camss_ahb_clk",
 			"csiphy_3p_clk_src", "csi_phy_3p_clk";
-		qcom,clock-rates = <0 0 266670000 0 0 200000000 0>;
+		qcom,clock-rates = <0 0 200000000 0 0 100000000 0>;
 	};
 
 	qcom,csid@a30000  {
@@ -586,6 +586,7 @@
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
 		camss-vdd-supply = <&gdsc_camss_top>;
 		vdd-supply = <&gdsc_cpp>;
+		qcom,vdd-names = "mmagic-vdd", "camss-vdd", "vdd";
 		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
 			<&clock_mmss clk_mmagic_camss_axi_clk>,
 			<&clock_mmss clk_camss_top_ahb_clk>,
@@ -611,6 +612,13 @@
 			<0x28 0x10000000>,
 			<0x2C 0x10000000>;
 		status = "ok";
+		qcom,msm-bus,name = "msm_camera_cpp";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<106 512 0 0>,
+			<106 512 0 0>;
+		qcom,msm-bus-vector-dyn-vote;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <553>;
 			qcom,plane-base = <481>;

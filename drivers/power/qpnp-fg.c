@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -111,7 +111,8 @@ enum pmic_subtype {
 enum wa_flags {
 	IADC_GAIN_COMP_WA = BIT(0),
 	USE_CC_SOC_REG = BIT(1),
-	PULSE_REQUEST_WA = BIT(2)
+	PULSE_REQUEST_WA = BIT(2),
+	BCL_HI_POWER_FOR_CHGLED_WA = BIT(3)
 };
 
 enum current_sense_type {
@@ -429,6 +430,7 @@ struct fg_chip {
 	struct work_struct	init_work;
 	struct work_struct	charge_full_work;
 	struct work_struct	gain_comp_work;
+	struct work_struct	bcl_hi_power_work;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
@@ -459,6 +461,7 @@ struct fg_chip {
 	bool			otg_present;
 	bool			safety_timer_expired;
 	bool			bad_batt_detection_en;
+	bool			bcl_lpm_disabled;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -1138,7 +1141,7 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 	return 0;
 }
 
-#define IACL_SCLT			BIT(5)
+#define IACS_SLCT			BIT(5)
 static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
 				u16 address, int offset, int len)
 {
@@ -1268,7 +1271,7 @@ static int __fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 	return rc;
 }
 
-#define IMA_REQ_ACCESS		(IACL_SCLT | RIF_MEM_ACCESS_REQ)
+#define IMA_REQ_ACCESS		(IACS_SLCT | RIF_MEM_ACCESS_REQ)
 static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 		u16 address, int len, int offset, int op)
 {
@@ -2617,6 +2620,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 	POWER_SUPPLY_PROP_CYCLE_COUNT,
 	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
+	POWER_SUPPLY_PROP_HI_POWER,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -3566,6 +3570,12 @@ static int fg_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_SAFETY_TIMER_EXPIRED:
 		chip->safety_timer_expired = val->intval;
 		schedule_work(&chip->status_change_work);
+		break;
+	case POWER_SUPPLY_PROP_HI_POWER:
+		if (chip->wa_flag & BCL_HI_POWER_FOR_CHGLED_WA) {
+			chip->bcl_lpm_disabled = !!val->intval;
+			schedule_work(&chip->bcl_hi_power_work);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -4937,6 +4947,52 @@ static void update_bcl_thresholds(struct fg_chip *chip)
 			data[lm_offset], data[mh_offset]);
 }
 
+static int disable_bcl_lpm(struct fg_chip *chip)
+{
+	u8 data[4];
+	u8 lm_offset = 0;
+	u16 address = 0;
+	int rc = 0;
+
+	address = settings[FG_MEM_BCL_LM_THRESHOLD].address;
+	lm_offset = settings[FG_MEM_BCL_LM_THRESHOLD].offset;
+	rc = fg_mem_read(chip, data, address, 4, 0, 1);
+	if (rc) {
+		pr_err("Error reading BCL LM & MH threshold rc:%d\n", rc);
+		return rc;
+	}
+	pr_debug("Old BCL LM threshold:%x\n", data[lm_offset]);
+
+	/* Put BCL always above LPM */
+	BCL_MA_TO_ADC(0, data[lm_offset]);
+
+	rc = fg_mem_write(chip, data, address, 4, 0, 0);
+	if (rc)
+		pr_err("spmi write failed. addr:%03x, rc:%d\n",
+			address, rc);
+	else
+		pr_debug("New BCL LM threshold:%x\n", data[lm_offset]);
+
+	return rc;
+}
+
+static void bcl_hi_power_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+			struct fg_chip,
+			bcl_hi_power_work);
+	int rc;
+
+	if (chip->bcl_lpm_disabled) {
+		rc = disable_bcl_lpm(chip);
+		if (rc)
+			pr_err("failed to disable bcl low mode %d\n",
+					rc);
+	} else {
+		update_bcl_thresholds(chip);
+	}
+}
+
 #define VOLT_UV_TO_VOLTCMP8(volt_uv)	\
 			((volt_uv - 2500000) / 9766)
 static int update_irq_volt_empty(struct fg_chip *chip)
@@ -5915,6 +5971,10 @@ static int fg_common_hw_init(struct fg_chip *chip)
 		}
 	}
 
+	/* Read the cycle counter back from FG SRAM */
+	if (chip->cyc_ctr.en)
+		restore_cycle_counter(chip);
+
 	return 0;
 }
 
@@ -5962,9 +6022,6 @@ static int fg_8994_hw_init(struct fg_chip *chip)
 	data[0] = KI_COEFF_PRED_FULL_4_0_LSB;
 	data[1] = KI_COEFF_PRED_FULL_4_0_MSB;
 	fg_mem_write(chip, data, KI_COEFF_PRED_FULL_ADDR, 2, 2, 0);
-	/* Read the cycle counter back from FG SRAM */
-	if (chip->cyc_ctr.en)
-		restore_cycle_counter(chip);
 
 	esr_value = ESR_DEFAULT_VALUE;
 	rc = fg_mem_write(chip, (u8 *)&esr_value, MAXRSCHANGE_REG, 8,
@@ -6050,6 +6107,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	case PMI8937:
 		rc = fg_8950_hw_init(chip);
 		/* Setup workaround flag based on PMIC type */
+		chip->wa_flag |= BCL_HI_POWER_FOR_CHGLED_WA;
 		if (fg_sense_type == INTERNAL_CURRENT_SENSE)
 			chip->wa_flag |= IADC_GAIN_COMP_WA;
 		if (chip->pmic_revision[REVID_DIG_MAJOR] > 1)
@@ -6098,12 +6156,12 @@ static int fg_setup_memif_offset(struct fg_chip *chip)
 	if (chip->ima_supported) {
 		/*
 		 * Change the FG_MEM_INT interrupt to track IACS_READY
-		 * condition instead of end-of-transation. This makes sure
+		 * condition instead of end-of-transaction. This makes sure
 		 * that the next transaction starts only after the hw is ready.
 		 */
 		rc = fg_masked_write(chip,
-			chip->mem_base + chip->offset[MEM_INTF_CFG],
-				IACS_INTR_SRC_SLCT, IACS_INTR_SRC_SLCT, 1);
+			chip->mem_base + MEM_INTF_IMA_CFG, IACS_INTR_SRC_SLCT,
+			IACS_INTR_SRC_SLCT, 1);
 		if (rc) {
 			pr_err("failed to configure interrupt source %d\n", rc);
 			return rc;
@@ -6317,6 +6375,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->init_work, delayed_init_work);
 	INIT_WORK(&chip->charge_full_work, charge_full_work);
 	INIT_WORK(&chip->gain_comp_work, iadc_gain_comp_work);
+	INIT_WORK(&chip->bcl_hi_power_work, bcl_hi_power_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -6484,6 +6543,7 @@ cancel_work:
 	cancel_work_sync(&chip->gain_comp_work);
 	cancel_work_sync(&chip->init_work);
 	cancel_work_sync(&chip->charge_full_work);
+	cancel_work_sync(&chip->bcl_hi_power_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);

@@ -263,7 +263,7 @@ retry_reset:
 			return;
 		}
 		timeout--;
-		mdelay(1);
+		udelay(1);
 	}
 
 	if ((host->quirks2 & SDHCI_QUIRK2_USE_RESET_WORKAROUND) &&
@@ -1421,16 +1421,6 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned char mode,
 {
 	struct mmc_host *mmc = host->mmc;
 	u8 pwr = 0;
-
-	/*
-	 * Don't disable/re-enable power to the card when running a
-	 * suspend/resume sequence and the pm_flags are configured to preserve
-	 * card power during suspend.
-	 */
-	if (mmc_card_keep_power(mmc) &&
-	    ((mmc->dev_status == DEV_SUSPENDED && mode == MMC_POWER_UP) ||
-	     (mmc->dev_status == DEV_SUSPENDING && mode == MMC_POWER_OFF)))
-		return;
 
 	if (!IS_ERR(mmc->supply.vmmc)) {
 		spin_unlock_irq(&host->lock);
@@ -2638,13 +2628,6 @@ static void sdhci_card_event(struct mmc_host *mmc)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
-static void sdhci_detect(struct mmc_host *mmc, bool detected)
-{
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops->detect)
-		host->ops->detect(host, detected);
-}
 static int sdhci_late_init(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -2685,7 +2668,6 @@ static const struct mmc_host_ops sdhci_ops = {
 	.disable	= sdhci_disable,
 	.notify_load	= sdhci_notify_load,
 	.notify_halt	= sdhci_notify_halt,
-	.detect		= sdhci_detect,
 	.force_err_irq	= sdhci_force_err_irq,
 };
 
@@ -3099,19 +3081,21 @@ static irqreturn_t sdhci_cmdq_irq(struct sdhci_host *host, u32 intmask)
 {
 	int err = 0;
 	u32 mask = 0;
+	irqreturn_t ret;
 
 	if (intmask & SDHCI_INT_CMD_MASK)
 		err = sdhci_get_cmd_err(intmask);
 	else if (intmask & SDHCI_INT_DATA_MASK)
 		err = sdhci_get_data_err(intmask);
 
+	ret = cmdq_irq(host->mmc, err);
 	if (err) {
 		/* Clear the error interrupts */
 		mask = intmask & SDHCI_INT_ERROR_MASK;
 		sdhci_writel(host, mask, SDHCI_INT_STATUS);
 	}
+	return ret;
 
-	return cmdq_irq(host->mmc, err);
 }
 
 #else
