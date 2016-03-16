@@ -22,11 +22,13 @@
 	qcom,board-id = <15 0>;
 };
 
-&blsp1_uart5 {
+/* SWISTART */
+&blsp1_uart1 {
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
+/* SWISTOP */
 
 &qnand_1 {
 	status = "ok";
