@@ -24,6 +24,10 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
+		/* SWISTART */
+		serial0 = &blsp1_uart1;
+		/* SWISTOP */
+
 		sdhc1 = &sdhc_1;/* SDC1 for SDIO slot */
 		qpic_nand1 = &qnand_1;
 	};
@@ -342,15 +346,18 @@
 		qcom,pipe-attr-ee;
 	};
 
-	blsp1_uart5: serial@78b3000 { /* BLSP1 UART5 */
+/* SWISTART */
+	blsp1_uart1: serial@78af000 { /* BLSP1 UART1 */
 		compatible = "qcom,msm-lsuart-v14";
-		reg = <0x78b3000 0x200>;
-		interrupts = <0 121 0>;
-		clocks = <&clock_gcc clk_gcc_blsp1_uart5_apps_clk>,
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
+		
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 		status = "disabled";
 	};
+/* SWISTOP */	
 
 	dma_blsp1: qcom,sps-dma@7884000 { /* BLSP1 */
 		#dma-cells = <4>;
