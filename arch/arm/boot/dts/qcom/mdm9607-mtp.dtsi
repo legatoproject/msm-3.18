@@ -249,3 +249,90 @@
 
 	status = "disabled";
 };
+
+/* SWISTART */
+/* AR758x ADC configuration */
+&pm8019_vadc { 
+	/* VADC Channel configuration MPP1 scaling 1/1*/  
+	chan@10 {
+		label = "mpp1_div1";
+		reg = <0x10>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>; //1:1 scaling
+		qcom,calibration-type = "absolute"; //1.25v ref-vcc
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <2>; //200us
+		qcom,fast-avg-setup = <0>;
+	};
+	/* VADC Channel configuration MPP2 scaling 1/1*/
+	chan@11 {
+		label = "mpp2_div1";
+		reg = <0x11>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>; //1:1 scaling
+		qcom,calibration-type = "absolute"; //1.25v ref-vcc
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <2>; //200us
+		qcom,fast-avg-setup = <0>;
+	};
+
+	/* Qualcomm stated that MPP4 is reserved for reference voltage for Transmitter DAC0/1
+   	   and can't be used as external ADC interface */
+
+	/* VADC Channel configuration MPP6 scaling 1/1*/
+	chan@15 {
+		label = "mpp6_div1";
+		reg = <0x15>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>; //1:1 scaling
+		qcom,calibration-type = "absolute"; //1.25v ref-vcc
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <2>; //200us
+		qcom,fast-avg-setup = <0>;
+	};
+};
+
+&pm8019_mpps {
+	/* MPP1 */
+	mpp@a000 {
+		reg = <0xa000 0x100>;
+		qcom,pin-num = <1>;
+		
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <0>; /* AMUX 5 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		status = "ok";		
+	};
+	
+	/* MPP2 */
+	mpp@a100 {
+		reg = <0xa100 0x100>;
+		qcom,pin-num = <2>;
+		
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <1>; /* AMUX 6 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		status = "ok";		
+	};
+
+	/* Qualcomm stated that MPP4 is reserved for reference voltage for Transmitter DAC0/1
+   	   and can't be used as external ADC interface */
+
+	/* MPP6 */
+	mpp@a500 {
+		reg = <0xa500 0x100>;
+		qcom,pin-num = <6>;
+		
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <1>; /* AMUX 6 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+		status = "ok";		
+	};
+};
+/* SWISTOP */
