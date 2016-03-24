@@ -61,6 +61,13 @@
 			alignment = <0x400000>;
 			size = <0x400000>;
 		};
+/* SWISTART */
+		sierra_smem: sierra_region@0x8ff00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8ff00000 0x100000>;
+		};
+/* SWISTOP */ 
 	};
 
 	aliases {
