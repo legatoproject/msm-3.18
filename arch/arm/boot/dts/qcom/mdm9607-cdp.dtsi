@@ -47,9 +47,11 @@
 	status = "ok";
 };
 
-&blsp1_uart3 {
+/* SWISTART */
+&blsp1_uart2 {
 	status = "ok";
 };
+/* SWISTOP */
 
 &qnand_1 {
 	status = "ok";
