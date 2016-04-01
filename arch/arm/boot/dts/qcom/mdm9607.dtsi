@@ -1400,7 +1400,10 @@
 		#address-cells = <0>;
 		interrupt-parent = <&emac0>;
 		#interrupt-cells = <1>;
-		interrupts = <0 1 2>;
+/* SWISTART */
+    /* sierra hardware is different than Qualcomm design, need to disable WOL interrupt to avoid crash*/
+		interrupts = <0 1>;
+/* SWISTOP */
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 76 0
 				1 &intc 0 80 0
@@ -1432,7 +1435,7 @@
 		qcom,emac-ptp-frac-ns-adj = <125000000 1>;
 		phy-mode = "sgmii";
 /* SWISTART */
-                /* sierra hardware(RXD0 is 0, RXD1 is 0, LED_ACT is 1): so the address should be 4 not 0*/
+    /* sierra hardware(RXD0 is 0, RXD1 is 0, LED_ACT is 1): so the address should be 4 not 0*/
 		phy-addr = <4>;
 /* SWISTOP */
 		status = "disable";
