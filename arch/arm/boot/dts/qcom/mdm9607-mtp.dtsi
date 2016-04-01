@@ -50,12 +50,15 @@
 	status = "ok";
 };
 
-/* SWISTART */
-/*
+
 &spi_1 {
 	status = "ok";
 };
-*/
+
+/* SWISTART */
+&spi_2 {
+	status = "ok";
+};
 /* SWISTOP */
 
 /* SWISTART */
