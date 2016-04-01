@@ -69,18 +69,19 @@
 		};
 /*SWISTOP */
 
+/* SWISTART */
 		spi1 {
 
 			spi1_default: spi1_default {
 				/* active state */
 				mux {
 					/* MOSI, MISO, CLK */
-					pins = "gpio4", "gpio5", "gpio7";
-					function = "blsp_spi2";
+					pins = "gpio0", "gpio1", "gpio3";
+					function = "blsp_spi3";
 				};
 
 				config {
-					pins = "gpio4", "gpio5", "gpio7";
+					pins = "gpio0", "gpio1", "gpio3";
 					drive-strength = <12>; /* 12 MA */
 					bias-disable = <0>; /* No PULL */
 				};
@@ -91,12 +92,12 @@
 				/* suspended state */
 				mux {
 					/* MOSI, MISO, CLK */
-					pins = "gpio4", "gpio5", "gpio7";
+					pins = "gpio0", "gpio1", "gpio3";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio4", "gpio5", "gpio7";
+					pins = "gpio0", "gpio1", "gpio3";
 					drive-strength = <2>; /* 2 MA */
 					bias-pull-down; /* PULL Down */
 				};
@@ -105,12 +106,12 @@
 			spi1_cs0_active: cs0_active {
 				/* CS */
 				mux {
-					pins = "gpio6";
-					function = "blsp_spi2";
+					pins = "gpio2";
+					function = "blsp_spi3";
 				};
 
 				config {
-					pins = "gpio6";
+					pins = "gpio2";
 					drive-strength = <2>;
 					bias-disable = <0>;
 				};
@@ -119,17 +120,80 @@
 			spi1_cs0_sleep: cs0_sleep {
 				/* CS */
 				mux {
-					pins = "gpio6";
+					pins = "gpio2";
 					function = "gpio";
 				};
 
 				config {
-					pins = "gpio6";
+					pins = "gpio2";
 					drive-strength = <2>;
 					bias-disable = <0>;
 				};
 			};
 		};
+
+		spi2 {
+
+			spi2_default: spi2_default {
+				/* active state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio8", "gpio9", "gpio11";
+					function = "blsp_spi5";
+				};
+
+				config {
+					pins = "gpio8", "gpio9", "gpio11";
+					drive-strength = <12>; /* 12 MA */
+					bias-disable = <0>; /* No PULL */
+				};
+			};
+
+
+			spi2_sleep: spi2_sleep {
+				/* suspended state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio8", "gpio9", "gpio11";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio8", "gpio9", "gpio11";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down; /* PULL Down */
+				};
+			};
+
+			spi2_cs0_active: cs0_active {
+				/* CS */
+				mux {
+					pins = "gpio10";
+					function = "blsp_spi5";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+
+			spi2_cs0_sleep: cs0_sleep {
+				/* CS */
+				mux {
+					pins = "gpio10";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio10";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+		};
+/* SWISTOP */
 
 	/* SDC pin type */
 
