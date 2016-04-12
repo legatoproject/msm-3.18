@@ -9,6 +9,12 @@
 
 #include "gpiolib.h"
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_gpio.h>
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
+
 static DEFINE_IDR(dirent_idr);
 
 
@@ -37,6 +43,86 @@ static DEFINE_MUTEX(sysfs_lock);
  *      * also affects existing and subsequent "falling" and "rising"
  *        /edge configuration
  */
+
+#ifdef CONFIG_SIERRA
+/* Product specific assignments in gpiolib_sysfs_init() */
+static struct ext_gpio_map *ext_gpio = NULL;
+static struct gpio_chip gpio_ext_chip = {
+		.label  = "msmextgpio",
+		.base   = 1,
+};
+
+/**
+ * gpio_map_name_to_num() - Return the internal GPIO number for an
+ *                         external GPIO name
+ * @*buf: The external GPIO name (may include a trailing <lf>)
+ * @*alias: pointer to return whether this name is an alias for another table entry
+ * Context: After gpiolib_sysfs_init has setup the gpio device
+ *
+ * Returns a negative number if the gpio_name is not mapped to a number
+ * or if the access to the GPIO is prohibited.
+ *
+ */
+static int gpio_map_name_to_num(const char *buf, bool *alias)
+{
+	int i;
+	int gpio_num = -1;
+	char gpio_name[GPIO_NAME_MAX+1];
+	int len;
+
+	len = min( strlen(buf), sizeof(gpio_name)-1 );
+	memcpy(gpio_name, buf, len);
+	if ((len > 0) && (gpio_name[len-1] < 0x20))
+		len--; /* strip trailing <0x0a> from buf for compare ops */
+	gpio_name[len] = 0;
+
+	if (ext_gpio != NULL)
+	{
+		for(i = 0; i < gpio_ext_chip.ngpio; i++)
+		{
+			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
+			{
+				gpio_num = ext_gpio[i].gpio_num;
+				pr_debug("%s: find GPIO %s\n", __func__, gpio_num);
+				return gpio_num;
+			}
+		}
+	}
+	pr_debug("%s: Can not find GPIO %s\n", __func__, gpio_name);
+	return -1;
+}
+
+/**
+ * gpio_map_num_to_name() - Return the external GPIO name for an
+ *                         internal GPIO number
+ * @gpio_num: The internal (i.e. MDM) GPIO pin number
+ * @alias: Return the second entry if 2 names are mapped to the same internal GPIO number
+ * Context: After gpiolib_sysfs_init has setup the gpio device
+ *
+ * Returns NULL if the gpio_num is not mapped to a name
+ * or if the access to the GPIO is prohibited.
+ *
+ */
+static char *gpio_map_num_to_name(int gpio_num, bool alias)
+{
+	int i;
+
+	if (ext_gpio != NULL)
+	{
+		for(i = 0; i < gpio_ext_chip.ngpio; i++)
+		{
+			if(gpio_num == ext_gpio[i].gpio_num)
+			{
+				return ext_gpio[i].gpio_name;
+			}
+		}
+	}
+	pr_debug("%s: Can not find GPIO %d\n", __func__, gpio_num);
+	return NULL;
+}
+
+#endif /*CONFIG_SIERRA*/
+
 
 static ssize_t gpio_direction_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -418,8 +504,16 @@ static ssize_t export_store(struct class *class,
 	long			gpio;
 	struct gpio_desc	*desc;
 	int			status;
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	bool alias = false;
 
+	status = gpio = gpio_map_name_to_num(buf, &alias);
+	pr_debug("%s: sierra--find GPIO: %d \n", __func__,gpio);
+#else
 	status = kstrtol(buf, 0, &gpio);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 	if (status < 0)
 		goto done;
 
@@ -460,8 +554,17 @@ static ssize_t unexport_store(struct class *class,
 	long			gpio;
 	struct gpio_desc	*desc;
 	int			status;
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	bool alias = false;
 
+	status = gpio = gpio_map_name_to_num(buf, &alias);
+	pr_debug("%s: sierra--unexport GPIO: %d \n", __func__,gpio);
+#else
 	status = kstrtol(buf, 0, &gpio);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
+
 	if (status < 0)
 		goto done;
 
@@ -525,6 +628,11 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	const char		*ioname = NULL;
 	struct device		*dev;
 	int			offset;
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	char ioname_buf[IONAME_MAX+1] = IONAME_PREFIX;
+#endif
+/*SWISTOP*/
 
 	/* can't export until sysfs is available ... */
 	if (!gpio_class.p) {
@@ -566,6 +674,14 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	offset = gpio_chip_hwgpio(desc);
 	if (desc->chip->names && desc->chip->names[offset])
 		ioname = desc->chip->names[offset];
+
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
+	ioname = ioname_buf;
+	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n", __func__,desc->chip->dev,desc->chip->ngpio,desc->chip->base);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 
 	dev = device_create_with_groups(&gpio_class, desc->chip->dev,
 					MKDEV(0, 0), desc, gpio_groups,
@@ -818,6 +934,15 @@ static int __init gpiolib_sysfs_init(void)
 	 * registered, and so arch_initcall() can always gpio_export().
 	 */
 	spin_lock_irqsave(&gpio_lock, flags);
+
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	/* Assign product specific GPIO mapping */
+	gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
+	ext_gpio = ext_gpio_ar;
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
+  
 	list_for_each_entry(chip, &gpio_chips, list) {
 		if (chip->exported)
 			continue;
