@@ -198,10 +198,10 @@
 /* MIBIB region constant */
 #define MIBIB_SMEM_MAGIC_BEG                0x4D494242U  /* "MIBB" in ASCII */
 #define MIBIB_SMEM_MAGIC_END                0x4D494245U  /* "MIBE" in ASCII */
-#define MIBIB_MAX_SIZE                      0x0800  /* 2KB */
 
 /* MIBIB image state machine, for MIBIB smart update feature */
 #define MIBIB_TO_UPDATE_IN_SBL              0xBBDAEFA0U  /* LK post to SBL, to smart update MIBIB */
+#define MIBIB_TO_UPDATE_IN_SBL_PHASE1       0xBBDAEF0FU  /* SBL updated MIBIB and SBL, SBL should go on update TZ, RPM, LK */
 #define MIBIB_UPDATED_IN_SBL                0xBBDAEFAFU  /* SBL post to LK, smart update MIBIB done. LK should update whole spkg in this state */
 #define MIBIB_UPDATE_CLEAR                  0x00000000U  /* LK clear state machine when spkg update done */
 
@@ -370,9 +370,7 @@ struct __attribute__((packed)) imsw_smem_im_s
 struct __attribute__((packed)) mibib_smem_s
 {
   uint32_t magic_beg;             /* Beginning marker */
-  uint32_t mibib_length;          /* Valid mibib length */
   uint32_t update_flag;           /* MIBIB update flag */
-  uint8_t  data[MIBIB_MAX_SIZE];  /* store MIBIB raw data */
   uint32_t magic_end;             /* End Marker */
   uint32_t crc32;                 /* CRC32 of above fields */
 };
