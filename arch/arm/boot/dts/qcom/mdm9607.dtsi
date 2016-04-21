@@ -1402,10 +1402,7 @@
 		#address-cells = <0>;
 		interrupt-parent = <&emac0>;
 		#interrupt-cells = <1>;
-/* SWISTART */
-    /* sierra hardware is different than Qualcomm design, need to disable WOL interrupt to avoid crash*/
-		interrupts = <0 1>;
-/* SWISTOP */
+		interrupts = <0 1 2>;
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 76 0
 				1 &intc 0 80 0

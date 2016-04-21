@@ -237,6 +237,11 @@ int emac_phy_init_external(struct emac_adapter *adpt)
 	struct emac_hw  *hw  = &adpt->hw;
 	u16 phy_id[2];
 	int retval = 0;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    u16 value_MMD7_CLK_25M;
+#endif
+/* SWISTOP */
 
 	if (phy->external) {
 		emac_phy_reset_external(adpt);
@@ -252,6 +257,30 @@ int emac_phy_init_external(struct emac_adapter *adpt)
 
 		phy->id[0] = phy_id[0];
 		phy->id[1] = phy_id[1];
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* from AR8033 document, if will pull up LED_1000 in the hardware, we have to set MMD7 register 0x1806 bit 12 to 1 */
+	retval = emac_phy_write(adpt, phy->addr, MII_MMD_CTRL, 0x7);
+	if (retval)
+		return retval;
+	retval = emac_phy_write(adpt, phy->addr, MII_MMD_DATA, 0x8016);
+	if (retval)
+		return retval;
+	retval = emac_phy_write(adpt, phy->addr, MII_MMD_CTRL, 0x4007);
+	if (retval)
+		return retval;
+	retval = emac_phy_read(adpt, phy->addr, MII_MMD_DATA, &value_MMD7_CLK_25M);
+	if (retval)
+		return retval;
+	retval = emac_phy_write(adpt, phy->addr, MII_MMD_DATA, value_MMD7_CLK_25M | 0x1000);
+	if (retval)
+		return retval;
+	retval = emac_phy_read(adpt, phy->addr, MII_MMD_DATA, &value_MMD7_CLK_25M);
+	if (retval)
+		return retval;
+#endif
+/* SWISTOP */
 	} else {
 		emac_disable_mdio_autopoll(hw);
 	}
