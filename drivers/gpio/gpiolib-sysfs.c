@@ -12,6 +12,8 @@
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_gpio.h>
+
+static int gRmode = -1;
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
@@ -506,6 +508,17 @@ static ssize_t export_store(struct class *class,
 	int			status;
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	gRmode = sierra_smem_get_factory_mode();
+	if(gRmode == 1)
+	{
+		ext_gpio = ext_gpio_mft;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+	}
+	else	
+	{
+		ext_gpio = ext_gpio_ar;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+	}
 	bool alias = false;
 
 	status = gpio = gpio_map_name_to_num(buf, &alias);
@@ -556,6 +569,17 @@ static ssize_t unexport_store(struct class *class,
 	int			status;
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	gRmode = sierra_smem_get_factory_mode();
+	if(gRmode == 1)
+	{
+		ext_gpio = ext_gpio_mft;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+	}
+	else	
+	{
+		ext_gpio = ext_gpio_ar;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+	}
 	bool alias = false;
 
 	status = gpio = gpio_map_name_to_num(buf, &alias);
@@ -677,9 +701,21 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	gRmode = sierra_smem_get_factory_mode();
+	if(gRmode == 1)
+	{
+		ext_gpio = ext_gpio_mft;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+	}
+	else	
+	{
+		ext_gpio = ext_gpio_ar;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+	}
 	strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
 	ioname = ioname_buf;
-	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n", __func__,desc->chip->dev,desc->chip->ngpio,desc->chip->base);
+	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n", 
+	__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);	
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
