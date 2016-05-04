@@ -8,5 +8,5 @@ obj-$(CONFIG_ARCH_MSM8937) += board-8937.o
 obj-$(CONFIG_ARCH_MSMTITANIUM) += board-titanium.o
 
 # SWISTART
-obj-y += sierra_smem.o sierra_smem_msg.o sierra_smem_errdump.o
+obj-y += sierra_smem.o sierra_smem_msg.o sierra_smem_errdump.o sierra_smem_mode.o
 # SWISTOP
