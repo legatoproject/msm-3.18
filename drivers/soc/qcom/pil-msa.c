@@ -573,8 +573,6 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		drv->mba_dp_size += drv->dp_size;
 	}
 
-/* SWISTART */
-#if 0
 	mba_dp_virt = dma_alloc_attrs(dma_dev, drv->mba_dp_size, &mba_dp_phys,
 				   GFP_KERNEL, &md->attrs_dma);
 	if (!mba_dp_virt) {
@@ -583,11 +581,6 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		ret = -ENOMEM;
 		goto err_invalid_fw;
 	}
-#else
-	mba_dp_virt = ioremap(0x8ec00000,0x100000);
-	mba_dp_phys = 0x8ec00000;
-#endfi
-/* SWISTOP */
 
 	/* Make sure there are no mappings in PKMAP and fixmap */
 	kmap_flush_unused();
@@ -597,15 +590,8 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	drv->mba_dp_virt = mba_dp_virt;
 	mba_dp_phys_end = mba_dp_phys + drv->mba_dp_size;
 
-/* SWISTART */
-#if 0
 	dev_info(pil->dev, "Loading MBA and DP (if present) from %pa to %pa size %zx\n",
 			&mba_dp_phys, &mba_dp_phys_end, drv->mba_dp_size);
-#else
-	dev_info(pil->dev, "MBA: loading from %pa to %pa vddr %pa\n", &mba_dp_phys,
-			&mba_dp_phys_end , &mba_dp_virt);
-#endif
-/* SWISTOP */
 
 	/* Load the MBA image into memory */
 	count = fw->size;
@@ -675,11 +661,6 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	/* Make metadata physically contiguous and 4K aligned. */
 	mdata_virt = dma_alloc_attrs(dma_dev, size, &mdata_phys, GFP_KERNEL,
 				     &attrs);
-/* SWISTART */
-	mdata_virt = ioremap(0x8ed00000,0x100000);
-	mdata_phys = 0x8ed00000;
-	dev_err(pil->dev, "MBA metadata locat in vddr %pa size %d\n", &mdata_virt, size);
-/* SWISTOP */
 
 	if (!mdata_virt) {
 		dev_err(pil->dev, "%s MBA metadata buffer allocation %zx bytes failed\n",
