@@ -629,6 +629,13 @@ static void gsmd_disconnect_work(struct work_struct *w)
 
 	smd_close(port->pi->ch);
 	port->pi->ch = NULL;
+/* SWISTART */
+/* Suspend state shall be reseted, as it's supposed to be false when USB 
+re-connect */
+#ifdef CONFIG_SIERRA
+	port->is_suspended = false;
+#endif
+/* SWISTOP */	
 }
 
 static void gsmd_notify_modem(void *gptr, u8 portno, int ctrl_bits)
