@@ -1295,11 +1295,11 @@
 			 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 		qcom,infinite-mode = <0>;
-/*		qcom,use-bam;*/
+		qcom,use-bam;
 		qcom,use-pinctrl;
 		qcom,ver-reg-exists;
-		qcom,bam-consumer-pipe-index = <8>;
-		qcom,bam-producer-pipe-index = <9>;
+		qcom,bam-consumer-pipe-index = <12>;
+		qcom,bam-producer-pipe-index = <13>;
 		qcom,master-id = <86>;
 		sierra,deassert-time = <20>;
 		spidev1@0 {
@@ -1326,11 +1326,11 @@
 			 <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
 		qcom,infinite-mode = <0>;
-/*		qcom,use-bam;*/
+		qcom,use-bam;
 		qcom,use-pinctrl;
 		qcom,ver-reg-exists;
-		qcom,bam-consumer-pipe-index = <12>;
-		qcom,bam-producer-pipe-index = <13>;
+		qcom,bam-consumer-pipe-index = <16>;
+		qcom,bam-producer-pipe-index = <17>;
 		qcom,master-id = <86>;
 		sierra,deassert-time = <20>;
 		spidev2@0 {
