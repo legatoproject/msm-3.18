@@ -412,6 +412,8 @@
 		regulator-name = "emac_lan_vreg";
 		startup-delay-us = <250>;
 		enable-active-high;
-		gpio = <&pm8019_mpps 4 0>;
+/* SWISTART */		
+/*		gpio = <&pm8019_mpps 4 0>; */    /* Remove this line, as we don't use mpp4 for this function */
+/* SWISTOP */
 	};
 };
