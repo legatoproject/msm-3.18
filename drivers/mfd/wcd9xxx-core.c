@@ -112,10 +112,17 @@ static const struct of_device_id wcd9xxx_of_match[] = {
 	  .data = (void *)&wcd9xxx_cdc_types[WCD9335]},
 	{ .compatible = "qcom,tasha-i2c-pgd",
 	  .data = (void *)&wcd9xxx_cdc_types[WCD9335]},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{ .compatible = "qcom,wcd9xxx-i2c",
+	  .data = (void *)&wcd9xxx_cdc_types[WCD9306]},
+#else
 	{ .compatible = "qcom,wcd9xxx-i2c",
 	  .data = (void *)&wcd9xxx_cdc_types[WCD9306]},
 	{ .compatible = "qcom,wcd9xxx-i2c",
 	  .data = (void *)&wcd9xxx_cdc_types[WCD9330]},
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */	  
 	{ }
 };
 MODULE_DEVICE_TABLE(of, wcd9xxx_of_match);

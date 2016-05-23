@@ -869,20 +869,23 @@
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
+			"SPK_OUT", "MCLK",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
-			"AMIC3", "MIC BIAS2 External",
-			"MIC BIAS2 External", "ANCRight Headset Mic",
 			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC5", "MIC BIAS2 External",
 			"MIC BIAS2 External", "ANCLeft Headset Mic",
-			"AMIC5", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Handset Mic",
-			"AMIC6", "MIC BIAS1 External",
-			"MIC BIAS1 External", "Handset Mic",
 			"DMIC1", "MIC BIAS1 External",
 			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
 			"DMIC3", "MIC BIAS3 External",
-			"MIC BIAS3 External", "Digital Mic3";
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4";
 
 		qcom,codec-mclk-clk-freq = <12288000>;
 		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";

@@ -2200,15 +2200,33 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 			     GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
-
+	
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	ret = of_property_read_u32(pdev->dev.of_node,
+				   "qcom,tapan-mclk-clk-freq",
+				   &pdata->mclk_freq);
+#else
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,codec-mclk-clk-freq",
 				   &pdata->mclk_freq);
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
+
 	if (ret) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		dev_err(&pdev->dev,
+			"%s Looking up %s property in node %s failed",
+			__func__, "qcom,tapan-mclk-clk-freq",
+			pdev->dev.of_node->full_name);
+#else
 		dev_err(&pdev->dev,
 			"%s Looking up %s property in node %s failed",
 			__func__, "qcom,codec-mclk-clk-freq",
 			pdev->dev.of_node->full_name);
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 
 		goto err;
 	}
