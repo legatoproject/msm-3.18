@@ -28,6 +28,11 @@
 #include <sound/q6core.h>
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9330.h"
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include "../codecs/wcd9306.h"
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 
 /* Spk control */
 #define MDM_SPK_ON 1
@@ -84,7 +89,13 @@
 #define CLOCK_OFF 0
 
 /* Machine driver Name*/
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define DRV_NAME "mdm9607-asoc-tapan"
+#else
 #define DRV_NAME "mdm9607-asoc-tomtom"
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 
 enum mi2s_pcm_mux {
 	PRI_MI2S_PCM,
@@ -812,7 +823,13 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			}
 		}
 		atomic_inc(&pdata->prim_clk_usrs);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		tapan_mclk_enable(codec, 1, dapm);
+#else
 		tomtom_mclk_enable(codec, 1, dapm);
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 	} else {
 		if (atomic_read(&pdata->prim_clk_usrs) > 0)
 			atomic_dec(&pdata->prim_clk_usrs);
@@ -827,7 +844,13 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 				goto err;
 			}
 		}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		tapan_mclk_enable(codec, 0, dapm);
+#else
 		tomtom_mclk_enable(codec, 0, dapm);
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 	}
 	pr_debug("%s clk2 %x mode %x\n",  __func__, lpass_clk->clk_val2,
 		 lpass_clk->clk_set_mode);
@@ -1595,19 +1618,19 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
 #else
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_i2s_rx1",
+		.codec_name = "tapan_codec",
+		.codec_dai_name = "tapan_i2s_rx1",
 #endif /* SIERRA */
 /* SWISTOP */
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA
 		.init  = &mdm_mi2s_audrx_init,
 #endif /* SIERRA */
 /* SWISTOP */
@@ -1622,12 +1645,12 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
 #else
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_i2s_rx1",
+		.codec_name = "tapan_codec",
+		.codec_dai_name = "tapan_i2s_tx1",
 #endif /* SIERRA */
 /* SWISTOP */
 		.no_pcm = 1,
@@ -1795,10 +1818,26 @@ static struct snd_soc_dai_link mdm_dai[] = {
 };
 
 static struct snd_soc_card snd_soc_card_mdm = {
-	.name = "mdm9607-tomtom-i2s-snd-card",
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	.name = "mdm9607-tapan-i2s-snd-card",
+#else
+	.name = "mdm9607-tomom-i2s-snd-card",
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 	.dai_link = mdm_dai,
 	.num_links = ARRAY_SIZE(mdm_dai),
 };
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct snd_soc_card snd_soc_card_mdm_9306 = {
+	.name = "mdm9607-tapan-i2s-snd-card",
+	.dai_link = mdm_dai,
+	.num_links = ARRAY_SIZE(mdm_dai),
+};
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 
 static int mdm_populate_dai_link_component_of_node(
 					struct snd_soc_card *card)
@@ -1989,15 +2028,33 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 			     GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
-
+	
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	ret = of_property_read_u32(pdev->dev.of_node,
+				   "qcom,tapan-mclk-clk-freq",
+				   &pdata->mclk_freq);
+#else
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,tomtom-mclk-clk-freq",
 				   &pdata->mclk_freq);
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
+
 	if (ret) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		dev_err(&pdev->dev,
+			"%s Looking up %s property in node %s failed",
+			__func__, "qcom,tapan-mclk-clk-freq",
+			pdev->dev.of_node->full_name);
+#else
 		dev_err(&pdev->dev,
 			"%s Looking up %s property in node %s failed",
 			__func__, "qcom,tomtom-mclk-clk-freq",
 			pdev->dev.of_node->full_name);
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 
 		goto err;
 	}
@@ -2137,6 +2194,11 @@ static int mdm_asoc_machine_remove(struct platform_device *pdev)
 
 static const struct of_device_id mdm_asoc_machine_of_match[]  = {
 	{ .compatible = "qcom,mdm9607-audio-tomtom", },
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{ .compatible = "qcom,mdm9607-audio-tapan", },
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 	{},
 };
 

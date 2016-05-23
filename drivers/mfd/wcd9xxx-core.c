@@ -100,6 +100,11 @@ static const int wcd9xxx_cdc_types[] = {
 	[WCD9XXX] = WCD9XXX,
 	[WCD9330] = WCD9330,
 	[WCD9335] = WCD9335,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	[WCD9306] = WCD9306,
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 };
 
 static const struct of_device_id wcd9xxx_of_match[] = {
@@ -109,8 +114,15 @@ static const struct of_device_id wcd9xxx_of_match[] = {
 	  .data = (void *)&wcd9xxx_cdc_types[WCD9335]},
 	{ .compatible = "qcom,tasha-i2c-pgd",
 	  .data = (void *)&wcd9xxx_cdc_types[WCD9335]},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{ .compatible = "qcom,wcd9xxx-i2c",
+	  .data = (void *)&wcd9xxx_cdc_types[WCD9306]},
+#else
 	{ .compatible = "qcom,wcd9xxx-i2c",
 	  .data = (void *)&wcd9xxx_cdc_types[WCD9330]},
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */	  
 	{ }
 };
 MODULE_DEVICE_TABLE(of, wcd9xxx_of_match);
@@ -2822,6 +2834,11 @@ static void wcd9xxx_set_codec_specific_param(struct wcd9xxx *wcd9xxx)
 	switch (wcd9xxx->type) {
 	case WCD9335:
 	case WCD9330:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case WCD9306:
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
 		wcd9xxx->using_regmap = true;
 		wcd9xxx->prev_pg_valid = false;
 		break;

@@ -1691,7 +1691,9 @@ Example:
 * MDM9607 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,mdm9607-audio-tomtom"
+- compatible : "qcom,mdm9607-audio-tomtom" for tomtom codec and
+		node is "sound" and "qcom,mdm9607-audio-tapan"
+		for tapan codec and node is "sound-9306"
 - qcom,model : The user-visible name of this sound card.
 - qcom,audio-routing : A list of the connections between audio components.
 Each entry is a pair of strings, the first being the connection's sink,
