@@ -3,7 +3,7 @@
  *
  * This file contains generic proc-fs routines for handling
  * directories and files.
- * 
+ *
  * Copyright (C) 1991, 1992 Linus Torvalds.
  * Copyright (C) 1997 Theodore Ts'o
  */
@@ -42,7 +42,7 @@ static int proc_notify_change(struct dentry *dentry, struct iattr *iattr)
 	struct proc_dir_entry *de = PDE(inode);
 	int error;
 
-	error = inode_change_ok(inode, iattr);
+	error = setattr_prepare(dentry, iattr);
 	if (error)
 		return error;
 
@@ -277,7 +277,7 @@ static int proc_register(struct proc_dir_entry * dir, struct proc_dir_entry * dp
 {
 	struct proc_dir_entry *tmp;
 	int ret;
-	
+
 	ret = proc_alloc_inum(&dp->low_ino);
 	if (ret)
 		return ret;
@@ -441,7 +441,7 @@ out:
 	return NULL;
 }
 EXPORT_SYMBOL(proc_create_data);
- 
+
 void proc_set_size(struct proc_dir_entry *de, loff_t size)
 {
 	de->size = size;

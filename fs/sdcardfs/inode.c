@@ -742,7 +742,7 @@ static int sdcardfs_setattr(struct vfsmount *mnt, struct dentry *dentry, struct 
 	/* Allow touch updating timestamps. A previous permission check ensures
 	 * we have write access. Changes to mode, owner, and group are ignored*/
 	ia->ia_valid |= ATTR_FORCE;
-	err = inode_change_ok(&tmp, ia);
+	error = setattr_prepare(dentry, ia);
 
 	if (!err) {
 		/* check the Android group ID */

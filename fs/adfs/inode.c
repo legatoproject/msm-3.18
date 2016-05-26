@@ -302,8 +302,8 @@ adfs_notify_change(struct dentry *dentry, struct iattr *attr)
 	struct super_block *sb = inode->i_sb;
 	unsigned int ia_valid = attr->ia_valid;
 	int error;
-	
-	error = inode_change_ok(inode, attr);
+
+	error = setattr_prepare(dentry, attr);
 
 	/*
 	 * we can't change the UID or GID of any file -
