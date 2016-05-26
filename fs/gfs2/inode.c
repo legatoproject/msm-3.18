@@ -423,7 +423,7 @@ static void gfs2_init_dir(struct buffer_head *dibh,
 	gfs2_qstr2dirent(&gfs2_qdotdot, dibh->b_size - GFS2_DIRENT_SIZE(1) - sizeof(struct gfs2_dinode), dent);
 	gfs2_inum_out(parent, dent);
 	dent->de_type = cpu_to_be16(DT_DIR);
-	
+
 }
 
 /**
@@ -1388,7 +1388,7 @@ static int gfs2_rename(struct inode *odir, struct dentry *odentry,
 	if (nip) {
 		gfs2_holder_init(nip->i_gl, LM_ST_EXCLUSIVE, 0, ghs + num_gh);
 		num_gh++;
-		/* grab the resource lock for unlink flag twiddling 
+		/* grab the resource lock for unlink flag twiddling
 		 * this is the case of the target file already existing
 		 * so we unlink before doing the rename
 		 */
@@ -1782,7 +1782,7 @@ static int gfs2_setattr(struct dentry *dentry, struct iattr *attr)
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
 		goto out;
 
-	error = inode_change_ok(inode, attr);
+	err = setattr_prepare(dentry, attr);
 	if (error)
 		goto out;
 
