@@ -33,6 +33,12 @@
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
@@ -535,6 +541,12 @@ static int msm_restart_probe(struct platform_device *pdev)
 		pr_err("%s:Error in creation sysfs_create_group\n", __func__);
 		kobject_del(&dload_kobj);
 	}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	download_mode = sierra_smem_get_download_mode();
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 skip_sysfs_create:
 #endif
 	np = of_find_compatible_node(NULL, NULL,
