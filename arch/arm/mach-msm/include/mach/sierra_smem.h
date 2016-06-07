@@ -129,6 +129,31 @@
 #define BC_MSG_USB_DESC_INVALID    ((void *)(-1))
 #define BC_COMP_CHECK              0xFFFFFFFF
 
+/* 
+  Reset type defination start
+  Please note that the values between BS_BCMSG_RTYPE_MIN and BS_BCMSG_RTYPE_MAX must be successive,
+  and sync up the new definations to bsudefs.h/sierra_smem.h/atbc.c together.
+*/
+#define BS_BCMSG_RTYPE_INVALID                 ((uint32_t)(-1))
+#define BS_BCMSG_RTYPE_MIN                     ((uint32_t)(1))
+#define BS_BCMSG_RTYPE_POWER_CYCLE             BS_BCMSG_RTYPE_MIN        /* Normal power up, power cycle */
+#define BS_BCMSG_RTYPE_MP_SOFTWARE             ((uint32_t)(2))           /* Software reset in MPSS*/
+#define BS_BCMSG_RTYPE_LINUX_SOFTWARE          ((uint32_t)(3))           /* Software reset in Linux */
+#define BS_BCMSG_RTYPE_HARDWARE                ((uint32_t)(4))           /* Hardware reset */
+#define BS_BCMSG_RTYPE_MP_CRASH                ((uint32_t)(5))           /* MPSS crash */
+#define BS_BCMSG_RTYPE_LINUX_CRASH             ((uint32_t)(6))           /* Linux crash */
+#define BS_BCMSG_RTYPE_SW_UPDATE_IN_SBL        ((uint32_t)(7))           /* SW update in SBL */
+#define BS_BCMSG_RTYPE_SW_UPDATE_IN_LK         ((uint32_t)(8))           /* SW update in LK */
+#define BS_BCMSG_RTYPE_SW_UPDATE_IN_LINUX      ((uint32_t)(9))           /* SW update in Linux */
+#define BS_BCMSG_RTYPE_UNKNOWN                 ((uint32_t)(10))          /* Unknown reset */
+#define BS_BCMSG_RTYPE_MAX                     BS_BCMSG_RTYPE_UNKNOWN
+
+#define BS_BCMSG_RTYPE_IS_SET                  ((uint32_t)(0x00534554))  /* SET */
+#define BS_BCMSG_RTYPE_IS_CLEAR                ((uint32_t)(0x00434C52))  /* CLR */
+/* 
+  Reset type defination end
+*/
+
 #define BC_MSG_SIZE_MAX                    340 /* 1/3 of 1kB, on 4-byte boundaries */
 #define BC_SMEM_MSG_SZ                     (sizeof(struct bc_smem_message_s))
 
@@ -267,7 +292,9 @@ struct __attribute__((packed)) bsmsg_mailbox_s
   uint32_t hwconfig;                     /* hardware configuration */
   void   * usbdescp;                     /* USB descriptor pointer */
   uint64_t clr_flags;                    /* flags to clear, only used in outbox */
-  /*** End of message version 1 (36 bytes) ***/
+  uint32_t reset_type;                   /* the type to indicate the module reset reason. */
+  uint32_t brstsetflg;                   /* the flag to indicate the module reset reason is set. */
+  /*** End of message version 1 (44 bytes) ***/
 
   /*** New fields may be added here.  Do not modify previous fields ***/
 };
