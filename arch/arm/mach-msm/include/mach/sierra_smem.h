@@ -86,7 +86,9 @@
 #define ERDUMP_SAVE_CMD_END                0xFF0F
 #define ERDUMP_PROC_TYPE_APPS              0x41505053 /* "APPS" in ascii hex */
 
-/* Shared Memory Sub-region offsets */
+/* Shared Memory Sub-region offsets.
+ * Must be sync with bsmem.c(in MPSS) and swidssd.h(in APSS). 
+ */
 #define BS_SMEM_CRC_SIZE                   0x0004   /* 4 bytes CRC value for each shared memory area */
 #define BS_SMEM_CWE_SIZE                   0x1000   /* 512 * 8 slots              */
 #define BS_SMEM_MSG_SIZE                   0x0400   /* 1 kB, fixed for expansion  */
@@ -99,6 +101,7 @@
 #define BS_SMEM_IM_SIZE                    0x0400   /* 1 KB */
 #define BS_SMEM_MIBIB_SIZE                 0x0814   /* 2KB + 20 bytes */
 #define BS_SMEM_MODE_SIZE                  0x0010   /* 16 bytes for mode switching */
+#define BS_SMEM_DSSD_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -110,6 +113,7 @@
 #define BSMEM_IM_OFFSET                    (BSMEM_FWUP_OFFSET + BS_SMEM_FWUP_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MIBIB_OFFSET                 (BSMEM_IM_OFFSET + BS_SMEM_IM_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -204,6 +208,64 @@
 #define MIBIB_TO_UPDATE_IN_SBL_PHASE1       0xBBDAEF0FU  /* SBL updated MIBIB and SBL, SBL should go on update TZ, RPM, LK */
 #define MIBIB_UPDATED_IN_SBL                0xBBDAEFAFU  /* SBL post to LK, smart update MIBIB done. LK should update whole spkg in this state */
 #define MIBIB_UPDATE_CLEAR                  0x00000000U  /* LK clear state machine when spkg update done */
+
+/* DSSD region constant. It is necessary to sync in dsudefs.h(in mpss), 
+ * sierra_smem.h(in kernel) and swidssd.h(in APSS).
+ */
+#define DS_MAGIC_NUMBER                     0x6475616C  /* "dual" */
+#define DS_SYSTEM_1                         0x73797331  /* "sys1" */ 
+#define DS_SYSTEM_2                         0x74656D32  /* "tem2" */
+#define DS_OUT_OF_SYNC                      0x4F6F5300  /* "OoS" */
+#define DS_IS_SYNC                          0x73796E63  /* "sync" */
+#define DS_BOOT_UP_CHANGED                  0x6368616E  /* "chan" */
+#define DS_FLAG_NOT_SET                     0xFFFFFFFF  /* Used during parameter delivery if 'boot_system', 'swap_reason', 'out_of_sync' and 'sw_update_state' not set */
+/* Bitmasks for images
+ * 1. It is used for 'updated image flag', 'bad image flag' and 'refresh flag' 
+ * 2. It is 64 bits length in order to consider future products may use different images
+ */
+#define DS_IMAGE_CLEAR_FLAG                 0x0 /* Used during parameter delivery if 'updated image flag', 'bad image flag' and 'refresh flag' is cleared */
+#define DS_IMAGE_SBL                        (1 << 0)   /* SBL */
+#define DS_IMAGE_MIBIB_1                    (1 << 1)   /* MIBIB copy 1, only for bad image management */
+#define DS_IMAGE_MIBIB_2                    (1 << 2)   /* MIBIB copy 2, only for bad image management */
+#define DS_IMAGE_SEDB                       (1 << 3)   /* SEDB partition */
+#define DS_IMAGE_SEDB_2                     (1 << 4)   /* SEDB2 partition */
+#define DS_IMAGE_TZ_1                       (1 << 5)   /* TZ of system 1 */
+#define DS_IMAGE_TZ_2                       (1 << 6)   /* TZ of system 2 */
+#define DS_IMAGE_RPM_1                      (1 << 7)   /* RPM of system 2 */
+#define DS_IMAGE_RPM_2                      (1 << 8)   /* RPM of system 1 */
+#define DS_IMAGE_MODEM_1                    (1 << 9)   /* MODEM of system 1 */
+#define DS_IMAGE_MODEM_2                    (1 << 10)  /* MODEM of system 2 */
+#define DS_IMAGE_ABOOT_1                    (1 << 11)  /* LK of system 1 */
+#define DS_IMAGE_ABOOT_2                    (1 << 12)  /* LK of system 2 */
+#define DS_IMAGE_BOOT_1                     (1 << 13)  /* Kernel of system 1 */
+#define DS_IMAGE_BOOT_2                     (1 << 14)  /* Kernel of system 2 */
+#define DS_IMAGE_SYSTEM_1                   (1 << 15)  /* Root file system of system 1 */
+#define DS_IMAGE_SYSTEM_2                   (1 << 16)  /* Root file system of system 2 */
+#define DS_IMAGE_USERDATA_1                 (1 << 17)  /* Legato FRM of system 1 */
+#define DS_IMAGE_USERDATA_2                 (1 << 18)  /* Legato FRM of system 2 */
+#define DS_IMAGE_CUSTOMER_0                 (1 << 19)  /* 'customer0' partition which stores customer application of system 1 */
+#define DS_IMAGE_CUSTOMER_2                 (1 << 20)  /* 'customer2' partition which stores customer application of system 2 */
+#define DS_IMAGE_FLAG_NOT_SET               0xFFFFFFFFFFFFFFFF /* Used during parameter delivery if 'updated image flag', 'bad image flag' and 'refresh flag' not set */
+
+/************
+ *
+ * Name:     ds_swap_reason_e
+ *
+ * Purpose:  To enumerate all DS swap reasons
+ *
+ * Notes:    None
+ *
+ ************/
+enum ds_swap_reason_e
+{
+  DS_SWAP_REASON_MIN = 0,
+  DS_SWAP_REASON_NONE = DS_SWAP_REASON_MIN,            /* No swap since power up */
+  DS_SWAP_REASON_BAD_IMAGE,                            /* Bad image detected */
+  DS_SWAP_REASON_SW_UPDATE,                            /* Normal SW update */
+  DS_SWAP_REASON_AT_COMMAND,                           /* AT command trigger */
+  DS_SWAP_REASON_APPS,                                 /* Legato API trigger */
+  DS_SWAP_REASON_MAX = DS_SWAP_REASON_APPS,            /* End */
+};
 
 /************
  *
@@ -391,6 +453,36 @@ struct __attribute__((packed)) bs_smem_mode_switch
   uint32_t  mode;                                    /* factory or normal mode */
   uint32_t magic_end;                                /* Beginning marker  */
   uint32_t crc32;                                    /* crc32             */
+};
+
+/************
+ *
+ * Name:     ds_smem_message_s
+ *
+ * Purpose:  Message structure used in DS
+ *
+ * Notes:  It is only used during boot up.
+ * 1. In SBL, read DSSD partition and update DSSD SMEM every time if 'is_changed' is NOT equal with DS_BOOT_UP_CHANGED.
+ * 2. In SBL, sync DSSD SMEM to DSSD partition if 'is_changed' is equal with DS_BOOT_UP_CHANGED.
+ * 3. In SBL, get 'boot_system' flag to determine boot up which TZ, RPM, LK images.
+ * 4. In SBL, write DSSD SMEM if any one image of TZ, RPM, LK is invalid.
+ * 5. In LK, read DSSD SMEM to get 'boot_system' flag to determine boot up which Kernel.
+ * 6. In LK, write DSSD SMEM if kernel image is invalid.
+ * 7. In Kernel, read DSSD SMEM to get 'boot_system' flag to determine boot up which root FS.
+ * 8. In Kernel, write DSSD SMEM if root FS image is invalid.
+ * 9. In root FS, read DSSD SMEM to get 'boot_system' flag to determine boot up which Legato related images.
+ * 10. In root FS, write DSSD SMEM if any one of Legato related image is invalid.
+ *
+ ************/
+struct __attribute__((packed)) ds_smem_message_s
+{
+  uint32_t  magic_beg;             /* Magic begin flag */
+  uint32_t  boot_system;           /* Boot system flag */
+  uint32_t  swap_reason;           /* Dual system swap reasons */
+  uint32_t  is_changed;            /* Mark if it is changed or not during boot up */
+  uint64_t  bad_image;             /* Record bad images */
+  uint32_t  magic_end;             /* Magic ending flag */
+  uint32_t  crc32;                 /* CRC32 of above fields */
 };
 
 void sierra_smem_errdump_save_start(void);
