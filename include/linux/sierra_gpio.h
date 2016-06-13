@@ -38,7 +38,8 @@ static struct ext_gpio_map ext_gpio_ar[]={
 	{"16", 1020,FUNCTION_UNALLOCATED},
 	{"17", 1021,FUNCTION_UNALLOCATED},
 	{"18", 1023,FUNCTION_UNALLOCATED},
-	{"19", 1022,FUNCTION_UNALLOCATED}
+	{"19", 1022,FUNCTION_UNALLOCATED},    
+	{"46", 59,FUNCTION_UNALLOCATED}
 };
 
 static struct ext_gpio_map ext_gpio_mft[]={
