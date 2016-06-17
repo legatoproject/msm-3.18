@@ -170,6 +170,16 @@
 #define IMSW_SMEM_MAGIC_END                0x31DDF742U
 #define IMSW_SMEM_MAGIC_RECOVERY           0x52425679U
 
+/* MIBIB region constant */
+#define MIBIB_SMEM_MAGIC_BEG                0x4D494242U  /* "MIBB" in ASCII */
+#define MIBIB_SMEM_MAGIC_END                0x4D494245U  /* "MIBE" in ASCII */
+
+/* MIBIB image state machine, for MIBIB smart update feature */
+#define MIBIB_TO_UPDATE_IN_SBL              0xBBDAEFA0U  /* LK post to SBL, to smart update MIBIB */
+#define MIBIB_TO_UPDATE_IN_SBL_PHASE1       0xBBDAEF0FU  /* SBL updated MIBIB and SBL, SBL should go on update TZ, RPM, LK */
+#define MIBIB_UPDATED_IN_SBL                0xBBDAEFAFU  /* SBL post to LK, smart update MIBIB done. LK should update whole spkg in this state */
+#define MIBIB_UPDATE_CLEAR                  0x00000000U  /* LK clear state machine when spkg update done */
+
 /************
  *
  * Name:     bcmsg_mailbox_e
@@ -315,6 +325,26 @@ struct __attribute__((packed)) imsw_smem_im_s
   uint8_t  pad[BS_SMEM_IM_SIZE - (5 * sizeof(uint32_t))];  /* padding zone      */
   uint32_t magic_end;                                /* Beginning marker  */
   uint32_t crc32;                                    /* crc32             */
+};
+
+/************
+ *
+ * Name:     mibib_smem_s
+ *
+ * Purpose:  MIBIB region structure
+ *
+ * Notes:    Structure is packed and uses fixed-width types to ensure
+ *           compatibility between images and processors
+ *           
+ *           Must reside in uninitialized shared memory
+ *
+ ************/
+struct __attribute__((packed)) mibib_smem_s
+{
+  uint32_t magic_beg;             /* Beginning marker */
+  uint32_t update_flag;           /* MIBIB update flag */
+  uint32_t magic_end;             /* End Marker */
+  uint32_t crc32;                 /* CRC32 of above fields */
 };
 
 /************
