@@ -102,6 +102,7 @@
 #define BS_SMEM_MIBIB_SIZE                 0x0814   /* 2KB + 20 bytes */
 #define BS_SMEM_MODE_SIZE                  0x0010   /* 16 bytes for mode switching */
 #define BS_SMEM_DSSD_SIZE                  0x0020   /* 32 bytes for dual system boot up */
+#define BS_SMEM_SECB_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -114,12 +115,17 @@
 #define BSMEM_MIBIB_OFFSET                 (BSMEM_IM_OFFSET + BS_SMEM_IM_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
  */
 #define BC_SMEM_MSG_MAGIC_BEG      0x92B15380U
 #define BC_SMEM_MSG_MAGIC_END      0x31DDF742U
+
+#define BS_SMEM_SECBOOT_MAGIC_BEG      0x5342494DU
+#define BS_SMEM_SECBOOT_MAGIC_END      0x5342494DU
+
 
 /* Version of the shared memory structure which is used by this 
  * module.  Module is compatible with earlier versions 
@@ -454,6 +460,28 @@ struct __attribute__((packed)) bs_smem_mode_switch
   uint32_t magic_end;                                /* Beginning marker  */
   uint32_t crc32;                                    /* crc32             */
 };
+
+/************
+ *
+ * Name:     bs_smem_secboot_info
+ *
+ * Purpose:  secboot SMEM structure containing secure boot enable or not info.
+ *
+ * Members:  see below
+ *
+ * Notes:    None
+ *
+ *
+ ************/
+struct __attribute__((packed)) bs_smem_secboot_info
+{
+  uint32_t magic_beg;                                /* Beginning marker  */
+  uint32_t auth_enable;                              /* secboot auth enable flag */
+  uint32_t reseved[4];                               /* reseved for future usage */  
+  uint32_t magic_end;                                /* Beginning marker  */
+  uint32_t crc32;                                    /* crc32             */
+};
+
 
 /************
  *
