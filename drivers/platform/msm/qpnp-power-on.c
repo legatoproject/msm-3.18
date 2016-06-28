@@ -1555,6 +1555,20 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 			}
 		}
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* report init key status here before irq enabled.
+		 * Our devices has power switch and button. The key maybe 'pressed' from
+		 * startup. If it is not reported here, qpnp_pon_input_dispatch()
+		 * will report both pressed and released at first key release
+		 */ 
+		rc = qpnp_pon_input_dispatch(pon, cfg->pon_type);
+		if (rc) {
+			dev_err(&pon->spmi->dev, "Unable to send init key code\n");
+		}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 		rc = qpnp_pon_request_irqs(pon, cfg);
 		if (rc) {
 			dev_err(&pon->spmi->dev, "Unable to request-irq's\n");
