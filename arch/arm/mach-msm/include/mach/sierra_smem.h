@@ -87,7 +87,7 @@
 #define ERDUMP_PROC_TYPE_APPS              0x41505053 /* "APPS" in ascii hex */
 
 /* Shared Memory Sub-region offsets.
- * Must be sync with bsmem.c(in MPSS) and swidssd.h(in APSS). 
+ * Must be sync with bsmem.c(in MPSS). 
  */
 #define BS_SMEM_CRC_SIZE                   0x0004   /* 4 bytes CRC value for each shared memory area */
 #define BS_SMEM_CWE_SIZE                   0x1000   /* 512 * 8 slots              */
@@ -114,8 +114,8 @@
 #define BSMEM_IM_OFFSET                    (BSMEM_FWUP_OFFSET + BS_SMEM_FWUP_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MIBIB_OFFSET                 (BSMEM_IM_OFFSET + BS_SMEM_IM_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
