@@ -1020,6 +1020,17 @@
 			qcom,msm-dai-q6-mi2s-dev-id = <1>;
 			qcom,msm-mi2s-rx-lines = <2>;
 			qcom,msm-mi2s-tx-lines = <1>;
+/* SWISTART */
+			pinctrl-names = "default", "idle";
+			pinctrl-0 = <&sec_mi2s_ws_active
+					&sec_mi2s_sck_active
+					&sec_mi2s_dout_active
+					&sec_mi2s_din_active>;
+			pinctrl-1 = <&sec_mi2s_ws_sleep
+					&sec_mi2s_sck_sleep
+					&sec_mi2s_dout_sleep
+					&sec_mi2s_din_sleep>;
+/* SWISTOP */
 		};
 	};
 
