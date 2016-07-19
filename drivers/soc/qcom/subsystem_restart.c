@@ -782,7 +782,12 @@ static int subsys_start(struct subsys_device *subsys)
 		return 0;
 	}
 
+#ifndef CONFIG_MSM_SWI_QEMU
 	ret = wait_for_err_ready(subsys);
+#else
+	/* No wait in emulated mode */
+	ret = 0;
+#endif
 	if (ret) {
 		/* pil-boot succeeded but we need to shutdown
 		 * the device because error ready timed out.

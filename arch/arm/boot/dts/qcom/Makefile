@@ -269,6 +269,7 @@ dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-mtp.dtb \
 	mdm9607-swi-wp.dtb \
 	mdm9607-swi-ar-mft.dtb \
 	mdm9607-swi-ar-nc.dtb \
+	mdm9607-swi-qemu.dtb \
 	mdm9607-swi-ar-mft-nc.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \

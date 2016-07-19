@@ -925,11 +925,13 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 	else
 		port->uartclk = 7372800;
 
+#ifndef CONFIG_MSM_SWI_QEMU
 	if (clk_set_rate(msm_hsl_port->clk, port->uartclk)) {
 		pr_err("Error: setting uartclk rate %u\n", port->uartclk);
 		WARN_ON(1);
 		return;
 	}
+#endif
 
 	/* Set timeout to be ~600x the character transmit time */
 	msm_hsl_port->tx_timeout = (1000000000 / baud) * 6;
@@ -1890,6 +1892,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	port->uartclk = 7372800;
 	msm_hsl_port = UART_TO_MSM(port);
 
+#ifndef CONFIG_MSM_SWI_QEMU
 	msm_hsl_port->clk = clk_get(&pdev->dev, "core_clk");
 	if (unlikely(IS_ERR(msm_hsl_port->clk))) {
 		ret = PTR_ERR(msm_hsl_port->clk);
@@ -1913,6 +1916,10 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 			msm_hsl_port->pclk = NULL;
 		}
 	}
+#else
+	msm_hsl_port->clk = NULL;
+	msm_hsl_port->pclk = NULL;
+#endif
 
 	/* Identify UART functional mode as 2-wire or 4-wire. */
 	if (pdata && pdata->config_gpio == 4)

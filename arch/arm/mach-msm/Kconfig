@@ -26,14 +26,17 @@ config ARCH_MDM9640
 	select MSM_RPM_STATS_LOG
 	select ARM_HAS_SG_CHAIN
 
+config MSM_SWI_QEMU
+	bool "MSM_SWI_QEMU"
+
 config ARCH_MDM9607
        bool "MDM9607"
        select ARM_GIC
        select CPU_V7
-       select REGULATOR
-       select REGULATOR_RPM_SMD
+       select REGULATOR if ! MSM_SWI_QEMU
+       select REGULATOR_RPM_SMD if ! MSM_SWI_QEMU
        select HAVE_ARM_ARCH_TIMER
-       select MSM_RPM_SMD
+       select MSM_RPM_SMD if ! MSM_SWI_QEMU
        select MEMORY_HOLE_CARVEOUT
        select MSM_CORTEX_A7
        select PINCTRL
@@ -41,8 +44,8 @@ config ARCH_MDM9607
        select USE_PINCTRL_IRQ
        select MSM_IRQ
        select MSM_PM if PM
-       select PM_DEVFREQ
-       select MSM_DEVFREQ_DEVBW
+       select PM_DEVFREQ if ! MSM_SWI_QEMU
+       select MSM_DEVFREQ_DEVBW if ! MSM_SWI_QEMU
        select MSM_BIMC_BWMON
        select DEVFREQ_GOV_MSM_BW_HWMON
        select ARM_HAS_SG_CHAIN

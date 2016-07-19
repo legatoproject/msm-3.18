@@ -355,7 +355,9 @@ static void diag_usb_notifier(void *priv, unsigned event,
 
 	switch (event) {
 	case USB_DIAG_CONNECT:
+#ifndef CONFIG_MSM_SWI_QEMU
 		usb_info->max_size = usb_diag_request_size(usb_info->hdl);
+#endif
 		atomic_set(&usb_info->connected, 1);
 		pr_info("diag: USB channel %s connected\n", usb_info->name);
 		queue_work(usb_info->usb_wq,

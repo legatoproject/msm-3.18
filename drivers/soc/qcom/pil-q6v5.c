@@ -693,6 +693,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	drv->mx_spike_wa = of_property_read_bool(pdev->dev.of_node,
 						"qcom,mx-spike-wa");
 
+#ifndef CONFIG_MSM_SWI_QEMU
 	drv->xo = devm_clk_get(&pdev->dev, "xo");
 	if (IS_ERR(drv->xo))
 		return ERR_CAST(drv->xo);
@@ -752,6 +753,7 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 		 drv->vreg_pll = NULL;
 	}
 
+#endif
 	return drv;
 }
 EXPORT_SYMBOL(pil_q6v5_init);

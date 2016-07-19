@@ -339,6 +339,7 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	}
 
 	q6->vreg_mx = devm_regulator_get(&pdev->dev, "vdd_mx");
+#ifndef CONFIG_MSM_SWI_QEMU
 	if (IS_ERR(q6->vreg_mx))
 		return PTR_ERR(q6->vreg_mx);
 	prop = of_find_property(pdev->dev.of_node, "vdd_mx-uV", NULL);
@@ -364,6 +365,7 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 	q6->rom_clk = devm_clk_get(&pdev->dev, "mem_clk");
 	if (IS_ERR(q6->rom_clk))
 		return PTR_ERR(q6->rom_clk);
+#endif
 
 	ret = of_property_read_u32(pdev->dev.of_node,
 					"qcom,pas-id", &drv->pas_id);

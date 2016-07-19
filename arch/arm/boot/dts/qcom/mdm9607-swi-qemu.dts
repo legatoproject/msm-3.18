@@ -1,0 +1,71 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9607-swi-ar.dtsi"
+
+/ {
+    flash: flash@A0000000 {
+        compatible = "cfi-flash";
+        bank-width = <0x4>;
+        reg = <0xA0000000 0x10000000>; /* flash of 256 MB */
+        system@0 {
+            label = "system";
+            reg = <0 0x4000000>;
+        };
+        userdata@0x4000000 {
+            label = "lefwkro";
+            reg = <0x4000000 0x1000000>;
+        };
+        userapp@0x5000000 {
+            label = "userapp";
+            reg = <0x5000000 0x1000000>;
+        };
+        system@0x6000000 {
+            label = "system2";
+            reg = <0x6000000 0x4000000>;
+        };
+        userdata@0xA000000 {
+            label = "lefwkro2";
+            reg = <0xA000000 0x1000000>;
+        };
+        userdata@0xB000000 {
+            label = "customer0";
+            reg = <0xB000000 0x1000000>;
+        };
+        userdata@0xC000000 {
+            label = "customer1";
+            reg = <0xC000000 0x1000000>;
+        };
+        userdata@0xD000000 {
+            label = "customer2";
+            reg = <0xD000000 0x1000000>;
+        };
+        userapp@0xE000000 {
+            label = "sbl";
+            reg = <0xE000000 0x100000>;
+        };
+    };
+
+    ethernet_1: ethernet@8f00000 {
+        compatible = "smsc,lan91c111";
+        reg = <0x8f00000 0x10000>;
+        interrupts = <0 150 0>;
+    };
+};
+
+/ {
+	model = "Sierra Wireless, Inc. MDM 9607 AR series";
+	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
+	qcom,board-id = <8 0x80>;
+};

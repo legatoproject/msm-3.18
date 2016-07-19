@@ -51,6 +51,7 @@ static struct diag_logger_ops md_log_ops = {
 
 int diag_mux_init()
 {
+#ifndef CONFIG_MSM_SWI_QEMU
 	diag_mux = kzalloc(sizeof(struct diag_mux_state_t),
 			 GFP_KERNEL);
 	if (!diag_mux)
@@ -73,16 +74,20 @@ int diag_mux_init()
 	diag_mux->logger = &usb_logger;
 	diag_mux->mux_mask = 0;
 	diag_mux->mode = DIAG_USB_MODE;
+#endif
 	return 0;
 }
 
 void diag_mux_exit()
 {
+#ifndef CONFIG_MSM_SWI_QEMU
 	kfree(diag_mux);
+#endif
 }
 
 int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 {
+#ifndef CONFIG_MSM_SWI_QEMU
 	int err = 0;
 	if (!ops)
 		return -EINVAL;
@@ -106,12 +111,13 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 		       proc, err);
 		return err;
 	}
-
+#endif
 	return 0;
 }
 
 int diag_mux_queue_read(int proc)
 {
+#ifndef CONFIG_MSM_SWI_QEMU
 	struct diag_logger_t *logger = NULL;
 
 	if (proc < 0 || proc >= NUM_MUX_PROC)
@@ -126,12 +132,13 @@ int diag_mux_queue_read(int proc)
 
 	if (logger && logger->log_ops && logger->log_ops->queue_read)
 		return logger->log_ops->queue_read(proc);
-
+#endif
 	return 0;
 }
 
 int diag_mux_write(int proc, unsigned char *buf, int len, int ctx)
 {
+#ifndef CONFIG_MSM_SWI_QEMU
 	struct diag_logger_t *logger = NULL;
 	int peripheral;
 
@@ -151,11 +158,13 @@ int diag_mux_write(int proc, unsigned char *buf, int len, int ctx)
 
 	if (logger && logger->log_ops && logger->log_ops->write)
 		return logger->log_ops->write(proc, buf, len, ctx);
+#endif
 	return 0;
 }
 
 int diag_mux_close_peripheral(int proc, uint8_t peripheral)
 {
+#ifndef CONFIG_MSM_SWI_QEMU
 	struct diag_logger_t *logger = NULL;
 	if (proc < 0 || proc >= NUM_MUX_PROC)
 		return -EINVAL;
@@ -172,11 +181,13 @@ int diag_mux_close_peripheral(int proc, uint8_t peripheral)
 
 	if (logger && logger->log_ops && logger->log_ops->close_peripheral)
 		return logger->log_ops->close_peripheral(proc, peripheral);
+#endif
 	return 0;
 }
 
 int diag_mux_switch_logging(int *req_mode, int *peripheral_mask)
 {
+#ifndef CONFIG_MSM_SWI_QEMU
 	unsigned int new_mask = 0;
 
 	if (!req_mode)
@@ -237,5 +248,6 @@ int diag_mux_switch_logging(int *req_mode, int *peripheral_mask)
 	diag_mux->mode = *req_mode;
 	diag_mux->mux_mask = new_mask;
 	*peripheral_mask = new_mask;
+#endif
 	return 0;
 }

@@ -619,8 +619,10 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 		if (suspend_in_progress && from_idle && level->notify_rpm)
 			continue;
 
+#ifndef CONFIG_MSM_SWI_QEMU
 		if (level->notify_rpm && msm_rpm_waiting_for_ack())
 			continue;
+#endif
 
 		best_level = i;
 
@@ -676,7 +678,11 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		us = get_cluster_sleep_time(cluster, &nextcpu, from_idle);
 		cpumask = level->disable_dynamic_routing ? NULL : &nextcpu;
 
+#ifndef CONFIG_MSM_SWI_QEMU
 		ret = msm_rpm_enter_sleep(0, cpumask);
+#else
+		ret = 0;
+#endif
 		if (ret) {
 			pr_info("Failed msm_rpm_enter_sleep() rc = %d\n", ret);
 			goto failed_set_mode;
@@ -812,7 +818,9 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 
 	level = &cluster->levels[cluster->last_level];
 	if (level->notify_rpm) {
+#ifndef CONFIG_MSM_SWI_QEMU
 		msm_rpm_exit_sleep();
+#endif
 
 		/* If RPM bumps up CX to turbo, unvote CX turbo vote
 		 * during exit of rpm assisted power collapse to

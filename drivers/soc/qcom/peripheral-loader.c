@@ -774,6 +774,11 @@ int pil_boot(struct pil_desc *desc)
 	bool mem_protect = false;
 	bool hyp_assign = false;
 
+#ifdef CONFIG_MSM_SWI_QEMU
+	/* No peripheral to boot in emulated mode */
+	return 0;
+#endif
+
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
 
