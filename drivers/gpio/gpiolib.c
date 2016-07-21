@@ -1065,6 +1065,61 @@ int gpiod_direction_output(struct gpio_desc *desc, int value)
 	return _gpiod_direction_output_raw(desc, value);
 }
 EXPORT_SYMBOL_GPL(gpiod_direction_output);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int gpio_pull_up(struct gpio_desc *desc)
+{
+	struct gpio_chip	*chip;
+	int			status = -EINVAL;
+
+	if (!desc || !desc->chip) {
+		pr_warn("%s: invalid GPIO\n", __func__);
+		return -EINVAL;
+	}
+
+	chip = desc->chip;
+	if (!chip->get || !chip->pull_up) {
+		gpiod_warn(desc,
+			"%s: missing get() or pull_up() operations\n",
+			__func__);
+		return -EIO;
+	}
+
+	status = chip->pull_up(chip, gpio_chip_hwgpio(desc));
+	if (status == 0)
+		set_bit(FLAG_IS_UP, &desc->flags);
+
+	trace_gpio_direction(desc_to_gpio(desc), 1, status);
+}
+EXPORT_SYMBOL_GPL(gpio_pull_up);
+
+int gpio_pull_down(struct gpio_desc *desc)
+{
+	struct gpio_chip	*chip;
+	int			status = -EINVAL;
+
+	if (!desc || !desc->chip) {
+		pr_warn("%s: invalid GPIO\n", __func__);
+		return -EINVAL;
+	}
+
+	chip = desc->chip;
+	if (!chip->get || !chip->pull_down) {
+		gpiod_warn(desc,
+			"%s: missing get() or pull_down() operations\n",
+			__func__);
+		return -EIO;
+	}
+
+	status = chip->pull_down(chip, gpio_chip_hwgpio(desc));
+	if (status == 0)
+		clear_bit(FLAG_IS_UP, &desc->flags);
+	trace_gpio_direction(desc_to_gpio(desc), 0, status);
+
+}
+EXPORT_SYMBOL_GPL(gpio_pull_down);
+#endif
+/* SWISTOP */
 
 /**
  * gpiod_set_debounce - sets @debounce time for a @gpio
