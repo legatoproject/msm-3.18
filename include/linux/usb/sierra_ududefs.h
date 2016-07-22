@@ -66,9 +66,9 @@ static const struct ud_usb_interface ud_interface_68A2[] = {
 	{	13,		"usb_mbim"			},
 	{	14,		"rndis"				},
 	{	15,		"rndis"				},
-	{	16,		"audio"				},
-	{	17,		"audio"				},
-	{	18,		"audio"				},
+	{	16,		"g_audio"			},
+	{	17,		"g_audio"			},
+	{	18,		"g_audio"			},
 	{	19,		"cdc_ethernet"			},
 	{	20,		"cdc_ethernet"			},
 };
