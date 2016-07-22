@@ -152,4 +152,4 @@ MODULE_LICENSE("GPL v2");
 /* export a compatibilty string to allow this driver to reserve the
  * needed physical region via the dev tree
  */
-EXPORT_COMPAT("qcom,sierra-smem");
+//EXPORT_COMPAT("qcom,sierra-smem");
