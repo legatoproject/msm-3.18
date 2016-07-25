@@ -145,6 +145,11 @@ struct gpio_chip {
 	 */
 	struct list_head pin_ranges;
 #endif
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	u64 mask;
+#endif
+/*SWISTOP*/
 };
 
 extern const char *gpiochip_is_requested(struct gpio_chip *chip,

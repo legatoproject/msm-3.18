@@ -24,7 +24,7 @@
  * boot-app messages, crash information, and other data.  This section
  * is non-initialized in order to preserve data across reboots.  The
  * size and base are (unfortunately) defined in multiple places.
- * 
+ *
  * WARNING:  These definitions must be kept in sync
  *
  * boot_images/build/ms/9x45.target.builds
@@ -45,7 +45,7 @@
 /* Local constants and enumerated types */
 /* below ER related defines and structures need to keep in sync with:
  * modem_proc/sierra/er/src/eridefs.h
- */ 
+ */
 #define ERROR_START_MARKER  0x45524552 /* "ER" in ASCII */
 #define ERROR_END_MARKER    0x45524552 /* "ER" in ASCII */
 #define ERROR_USER          0x0101
@@ -99,6 +99,7 @@
 #define BS_SMEM_IM_SIZE                    0x0400   /* 1 KB */
 #define BS_SMEM_MIBIB_SIZE                 0x0814   /* 2KB + 20 bytes */
 #define BS_SMEM_MODE_SIZE                  0x0010   /* 16 bytes for mode switching */
+#define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -110,6 +111,7 @@
 #define BSMEM_IM_OFFSET                    (BSMEM_FWUP_OFFSET + BS_SMEM_FWUP_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MIBIB_OFFSET                 (BSMEM_IM_OFFSET + BS_SMEM_IM_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_COWORK_OFFSET                (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -117,8 +119,8 @@
 #define BC_SMEM_MSG_MAGIC_BEG      0x92B15380U
 #define BC_SMEM_MSG_MAGIC_END      0x31DDF742U
 
-/* Version of the shared memory structure which is used by this 
- * module.  Module is compatible with earlier versions 
+/* Version of the shared memory structure which is used by this
+ * module.  Module is compatible with earlier versions
  */
 #define BC_SMEM_MSG_VERSION                  2
 #define BC_SMEM_MSG_CRC32_VERSION_MIN        2
@@ -129,7 +131,7 @@
 #define BC_MSG_USB_DESC_INVALID    ((void *)(-1))
 #define BC_COMP_CHECK              0xFFFFFFFF
 
-/* 
+/*
   Reset type defination start
   Please note that the values between BS_BCMSG_RTYPE_MIN and BS_BCMSG_RTYPE_MAX must be successive,
   and sync up the new definations to bsudefs.h/sierra_smem.h/atbc.c together.
@@ -150,7 +152,7 @@
 
 #define BS_BCMSG_RTYPE_IS_SET                  ((uint32_t)(0x00534554))  /* SET */
 #define BS_BCMSG_RTYPE_IS_CLEAR                ((uint32_t)(0x00434C52))  /* CLR */
-/* 
+/*
   Reset type defination end
 */
 
@@ -169,6 +171,16 @@
 /* bs_smem_mode_switch CRC32 field*/
 #define BS_SMEM_MODE_SZ            (sizeof(struct bs_smem_mode_switch))
 #define BS_MODE_CRC_SIZE           (BS_SMEM_MODE_SZ - sizeof(uint32_t))
+
+/* bccoworkmsg CRC32 field*/
+#define BS_SMEM_COWORK_SZ            (sizeof(struct bccoworkmsg))
+#define BS_COWORK_CRC_SIZE           (BS_SMEM_COWORK_SZ - sizeof(uint32_t))
+
+/* 32-bit random magic numbers - written to indicate that message
+ * structure in the shared memory region was initialized
+ */
+#define BS_SMEM_COWORK_MAGIC_BEG         0xCD3AE0B5U  /*cooperation mode message start & end marker*/
+#define BS_SMEM_COWORK_MAGIC_END         0xCD3AE0B5U  /*cooperation mode message start & end marker*/
 
 /* Padding inside bc_smem_message_s
  *
@@ -212,7 +224,7 @@
  * Purpose:  Enumerated list of image types, useful to control behavior
  *           at run-time
  *
- * Notes:    
+ * Notes:
  *
  ************/
 enum bcmsg_mailbox_e
@@ -245,7 +257,7 @@ struct __attribute__((packed)) sER_DATA
   uint32_t cpsr;                           /* Program Status Register */
   uint32_t registers[MAX_ARM_REGISTERS];   /* registers */
   uint32_t ext_registers[MAX_EXT_REGISTERS]; /* extra register set for QDSP6 (R15-R31) */
-  uint32_t stack_data[MAX_STACK_DATA];     /* Stack dump at the time of crash */ 
+  uint32_t stack_data[MAX_STACK_DATA];     /* Stack dump at the time of crash */
   uint32_t error_source;                   /* user or exception vector */
   uint32_t flags;                          /* bit-mapped flag */
   uint32_t error_id;                       /* unique error ID */
@@ -271,15 +283,15 @@ struct __attribute__((packed)) sER_DATA
  * Name:     bsmsg_mailbox_s
  *
  * Purpose:  Message structure writen by any image but ready only by the
- *           recipient image.  Used for passing information across reboot 
+ *           recipient image.  Used for passing information across reboot
  *           cycles
  *
  * Notes:    Structure is packed and uses fixed-width types to ensure
  *           compatibility between images and processors
- *           
+ *
  *           New versions of this structure must retain all fields of
  *           version 1 in order to maintain backward compatibility
- *           
+ *
  *           Must reside in uninitialized shared memory
  *
  ************/
@@ -307,11 +319,11 @@ struct __attribute__((packed)) bsmsg_mailbox_s
  *
  * Notes:    Structure is packed and uses fixed-width types to ensure
  *           compatibility between images and processors
- *           
+ *
  *           The offsets of each field must remain constant.  Padding
  *           is automatically decreased when mailboxes are updated
  *           with more fields
- *           
+ *
  *           Must reside in uninitialized shared memory
  *
  ************/
@@ -319,7 +331,7 @@ struct __attribute__((packed)) bc_smem_message_s
 {
   uint32_t               magic_beg;    /* Beginning marker */
   uint32_t               version;      /* Message version  */
-  
+
   struct bsmsg_mailbox_s in;
   uint8_t pad0[BCMSG_MAILBOX_PAD];
 
@@ -329,7 +341,7 @@ struct __attribute__((packed)) bc_smem_message_s
                                         * compatibility
                                         */
   uint32_t               magic_end;    /* End Marker        */
-  uint32_t               crc32;        /* CRC32 of above fields 
+  uint32_t               crc32;        /* CRC32 of above fields
                                         * added in V2
                                         */
 };
@@ -362,7 +374,7 @@ struct __attribute__((packed)) imsw_smem_im_s
  *
  * Notes:    Structure is packed and uses fixed-width types to ensure
  *           compatibility between images and processors
- *           
+ *
  *           Must reside in uninitialized shared memory
  *
  ************/
@@ -381,7 +393,7 @@ struct __attribute__((packed)) mibib_smem_s
  * Purpose:  gobi SMEM structure
  *
  * Notes:    Must be fit in BS_SMEM_MODE_SWITCH
- *           
+ *
  *
  ************/
 struct __attribute__((packed)) bs_smem_mode_switch
@@ -390,6 +402,33 @@ struct __attribute__((packed)) bs_smem_mode_switch
   uint32_t  mode;                                    /* factory or normal mode */
   uint32_t magic_end;                                /* Beginning marker  */
   uint32_t crc32;                                    /* crc32             */
+};
+/*************
+ *
+ * Name:     bccoworkmsg - Coopertive work message structure
+ *
+ * Purpose:  To provide a structure to share the resoure assigned state .
+ *
+ * Members:  See inline comments below
+ *
+ * Note:     1. Both markers must contain BC_VALID_BOOT_MSG_MARKER for the
+ *              contents to be considered valid.
+ *              Otherwise, the structure's contents are undefined.
+ *           2. The total size of this structure is small and must reside in
+ *              RAM that is never initialized by boot loader at startup.
+ *
+ *************/
+struct __attribute__((packed)) bccoworkmsg
+{
+  uint32_t magic_beg;        /* Magic ending flag */
+  uint32_t bcgpioflag[2];       /* external gpio owner flag. */
+  uint8_t  bcuartfun[2];     /* UART1 and UART2 function */
+  uint8_t  bcriowner;        /* RI owner */
+  uint8_t  bcsleepind;       /* Sleep inidcation function */
+  uint8_t  bcresettype;      /* reset type */
+  uint8_t  bcreserved[3];  /*The unused memory,we need struct ends on a 32 bit boundary*/
+  uint32_t magic_end;        /* Magic ending flag */
+  uint32_t crc32;            /* CRC32 of above fields */
 };
 void sierra_smem_errdump_save_start(void);
 void sierra_smem_errdump_save_timestamp(uint32_t time_stamp);
