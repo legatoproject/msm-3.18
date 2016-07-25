@@ -12,7 +12,7 @@
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_gpio.h>
-
+#include <linux/sierra_bsudefs.h>
 static int gRmode = -1;
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
@@ -53,6 +53,25 @@ static struct gpio_chip gpio_ext_chip = {
 		.label  = "msmextgpio",
 		.base   = 1,
 };
+/**
+ * getap_multiplex_gpio() - set the gpio multiplexing bit in AP
+ *
+ *
+ * Returns nothing
+ *
+ */
+static void getap_multiplex_gpio(void)
+{
+	int i;
+
+	for(i = 0; i < gpio_ext_chip.ngpio; i++)
+	{
+		if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+		{
+			gpio_ext_chip.mask |= 0x1ULL << i;
+		}
+	}
+}
 
 /**
  * gpio_map_name_to_num() - Return the internal GPIO number for an
@@ -84,8 +103,13 @@ static int gpio_map_name_to_num(const char *buf, bool *alias)
 		{
 			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
 			{
+				/* the multi-function GPIO is used as another feature, cannot export */
+				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				{
+					return -1;
+				}
 				gpio_num = ext_gpio[i].gpio_num;
-				pr_debug("%s: find GPIO %s\n", __func__, gpio_num);
+				pr_debug("%s: find GPIO %d\n", __func__, gpio_num);
 				return gpio_num;
 			}
 		}
@@ -115,6 +139,10 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 		{
 			if(gpio_num == ext_gpio[i].gpio_num)
 			{
+				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				{
+					return NULL;
+				}
 				return ext_gpio[i].gpio_name;
 			}
 		}
@@ -536,11 +564,27 @@ static ssize_t chip_ngpio_show(struct device *dev,
 	return sprintf(buf, "%u\n", chip->ngpio);
 }
 static DEVICE_ATTR(ngpio, 0444, chip_ngpio_show, NULL);
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+static ssize_t chip_mask_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	const struct gpio_chip	*chip = dev_get_drvdata(dev);
 
+	return sprintf(buf, "0x%08x%08x\n", (u32)(chip->mask>>32)&0xFFFFFFFF, (u32)chip->mask&0xFFFFFFFF);
+}
+static DEVICE_ATTR(mask, 0444, chip_mask_show, NULL);
+#endif
+/*SWISTOP*/
 static struct attribute *gpiochip_attrs[] = {
 	&dev_attr_base.attr,
 	&dev_attr_label.attr,
 	&dev_attr_ngpio.attr,
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	&dev_attr_mask.attr,
+#endif
+/*SWISTOP*/
 	NULL,
 };
 ATTRIBUTE_GROUPS(gpiochip);
@@ -1028,6 +1072,9 @@ static int __init gpiolib_sysfs_init(void)
 	/* Assign product specific GPIO mapping */
 	gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 	ext_gpio = ext_gpio_ar;
+	gpio_ext_chip.mask = bsgetgpioflag();
+	getap_multiplex_gpio();
+	status = gpiochip_export(&gpio_ext_chip);
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
