@@ -48,6 +48,13 @@
 		status = "disabled";
 	};
 	
+	usb3: ssusb@8a00000{
+		/* override original settings from mdm9640.dtsi */
+		interrupts = <0 1 2>;
+		interrupt-map = <0x0 0 &intc 0 202 0
+				 0x0 1 &intc 0 203 0
+				 0x0 2 &intc 0 180 0>;
+	};
 	tlmm_pinmux: pinctrl@1000000 {
 		uart2_console_active: uart2_console_active {
 			mux {
@@ -72,6 +79,40 @@
 				bias-disable;
 			};
 		};
+	};
+
+	qcom,sierra-monitor {
+		compatible = "sierra,sierra-monitor";
+
+		sierra,startup-time = <60>;
+		sierra,sleep-time = <0>;
+		sierra,wake-time = <0>;
+
+		/* check if USB enabled */
+		sierra,monitor_resource@0 {
+			sierra,path = "/sys/class/android_usb/android0/enable";
+			sierra,value = "1";
+			sierra,force-dload = <1>;
+		};
+
+		/* check if swiapp exists */
+		sierra,monitor_resource@1 {
+			sierra,path = "/usr/bin/swiapp";
+		};
+
+		/* check if mpss is loaded */
+		sierra,monitor_resource@2 {
+			sierra,path = "/sys/bus/msm_subsys/devices/subsys2/state";
+			sierra,value = "ONLINE";
+			sierra,force-dload = <1>;
+		};
+	};
+
+	usb_detect{
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xC1 0x0>; /* PMD GPIO2 */
+		interrupt-names = "vbus_det_irq";
 	};
 };
 
@@ -117,13 +158,10 @@
 	};
 
 	gpio@c100 { /* GPIO 2 */
-		qcom,mode = <1>;               /* Digital output */
-		qcom,output-type = <0>;        /* CMOS logic */
-		qcom,invert = <0>;             /* no inversion */
-		qcom,vin-sel = <2>;            /* VIN 2 */
-		qcom,src-sel = <2>;            /* Function 2 */
-		qcom,out-strength = <2>;       /* Medium */
-		qcom,master-en = <1>;          /* Enable GPIO */
+		qcom,mode = <0>;	/* Digital input */
+		qcom,pull = <1>;	/* Pull up 1.5 uA */
+		qcom,vin-sel = <2>;	/* PMD9635 LDO 6 = 1.8 V */
+		qcom,master-en = <1>;	/* Enable GPIO */
 		status = "ok";
 	};
 
