@@ -20,7 +20,23 @@
 		spi1 = &spi_2;
 		spi2 = &spi_3;
 	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		memory {
+			sierra_smem: sierra_region@0x8ff00000 {
+				compatible = "removed-dma-pool";
+				reg = <0x8ff00000 0x100000>;
+				no-map;
+				label = "sierra_smem";
+			};
+		};
+	};
 };
+
 &soc {
 	sound {
 		qcom,cdc-micbias2-headset-only;
@@ -466,6 +482,24 @@
 		};
 
 	};
+
+
+/* Sierra shared memory
+ *
+ * A section of memory at the top of DDR is reserved for Sierra
+ * boot-app messages, crash information, and other data.  This section
+ * is non-initialized in order to preserve data across reboots.  The
+ * size and base are (unfortunately) defined in multiple places.
+ *
+ * WARNING:  These definitions must be kept in sync
+ *
+ * boot_images/build/ms/9x45.target.builds
+ * modem_proc/config/9645.LEgen/cust_config.xml
+ * modem_proc/sierra/bs/api/bsaddress.h
+ * kernel/arch/arm/boot/dts/qcom/mdm9640.dtsi
+ * kernel/arch/arm/boot/dts/qcom/mdm9640-sierra.dtsi
+ * kernel/arch/arm/mach-msm/include/mach/sierra_smem.h
+ */
 
 	qcom,sierra-monitor {
 		compatible = "sierra,sierra-monitor";
