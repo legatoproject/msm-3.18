@@ -49,17 +49,17 @@ int sierra_smem_get_factory_mode(void)
              mode = (int)bsmode->mode;
       }
       else {
-             printk(KERN_ERR"sierra:-%s-failed: crc error", __func__);
+             pr_debug(KERN_ERR"sierra:-%s-failed: crc error", __func__);
              return -1;
       }
     }
     else {
-           printk(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
+           pr_debug(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
            return -1;
     }
   }
   else {
-         printk(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
+         pr_debug(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
          return -1;
   }
 

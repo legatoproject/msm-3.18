@@ -819,7 +819,9 @@
 
 	qcom,cnss {
 		compatible = "qcom,cnss";
-		wlan-en-gpio = <&tlmm_pinmux 95 0>;
+/* SWISTART */
+		/*wlan-en-gpio = <&tlmm_pinmux 95 0>;*/
+/* SWISTOP */
 		vdd-wlan-supply = <&wlan_vreg>;
 		vdd-wlan-io-supply = <&pmd9635_l6>;
 		vdd-wlan-sp2t-supply = <&pmd9635_l12>;

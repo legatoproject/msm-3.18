@@ -1476,9 +1476,13 @@
 				config {
 					pins = "gpio95";
 					function = "gpio";
+/* SWISTART */
+/*
 					drive-strength = <16>;
 					output-high;
 					bias-pull-up;
+*/
+/* SWISTOP */
 				};
 			};
 		};

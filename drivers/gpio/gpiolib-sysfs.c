@@ -31,7 +31,57 @@ static struct gpio_chip gpio_ext_chip = {
 		.label  = "msmextgpio",
 		.base   = 1,
 };
-static int gpio_ri = -1;
+static struct ext_gpio_map ext_gpio_ar[]={
+		{"1", 86, FUNCTION_UNALLOCATED},
+		{"2", 96, FUNCTION_UNALLOCATED},
+		{"3", 98, FUNCTION_UNALLOCATED},
+		{"4", 97, FUNCTION_UNALLOCATED},
+		{"5",  1, FUNCTION_UNALLOCATED},
+		{"6", 93, FUNCTION_UNALLOCATED},
+		{"7", 82, FUNCTION_UNALLOCATED},
+		{"8", 34, FUNCTION_UNALLOCATED},
+		{"9", 30, FUNCTION_UNALLOCATED},
+		{"10",43, FUNCTION_UNALLOCATED},
+		{"11",90, FUNCTION_UNALLOCATED},
+	/* GPIO12 as SPI1_CS1 */
+		{"12", 68,FUNCTION_EMBEDDED_HOST},
+		{"13", 53,FUNCTION_UNALLOCATED},
+		{"14", 52,FUNCTION_UNALLOCATED},
+		{"15", 50,FUNCTION_UNALLOCATED},
+		{"16", 42,FUNCTION_UNALLOCATED},
+		{"17", 88,FUNCTION_UNALLOCATED},
+		{"18" ,60,FUNCTION_UNALLOCATED},
+		{"19", 99,FUNCTION_UNALLOCATED},
+		{"20", 94,FUNCTION_UNALLOCATED},
+		{"21", -1,FUNCTION_EMBEDDED_HOST},
+		{"22", -1,FUNCTION_EMBEDDED_HOST},
+		{"23", 69,FUNCTION_UNALLOCATED},
+		{"24", -1,FUNCTION_EMBEDDED_HOST},
+		{"25", 81,FUNCTION_UNALLOCATED},
+		{"26", 91,FUNCTION_UNALLOCATED},
+	/* GPIO27/28 as I2C_SDA/I2C_CLK */
+		{"27", 48,FUNCTION_EMBEDDED_HOST},
+		{"28", 49,FUNCTION_EMBEDDED_HOST},
+		{"29", 95,FUNCTION_UNALLOCATED},
+		{"30", 23,FUNCTION_UNALLOCATED},
+		{"31", 22,FUNCTION_UNALLOCATED},
+		{"32", 21,FUNCTION_UNALLOCATED},
+		{"33", 20,FUNCTION_UNALLOCATED},
+		{"34", 7, FUNCTION_UNALLOCATED},
+		{"35", 6, FUNCTION_UNALLOCATED},
+		{"M1", 1020,FUNCTION_UNALLOCATED},
+		{"M2", 1021,FUNCTION_UNALLOCATED},
+		{"M3", 1023,FUNCTION_UNALLOCATED},
+		{"M4", 1022,FUNCTION_UNALLOCATED},
+		{GPIO_NAME_RI,92,FUNCTION_UNALLOCATED}
+};
+
+static struct ext_gpio_map ext_gpio_mft[]={
+	{"101", 1020,FUNCTION_UNALLOCATED},
+	{"102", 1021,FUNCTION_UNALLOCATED},
+	{"103", 1023,FUNCTION_UNALLOCATED},
+	{"104", 1022,FUNCTION_UNALLOCATED}
+};
 
 /**
  * gpio_map_name_to_num() - Return the internal GPIO number for an
@@ -512,20 +562,26 @@ static ssize_t export_store(struct class *class,
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	bool alias = false;
 	gRmode = sierra_smem_get_factory_mode();
-	if(gRmode == 1)
-	{
-		ext_gpio = ext_gpio_mft;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
-	}
-	else	
+	if(gRmode != 1)
 	{
 		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
+		status = gpio = gpio_map_name_to_num(buf, &alias);
+		pr_debug("%s: sierra--find GPIO: %d \n", __func__, (int)gpio);
 	}
-	bool alias = false;
-	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--find GPIO: %d \n", __func__, (int)gpio);
+	else
+	{
+		status = kstrtol(buf, 0, &gpio);
+		if((gpio >= MFT_PMGPIO_NAME_MIN) && (gpio <= MFT_PMGPIO_NAME_MAX))
+		{
+			ext_gpio = ext_gpio_mft;
+			gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+			status = gpio = gpio_map_name_to_num(buf, &alias);
+			pr_debug("%s: sierra--find PM-GPIO: %d \n", __func__, (int)gpio);
+		}
+	}
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
@@ -574,20 +630,26 @@ static ssize_t unexport_store(struct class *class,
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	bool alias = false;
 	gRmode = sierra_smem_get_factory_mode();
-	if(gRmode == 1)
-	{
-		ext_gpio = ext_gpio_mft;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
-	}
-	else	
+	if(gRmode != 1)
 	{
 		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
+		status = gpio = gpio_map_name_to_num(buf, &alias);
+		pr_debug("%s: sierra--unexport GPIO: %d \n", __func__, (int)gpio);
 	}
-	bool alias = false;
-	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--unexport GPIO: %d \n", __func__, (int)gpio);
+	else
+	{
+		status = kstrtol(buf, 0, &gpio);
+		if((gpio >= MFT_PMGPIO_NAME_MIN) && (gpio <= MFT_PMGPIO_NAME_MAX))
+		{
+			ext_gpio = ext_gpio_mft;
+			gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+			status = gpio = gpio_map_name_to_num(buf, &alias);
+			pr_debug("%s: sierra--unexport PM-GPIO: %d \n", __func__, (int)gpio);
+		}
+	}
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
@@ -659,6 +721,7 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 	char ioname_buf[IONAME_MAX+1] = IONAME_PREFIX;
+	int tmpGpio;
 #endif
 /*SWISTOP*/
 
@@ -706,20 +769,28 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 	gRmode = sierra_smem_get_factory_mode();
-	if(gRmode == 1)
-	{
-		ext_gpio = ext_gpio_mft;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
-	}
-	else	
+	if(gRmode != 1)
 	{
 		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;	
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
+		strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
+		ioname = ioname_buf;
+		pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
+			__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);
 	}
-	strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
-	ioname = ioname_buf;
-	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
-		__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);	
+	else
+	{
+		tmpGpio = desc_to_gpio(desc);
+		if((tmpGpio >= MFT_PMGPIO_NUM_MIN) && (tmpGpio< MFT_PMGPIO_NUM_MAX))
+		{
+			ext_gpio = ext_gpio_mft;
+			gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+			strncat(ioname_buf, gpio_map_num_to_name(tmpGpio, false), GPIO_NAME_MAX);
+			ioname = ioname_buf;
+			pr_debug("%s: sierra--find PM-GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
+				__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);
+		}
+	}
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
