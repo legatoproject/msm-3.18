@@ -487,7 +487,13 @@ static int mdm_sec_mi2s_startup(struct snd_pcm_substream *substream)
 err:
 	afe_enable_lpass_core_shared_clock(SECONDARY_I2S_RX, CLOCK_OFF);
 done:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	return 0;
+#else
 	return ret;
+#endif /* SIERRA */
+/* SWISTOP */
 }
 
 static struct snd_soc_ops mdm_mi2s_be_ops = {
@@ -1037,8 +1043,13 @@ static int msm_snd_get_ext_clk_cnt(void)
 {
 	return clk_users;
 }
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
+#else
 static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
+#endif /* SIERRA */
+/* SWISTOP */
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = rtd->codec;
@@ -1587,12 +1598,23 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.stream_name = "Primary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+#else
 		.codec_name = "tomtom_codec",
 		.codec_dai_name = "tomtom_i2s_rx1",
+#endif /* SIERRA */
+/* SWISTOP */
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		.init  = &mdm_mi2s_audrx_init,
+#endif /* SIERRA */
+/* SWISTOP */
 		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
 		.ops = &mdm_mi2s_be_ops,
 		.ignore_pmdown_time = 1,
@@ -1603,8 +1625,15 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.stream_name = "Primary MI2S Capture",
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+#else
 		.codec_name = "tomtom_codec",
 		.codec_dai_name = "tomtom_i2s_tx1",
+#endif /* SIERRA */
+/* SWISTOP */
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
