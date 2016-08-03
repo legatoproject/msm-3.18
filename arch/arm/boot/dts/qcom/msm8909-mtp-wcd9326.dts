@@ -11,12 +11,17 @@
  * GNU General Public License for more details.
  */
 
-#include "msm-pmi8940.dtsi"
-#include "msm8937-qrd.dtsi"
-#include "msm8937-mdss-panels.dtsi"
+/dts-v1/;
 
-&soc {
-	led_flash0: qcom,camera-flash {
-	};
+#include "msm8909-mtp.dtsi"
+#include "msm8909-pm8916.dtsi"
+#include "msm8909-pm8916-mtp.dtsi"
+#include "apq8009-audio-external_codec.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8909 WCD9326 MTP";
+	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
+	qcom,msm-id = <245 2>;
+	qcom,board-id= <8 0x7>;
 };
 

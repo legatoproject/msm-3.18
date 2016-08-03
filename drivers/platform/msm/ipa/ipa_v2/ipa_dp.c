@@ -1077,7 +1077,7 @@ void ipa_update_repl_threshold(enum ipa_client_type ipa_client)
 	 * Determine how many buffers/descriptors remaining will
 	 * cause to drop below the yellow WM bar.
 	 */
-	ep->rx_replenish_threshold = ipa_get_sys_yellow_wm()
+	ep->rx_replenish_threshold = ipa_get_sys_yellow_wm(ep->sys)
 					/ ep->sys->rx_buff_sz;
 }
 
@@ -1271,7 +1271,7 @@ int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		 * Determine how many buffers/descriptors remaining will
 		 * cause to drop below the yellow WM bar.
 		 */
-		ep->rx_replenish_threshold = ipa_get_sys_yellow_wm()
+		ep->rx_replenish_threshold = ipa_get_sys_yellow_wm(ep->sys)
 						/ ep->sys->rx_buff_sz;
 		/* Only when the WAN pipes are setup, actual threshold will
 		 * be read from the register. So update LAN_CONS ep again with
@@ -2984,7 +2984,8 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						IPA_GENERIC_RX_BUFF_SZ(
 						ipa_adjust_ra_buff_base_sz(
 						in->ipa_ep_cfg.aggr.
-							aggr_byte_limit));
+							aggr_byte_limit-
+							IPA_HEADROOM));
 						in->ipa_ep_cfg.aggr.
 							aggr_byte_limit =
 						sys->rx_buff_sz < in->

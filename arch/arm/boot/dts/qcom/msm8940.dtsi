@@ -229,8 +229,19 @@
 	/delete-property/ qcom,cpr-init-voltage-adjustment;
 	/delete-property/ qcom,cpr-enable;
 
+	qcom,pvs-version-fuse-sel = <37 40 3 0>; /* foundry */
+	qcom,cpr-fuse-version-map =
+		<(-1)   0  (-1) (-1) (-1) (-1)>,
+		<(-1)   1  (-1) (-1) (-1) (-1)>;
+
+	qcom,cpr-init-voltage-adjustment =
+		<0    0     0>,
+		<0    0 20000>;
+
 	qcom,cpr-quotient-adjustment =
-		<(0)    (28)   (28)>;
+		<0    0    0>,
+		<38   0   28>; /* SVSP(20mv); TURBO(15mv); KV(1.9) */
+
 	qcom,cpr-enable;
 };
 
@@ -366,5 +377,23 @@
 			qcom,bus-min = <0>;
 			qcom,bus-max = <0>;
 		};
+	};
+};
+
+&tsens {
+	qcom,temp1-offset = <0 (-2) (-5) (-3) (-1) (-1) (-1) 0 1 (-1) (-6)>;
+	qcom,temp2-offset = <1 1 (-7) 5 4 7 6 2 3 1 7>;
+};
+
+/* CAMSS_CPHY */
+&soc {
+	qcom,csiphy@1b34000 {
+		status = "ok";
+		compatible = "qcom,csiphy-v3.4.2.1", "qcom,csiphy";
+	};
+
+	qcom,csiphy@1b35000 {
+		status = "ok";
+		compatible = "qcom,csiphy-v3.4.2.1", "qcom,csiphy";
 	};
 };

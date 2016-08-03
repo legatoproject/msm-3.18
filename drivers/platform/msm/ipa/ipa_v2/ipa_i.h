@@ -546,6 +546,7 @@ struct ipa_ep_context {
 	bool disconnect_in_progress;
 	u32 qmi_request_sent;
 	enum ipa_wakelock_ref_client wakelock_client;
+	bool ep_disabled;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
@@ -1418,6 +1419,11 @@ int ipa2_reset_endpoint(u32 clnt_hdl);
 int ipa2_clear_endpoint_delay(u32 clnt_hdl);
 
 /*
+ * Disable ep
+ */
+int ipa2_disable_endpoint(u32 clnt_hdl);
+
+/*
  * Configuration
  */
 int ipa2_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
@@ -1907,7 +1913,7 @@ int ipa2_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa2_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 u32 ipa_get_num_pipes(void);
-u32 ipa_get_sys_yellow_wm(void);
+u32 ipa_get_sys_yellow_wm(struct ipa_sys_context *sys);
 struct ipa_smmu_cb_ctx *ipa2_get_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa2_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa2_get_uc_smmu_ctx(void);
