@@ -391,9 +391,7 @@
 		regulator-name = "sdcard_ext_vreg";
 		startup-delay-us = <250>;
 		enable-active-high;
-/* SWISTART */
-/*		gpio = <&pm8019_gpios 4 0>;*/     /*remove this line, we don't use pm-gpio4 for sdcard_ext_vreg*/
-/* SWISTOP */
+		gpio = <&pm8019_gpios 4 0>;
 	};
 
 	/* Rome 3.3V supply */
@@ -402,9 +400,7 @@
 		regulator-name = "rome_vreg";
 		startup-delay-us = <4000>;
 		enable-active-high;
-/* SWISTART */
-/*		gpio = <&pm8019_gpios 3 0>;*/    /*remove this line, we don't use pm-gpio3 for rome_vreg*/
-/* SWISTOP */
+		gpio = <&pm8019_gpios 3 0>;
 	};
 
 	emac_lan_vreg: emac_lan_vreg {
@@ -412,8 +408,6 @@
 		regulator-name = "emac_lan_vreg";
 		startup-delay-us = <250>;
 		enable-active-high;
-/* SWISTART */		
-/*		gpio = <&pm8019_mpps 4 0>; */    /* Remove this line, as we don't use mpp4 for this function */
-/* SWISTOP */
+		gpio = <&pm8019_mpps 4 0>;
 	};
 };

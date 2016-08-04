@@ -1,0 +1,292 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "mdm9607.dtsi"
+
+/ {
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		sierra_smem: sierra_region@0x8ff00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8ff00000 0x100000>;
+		};
+	};
+
+	aliases {
+		serial0 = &blsp1_uart1;
+		spi2  = &spi_2;
+	};
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
+	blsp1_uart1: serial@78af000 { /* BLSP1 UART1 */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
+
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
+	};
+
+	blsp1_uart2: uart@78b0000 {
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78b0000 0x200>,
+			<0x7884000 0x2b000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart2>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 108 0
+				1 &intc 0 238 0
+				2 &tlmm_pinmux 5 0>;
+
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xFD>;
+		qcom,bam-tx-ep-pipe-index = <2>;
+		qcom,bam-rx-ep-pipe-index = <3>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp1_uart2_sleep>;
+		pinctrl-1 = <&blsp1_uart2_active>;
+		qcom,msm-bus,name = "blsp1_uart2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					<86 512 0 0>,
+					<86 512 500 800>;
+		status = "disabled";
+	};
+
+	sound-9306 {
+		compatible = "qcom,mdm9607-audio-tapan";
+		qcom,model = "mdm9607-tapan-i2s-snd-card";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"SPK_OUT", "MCLK",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC5", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4";
+
+		qcom,tapan-mclk-clk-freq = <12288000>;
+		qcom,mi2s-interface-mode = "pri_mi2s_master", "sec_mi2s_master";
+		qcom,auxpcm-interface-mode = "pri_pcm_master", "sec_pcm_master";
+		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
+				<&loopback>, <&hostless>, <&afe>, <&routing>,
+				<&pcm_dtmf>, <&host_pcm>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-voip-dsp", "msm-pcm-voice",
+				"msm-pcm-loopback", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-pcm-routing",
+				"msm-pcm-dtmf", "msm-voice-host-pcm";
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>,
+				<&mi2s_prim>, <&mi2s_sec>, <&dtmf_tx>,
+				<&rx_capture_tx>, <&rx_playback_rx>,
+				<&tx_capture_tx>, <&tx_playback_rx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>,
+				<&afe_proxy_tx>, <&incall_record_rx>,
+				<&incall_record_tx>, <&incall_music_rx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-stub-dev.4", "msm-dai-stub-dev.5",
+				"msm-dai-stub-dev.6", "msm-dai-stub-dev.7",
+				"msm-dai-stub-dev.8", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+	};
+
+	qcom,msm-dai-mi2s {
+		mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <1>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+
+			pinctrl-names = "default", "idle";
+			pinctrl-0 = <&sec_mi2s_ws_active
+					&sec_mi2s_sck_active
+					&sec_mi2s_dout_active
+					&sec_mi2s_din_active>;
+			pinctrl-1 = <&sec_mi2s_ws_sleep
+					&sec_mi2s_sck_sleep
+					&sec_mi2s_dout_sleep
+					&sec_mi2s_din_sleep>;
+
+		};
+	};
+
+	spi_2: spi@78b9000 { /* BLSP1 QUP4 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x78b9000 0x600>,
+		      <0x7884000 0x23000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 99 0>, <0 238 0>;
+		spi-max-frequency = <50000000>;
+		pinctrl-names = "spi_default", "spi_sleep";
+		pinctrl-0 = <&spi2_default &spi2_cs0_active>;
+		pinctrl-1 = <&spi2_sleep &spi2_cs0_sleep>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <20>;
+		qcom,bam-producer-pipe-index = <21>;
+		qcom,master-id = <86>;
+		sierra,deassert-time = <20>;
+		spidev2@0 {
+			compatible = "sierra,spidev";
+			spi-max-frequency = <50000000>;
+			reg = <0>;
+		};
+	};
+};
+
+&i2c_4 { /* BLSP1 QUP4 */
+	wcd9xxx_tapan_codec@0d{
+		compatible = "qcom,wcd9xxx-i2c";
+		reg = <0x0d>;
+
+		qcom,cdc-reset-gpio = <&tlmm_pinmux 45 0>;
+		pinctrl-names = "default", "idle";
+		pinctrl-0 = <&codec_reset_active>;
+		pinctrl-1 = <&codec_reset_sleep>;
+
+		qcom,cdc-micbias1-ext-cap;
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6>, <7 8 9 10 11 12 13>,
+				<14 15 16 17 18 19 20>,
+				<21 22 23 24 25 26 27 28>;
+		cdc-vdd-buck-supply = <&mdm9607_s4>;
+		qcom,cdc-vdd-buck-voltage = <1950000 1950000>;
+		qcom,cdc-vdd-buck-current = <25000>;
+
+		cdc-vdd-tx-h-supply = <&mdm9607_l11>;
+		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-tx-h-current = <25000>;
+
+		cdc-vdd-rx-h-supply = <&mdm9607_l11>;
+		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-rx-h-current = <25000>;
+
+		cdc-vddpx-1-supply = <&mdm9607_l11>;
+		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+		qcom,cdc-vddpx-1-current = <10000>;
+
+		cdc-vdd-cx-supply = <&mdm9607_l9>;
+		qcom,cdc-vdd-cx-voltage = <1225000 1225000>;
+		qcom,cdc-vdd-cx-current = <10000>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-buck",
+					   "cdc-vdd-tx-h",
+					   "cdc-vdd-rx-h",
+					   "cdc-vddpx-1",
+					   "cdc-vdd-cx";
+
+		qcom,cdc-micbias-ldoh-v = <0x3>;
+		qcom,cdc-micbias-cfilt1-mv = <1800>;
+		qcom,cdc-micbias-cfilt2-mv = <2700>;
+		qcom,cdc-micbias-cfilt3-mv = <1800>;
+		qcom,cdc-micbias1-cfilt-sel = <0x0>;
+		qcom,cdc-micbias2-cfilt-sel = <0x1>;
+		qcom,cdc-micbias3-cfilt-sel = <0x2>;
+		qcom,cdc-micbias4-cfilt-sel = <0x2>;
+		qcom,cdc-mclk-clk-rate = <12288000>;
+		qcom,cdc-dmic-sample-rate = <4800000>;
+		qcom,cdc-variant = "WCD9306";
+	};
+};
+
+&spi_1 { /* BLSP1 QUP2 */
+	compatible = "qcom,spi-qup-v2";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reg-names = "spi_physical", "spi_bam_physical";
+	reg = <0x78b7000 0x600>,
+		  <0x7884000 0x23000>;
+	interrupt-names = "spi_irq", "spi_bam_irq";
+	interrupts = <0 97 0>, <0 238 0>;
+	spi-max-frequency = <50000000>;
+	pinctrl-names = "spi_default", "spi_sleep";
+	pinctrl-0 = <&spi1_default &spi1_cs0_active>;
+	pinctrl-1 = <&spi1_sleep &spi1_cs0_sleep>;
+	clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
+	clock-names = "iface_clk", "core_clk";
+	qcom,infinite-mode = <0>;
+	qcom,use-bam;
+	qcom,use-pinctrl;
+	qcom,ver-reg-exists;
+	qcom,bam-consumer-pipe-index = <16>;
+	qcom,bam-producer-pipe-index = <17>;
+	qcom,master-id = <86>;
+	sierra,deassert-time = <20>;
+	spidev1@0 {
+		compatible = "sierra,spidev";
+		spi-max-frequency = <50000000>;
+		reg = <0>;
+	};
+};
+
+&usb_otg {
+	qcom,hsusb-otg-phy-init-seq =
+		<0x44 0x80 0x30 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+
+	vbus_otg-supply;
+};
+
+&hsic_host {
+	status = "ok";
+};
+
+&emac0 {
+	/* sierra hardware(RXD0 is 0, RXD1 is 0, LED_ACT is 1): so the address should be 4*/
+	phy-addr = <4>;
+};

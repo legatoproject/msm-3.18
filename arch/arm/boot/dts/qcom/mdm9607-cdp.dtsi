@@ -31,13 +31,11 @@
 &soc {
 };
 
-/* SWISTART */
-&blsp1_uart1 {
+&blsp1_uart5 {
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
-/* SWISTOP */
 
 &i2c_4 {
 	status = "ok";
@@ -47,11 +45,9 @@
 	status = "ok";
 };
 
-/* SWISTART */
-&blsp1_uart2 {
+&blsp1_uart3 {
 	status = "ok";
 };
-/* SWISTOP */
 
 &qnand_1 {
 	status = "ok";
