@@ -103,6 +103,7 @@
 #define BS_SMEM_MODE_SIZE                  0x0010   /* 16 bytes for mode switching */
 #define BS_SMEM_DSSD_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 #define BS_SMEM_SECB_SIZE                  0x0020   /* 32 bytes for dual system boot up */
+#define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -116,6 +117,7 @@
 #define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_COWORK_OFFSET                (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -179,6 +181,16 @@
 /* bs_smem_mode_switch CRC32 field*/
 #define BS_SMEM_MODE_SZ            (sizeof(struct bs_smem_mode_switch))
 #define BS_MODE_CRC_SIZE           (BS_SMEM_MODE_SZ - sizeof(uint32_t))
+
+/* bccoworkmsg CRC32 field*/
+#define BS_SMEM_COWORK_SZ            (sizeof(struct bccoworkmsg))
+#define BS_COWORK_CRC_SIZE           (BS_SMEM_COWORK_SZ - sizeof(uint32_t))
+
+/* 32-bit random magic numbers - written to indicate that message
+ * structure in the shared memory region was initialized
+ */
+#define BS_SMEM_COWORK_MAGIC_BEG         0xCD3AE0B5U  /*cooperation mode message start & end marker*/
+#define BS_SMEM_COWORK_MAGIC_END         0xCD3AE0B5U  /*cooperation mode message start & end marker*/
 
 /* Padding inside bc_smem_message_s
  *
@@ -511,6 +523,37 @@ struct __attribute__((packed)) ds_smem_message_s
   uint64_t  bad_image;             /* Record bad images */
   uint32_t  magic_end;             /* Magic ending flag */
   uint32_t  crc32;                 /* CRC32 of above fields */
+};
+
+/*************
+ *
+ * Name:     bccoworkmsg - Coopertive work message structure
+ *
+ * Purpose:  To provide a structure to share the resoure assigned state .
+ *
+ * Members:  See inline comments below
+ *
+ * Note:     1. Both markers must contain BC_VALID_BOOT_MSG_MARKER for the
+ *              contents to be considered valid.
+ *              Otherwise, the structure's contents are undefined.
+ *           2. The total size of this structure is small and must reside in
+ *              RAM that is never initialized by boot loader at startup.
+ *
+ *************/
+struct __attribute__((packed)) bccoworkmsg
+{
+  uint32_t magic_beg;        /* Magic ending flag */
+  uint32_t bcgpioflag_ext;   /* Extension of External GPIO owner flags (bits 16-47) */
+  uint32_t bcreserved;       /* The unused memory */
+  uint32_t bcendmarker;      /* indicates end of structure */
+  uint16_t bcgpioflag;       /* external gpio owner flag. */
+  uint8_t  bcuartfun[2];     /* UART1 and UART2 function */
+  uint8_t  bcriowner;        /* RI owner */
+  uint8_t  bcsleepind;       /* Sleep inidcation function */
+  uint8_t  bcresettype;      /* reset type */
+  uint8_t  bcreserved_u8;    /* The unused memory for uint 8 */
+  uint32_t magic_end;        /* Magic ending flag */
+  uint32_t crc32;            /* CRC32 of above fields */
 };
 
 void sierra_smem_errdump_save_start(void);
