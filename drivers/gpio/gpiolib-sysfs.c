@@ -257,6 +257,53 @@ static ssize_t gpio_direction_store(struct device *dev,
 static /* const */ DEVICE_ATTR(direction, 0644,
 		gpio_direction_show, gpio_direction_store);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t gpio_pull_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	const struct gpio_desc	*desc = dev_get_drvdata(dev);
+	ssize_t			status;
+
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else
+		status = sprintf(buf, "%s\n",
+			test_bit(FLAG_IS_UP, &desc->flags)
+				? "up" : "down");
+
+	mutex_unlock(&sysfs_lock);
+	return status;
+}
+
+static ssize_t gpio_pull_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	const struct gpio_desc	*desc = dev_get_drvdata(dev);
+	ssize_t			status;
+
+	mutex_lock(&sysfs_lock);
+
+	if (!test_bit(FLAG_EXPORT, &desc->flags))
+		status = -EIO;
+	else if (sysfs_streq(buf, "up"))
+		status = gpio_pull_up(desc);
+	else if (sysfs_streq(buf, "down"))
+		status = gpio_pull_down(desc);
+	else
+		status = -EINVAL;
+
+	mutex_unlock(&sysfs_lock);
+	return status ? : size;
+}
+
+static /* const */ DEVICE_ATTR(pull, 0644,
+		gpio_pull_show, gpio_pull_store);
+#endif
+/* SWISTOP */
+
 static ssize_t gpio_value_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -531,6 +578,11 @@ static DEVICE_ATTR(active_low, 0644,
 static struct attribute *gpio_attrs[] = {
 	&dev_attr_value.attr,
 	&dev_attr_active_low.attr,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	&dev_attr_pull.attr,
+#endif
+/* SWISTART */
 	NULL,
 };
 ATTRIBUTE_GROUPS(gpio);
