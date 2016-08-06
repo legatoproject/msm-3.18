@@ -325,7 +325,13 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 err:
 	afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
 done:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	return 0;
+#else
 	return ret;
+#endif /* SIERRA */
+/* SWISTOP */
 }
 
 static int mdm_sec_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
@@ -487,13 +493,7 @@ static int mdm_sec_mi2s_startup(struct snd_pcm_substream *substream)
 err:
 	afe_enable_lpass_core_shared_clock(SECONDARY_I2S_RX, CLOCK_OFF);
 done:
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	return 0;
-#else
 	return ret;
-#endif /* SIERRA */
-/* SWISTOP */
 }
 
 static struct snd_soc_ops mdm_mi2s_be_ops = {
