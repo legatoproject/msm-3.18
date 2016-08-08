@@ -37,6 +37,10 @@
 	};
 };
 
+&CPU0 {
+	qcom,limits-info = <&mitigation_profile0>;
+};
+
 &soc {
 	sound {
 		qcom,cdc-micbias2-headset-only;
@@ -551,6 +555,36 @@
 		interrupts = <0x0 0xC1 0x0>; /* PMD GPIO2 */
 		interrupt-names = "vbus_det_irq";
 	};
+
+	qcom,msm-thermal {
+		qcom,freq-mitigation-temp = <110>;
+		qcom,freq-mitigation-temp-hysteresis = <10>;
+		qcom,freq-mitigation-value = <787200>;
+	};
+
+	qcom,sensor-information {
+		sensor_information6: qcom,sensor-information-6 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "pa_therm1";
+		};
+
+		sensor_information7: qcom,sensor-information-7 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "pmic_therm";
+			qcom,scaling-factor = <1000>;
+		};
+
+		sensor_information8: qcom,sensor-information-8 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "xo_therm";
+		};
+	};
+
+	mitigation_profile0: qcom,limit_info-0 {
+		qcom,temperature-sensor = <&sensor_information1>;
+		qcom,boot-frequency-mitigate;
+		qcom,emergency-frequency-mitigate;
+	};
 };
 
 &blsp1_uart3 {
@@ -798,6 +832,17 @@
 		qcom,fast-avg-setup = <0>;
 	};
 
+	chan@34 {
+		label = "pa_therm1";
+		reg = <0x34>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
 	chan@3c {
 		label = "xo_therm_buf";
 		reg = <0x3c>;
@@ -811,6 +856,19 @@
 };
 
 &pmd9635_adc_tm {
+	chan@8 {
+		label = "pmic_therm";
+		reg = <8>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <3>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x48>;
+		qcom,thermal-node;
+	};
+
 	chan@33 {
 		label = "pa_therm0";
 		reg = <0x33>;
@@ -818,6 +876,32 @@
 		qcom,pre-div-channel-scaling = <0>;
 		qcom,calibration-type = "ratiometric";
 		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x48>;
+		qcom,thermal-node;
+	};
+
+	chan@34 {
+		label = "pa_therm1";
+		reg = <0x34>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x48>;
+		qcom,thermal-node;
+	};
+
+	chan@3c {
+		label = "xo_therm";
+		reg = <0x3c>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <4>;
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 		qcom,btm-channel-number = <0x48>;
