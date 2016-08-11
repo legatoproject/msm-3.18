@@ -18,4 +18,5 @@ obj-y += sierra_smem.o sierra_smem_msg.o sierra_smem_errdump.o sierra_smem_mode.
 obj-y += sierra_qfuse.o
 obj-y += sierra_bscommon.o
 # obj-y += sierra_monitor.o
+obj-y += sierra_rtc_wake.o
 # SWISTOP

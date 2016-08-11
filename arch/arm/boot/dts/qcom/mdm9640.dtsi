@@ -699,7 +699,11 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
-		qcom,not-wakeup; /* Needed until MPM is fully configured. */
+/* SWISTART */
+		/* qcom,not-wakeup; */ /* Needed until MPM is fully configured. */
+/* Recover to LE-2.0 setting, otherwise it will cause the USB wake up failed ,we are discussing with 
+   Qualcomm about this, after get Qualcomm double confirm, we need to re-visit this code */
+/* SWISTOP */
 	};
 
 	qcom,ipc-spinlock@1905000 {

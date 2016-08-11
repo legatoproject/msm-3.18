@@ -41,7 +41,12 @@
 	sound {
 		qcom,cdc-micbias2-headset-only;
 	};
-	
+
+	sierra_gpio_wake_n {
+		compatible = "sierra,gpio_wake_n";
+		wake-n-gpio = <&tlmm_pinmux 83 0>;
+	};
+
 	blsp1_uart1: serial@78af000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;
@@ -532,6 +537,12 @@
 			sierra,value = "ONLINE";
 			sierra,force-dload = <1>;
 		};
+	};
+
+	qcom,sierra-rtc_wake {
+		compatible = "sierra,sierra-rtc_wake";
+		sierra,sleep-time = <0>;
+		sierra,wake-time = <15>;
 	};
 
 	usb_detect{
