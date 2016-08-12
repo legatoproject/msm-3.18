@@ -77,6 +77,52 @@ static struct ext_gpio_map ext_gpio_ar[]={
 		{GPIO_NAME_RI,92,FUNCTION_UNALLOCATED}
 };
 
+static struct ext_gpio_map ext_gpio_ar7596_rev3[]={
+		{"1", 86, FUNCTION_UNALLOCATED},
+		{"2", 96, FUNCTION_UNALLOCATED},
+		{"3", 98, FUNCTION_UNALLOCATED},
+		{"4", 97, FUNCTION_UNALLOCATED},
+		{"5",  1, FUNCTION_UNALLOCATED},
+		{"6", 93, FUNCTION_UNALLOCATED},
+		{"7", 82, FUNCTION_UNALLOCATED},
+		{"8", 34, FUNCTION_UNALLOCATED},
+		{"9", 30, FUNCTION_UNALLOCATED},
+	/* GPIO10 <--> msmgpio75 in REV2 */
+		{"10",75, FUNCTION_UNALLOCATED},
+		{"11",90, FUNCTION_UNALLOCATED},
+	/* GPIO12 as SPI1_CS1 */
+		{"12", 68,FUNCTION_EMBEDDED_HOST},
+		{"13", 53,FUNCTION_UNALLOCATED},
+		{"14", 52,FUNCTION_UNALLOCATED},
+		{"15", 50,FUNCTION_UNALLOCATED},
+		{"16", 42,FUNCTION_UNALLOCATED},
+		{"17", 88,FUNCTION_UNALLOCATED},
+		{"18" ,60,FUNCTION_UNALLOCATED},
+		{"19", 99,FUNCTION_UNALLOCATED},
+		{"20", 94,FUNCTION_UNALLOCATED},
+		{"21", -1,FUNCTION_EMBEDDED_HOST},
+		{"22", -1,FUNCTION_EMBEDDED_HOST},
+		{"23", 69,FUNCTION_UNALLOCATED},
+		{"24", -1,FUNCTION_EMBEDDED_HOST},
+		{"25", 81,FUNCTION_UNALLOCATED},
+		{"26", 91,FUNCTION_UNALLOCATED},
+	/* GPIO27/28 as I2C_SDA/I2C_CLK */
+		{"27", 48,FUNCTION_EMBEDDED_HOST},
+		{"28", 49,FUNCTION_EMBEDDED_HOST},
+		{"29", 95,FUNCTION_UNALLOCATED},
+		{"30", 23,FUNCTION_UNALLOCATED},
+		{"31", 22,FUNCTION_UNALLOCATED},
+		{"32", 21,FUNCTION_UNALLOCATED},
+		{"33", 20,FUNCTION_UNALLOCATED},
+		{"34", 7, FUNCTION_UNALLOCATED},
+		{"35", 6, FUNCTION_UNALLOCATED},
+		{"M1", 1020,FUNCTION_UNALLOCATED},
+		{"M2", 1021,FUNCTION_UNALLOCATED},
+		{"M3", 1023,FUNCTION_UNALLOCATED},
+		{"M4", 1022,FUNCTION_UNALLOCATED},
+		{GPIO_NAME_RI,92,FUNCTION_UNALLOCATED}
+};
+
 static struct ext_gpio_map ext_gpio_mft[]={
 	{"101", 1020,FUNCTION_UNALLOCATED},
 	{"102", 1021,FUNCTION_UNALLOCATED},
@@ -86,7 +132,7 @@ static struct ext_gpio_map ext_gpio_mft[]={
 
 /**
  * getap_multiplex_gpio() - set the gpio multiplexing bit in AP
- * 
+ *
  *
  * Returns nothing
  *
@@ -94,7 +140,6 @@ static struct ext_gpio_map ext_gpio_mft[]={
 static void getap_multiplex_gpio(void)
 {
 	int i;
-	int gpio_num = -1;
 
 	for(i = 0; i < gpio_ext_chip.ngpio; i++)
 	{
@@ -665,8 +710,6 @@ static ssize_t export_store(struct class *class,
 	gRmode = sierra_smem_get_factory_mode();
 	if(gRmode != 1)
 	{
-		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 		status = gpio = gpio_map_name_to_num(buf, &alias);
 		pr_debug("%s: sierra--find GPIO: %d \n", __func__, (int)gpio);
 	}
@@ -733,8 +776,6 @@ static ssize_t unexport_store(struct class *class,
 	gRmode = sierra_smem_get_factory_mode();
 	if(gRmode != 1)
 	{
-		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 		status = gpio = gpio_map_name_to_num(buf, &alias);
 		pr_debug("%s: sierra--unexport GPIO: %d \n", __func__, (int)gpio);
 	}
@@ -870,8 +911,6 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	gRmode = sierra_smem_get_factory_mode();
 	if(gRmode != 1)
 	{
-		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 		strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
 		ioname = ioname_buf;
 		pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
@@ -1132,6 +1171,12 @@ static int __init gpiolib_sysfs_init(void)
 	int		status;
 	unsigned long	flags;
 	struct gpio_chip *chip;
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	enum bshwtype hwtype;
+	enum bshwrev hwrev;
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 
 	status = class_register(&gpio_class);
 	if (status < 0)
@@ -1149,7 +1194,41 @@ static int __init gpiolib_sysfs_init(void)
 #ifdef CONFIG_SIERRA
 	/* Assign product specific GPIO mapping */
 	gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-	ext_gpio = ext_gpio_ar;
+	ext_gpio = ext_gpio_ar7596_rev3;
+	hwtype = bsgethwtype();
+	hwrev = bsgethwrev();
+	switch (hwtype)
+	{
+		case BSAR7592:
+			if (hwrev < BSHWREV2)
+			{
+				ext_gpio = ext_gpio_ar;
+			}
+			break;
+		case BSAR7594:
+			if (hwrev < BSHWREV4)
+			{
+				ext_gpio = ext_gpio_ar;
+			}
+			break;
+		case BSAR7596:
+			if (hwrev < BSHWREV3)
+			{
+				ext_gpio = ext_gpio_ar;
+			}
+			break;
+		case BSAR7598:
+			if (hwrev < BSHWREV2)
+			{
+				ext_gpio = ext_gpio_ar;
+			}
+			break;
+		default:
+			pr_err( "%s: No sysfs entries for gpio on unsupported product type:%d.\n", __func__, hwtype);
+			ext_gpio = ext_gpio_ar7596_rev3;
+			break;
+	}
+
 	gpio_ext_chip.mask = bsgetgpioflag();
 	getap_multiplex_gpio();
 	status = gpiochip_export(&gpio_ext_chip);

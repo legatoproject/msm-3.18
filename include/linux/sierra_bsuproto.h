@@ -12,9 +12,11 @@
  * GNU General Public License for more details.
  *
  */
- 
+
 #ifndef BS_UPROTO_H
 #define BS_UPROTO_H
 
+extern uint8_t bsgethwtype(void);
+extern uint8_t bsgethwrev(void);
 extern uint64_t bsgetgpioflag(void);
 #endif
