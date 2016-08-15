@@ -104,6 +104,7 @@
 #define BS_SMEM_DSSD_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 #define BS_SMEM_SECB_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 #define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
+#define BS_SMEM_PR_SW_SIZE                 0x0010   /* 16 bytes for interlock between program refresh and normal SW update */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -118,6 +119,7 @@
 #define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_COWORK_OFFSET                (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_PR_SW_OFFSET                 (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -261,9 +263,17 @@
 #define DS_IMAGE_SYSTEM_2                   (1 << 16)  /* Root file system of system 2 */
 #define DS_IMAGE_USERDATA_1                 (1 << 17)  /* Legato FRM of system 1 */
 #define DS_IMAGE_USERDATA_2                 (1 << 18)  /* Legato FRM of system 2 */
-#define DS_IMAGE_CUSTOMER_0                 (1 << 19)  /* 'customer0' partition which stores customer application of system 1 */
-#define DS_IMAGE_CUSTOMER_2                 (1 << 20)  /* 'customer2' partition which stores customer application of system 2 */
+#define DS_IMAGE_CUSTOMERAPP_1              (1 << 19)  /* 'customer0' partition which stores customer application of system 1 */
+#define DS_IMAGE_CUSTOMERAPP_2              (1 << 20)  /* 'customer1' partition which stores customer application of system 2 */
 #define DS_IMAGE_FLAG_NOT_SET               0xFFFFFFFFFFFFFFFF /* Used during parameter delivery if 'updated image flag', 'bad image flag' and 'refresh flag' not set */
+
+/* Interlock between program refresh and normal SW update. 
+ * It is necessary to sync in prudefs.h(in mpss) and sierra_smem.h(in kernel) 
+ */
+#define PR_SW_UDATE_MAGIC_NUMBER 0x70727377  /* "prsw" */
+#define PR_SW_UPDATE_CLEAR_FLAG  0x0         /* Set it if program refresh or normal SW update finished */
+#define PR_IS_IN_PROGRESS        0x70720000  /* "pr" */
+#define SW_UPDATE_IN_PROGRESS    0x73777570  /* "swup" */
 
 /************
  *
@@ -554,6 +564,27 @@ struct __attribute__((packed)) bccoworkmsg
   uint8_t  bcreserved_u8;    /* The unused memory for uint 8 */
   uint32_t magic_end;        /* Magic ending flag */
   uint32_t crc32;            /* CRC32 of above fields */
+};
+
+/************
+ *
+ * Name:     pr_sw_smem_message_s
+ *s
+ * Purpose:  Interlock between program refresh and normal SW update
+ *
+ * Notes:  
+ * 1. It is used to interlock between program refresh and normal SW update.
+ * 2. Delay program refresh if normal SW update is in progress.
+ * 3. Delay normal SW update if program refresh is in progress.
+ * 4. It should be sync with normal SW update application
+ *
+ ************/
+struct __attribute__((packed)) pr_sw_smem_message_s
+{
+  uint32_t  magic_beg;                 /* Magic begin flag */
+  uint32_t  pr_or_sw_update;           /* pr or sw update flag */
+  uint32_t  magic_end;                 /* Magic ending flag */
+  uint32_t  crc32;                     /* CRC32 of above fields */
 };
 
 void sierra_smem_errdump_save_start(void);
