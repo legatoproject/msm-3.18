@@ -216,6 +216,13 @@
 		gpio;
 	};
 
+	sierra_tcxo_clk {
+		compatible = "sierra,tcxo_clk";
+		tcxo-output-gpio = <&pmd9635_gpios 1 0>;
+		clocks = <&clock_gcc clk_div_clk1>;
+		clock-names = "div_clk";
+	};
+
 	tlmm_pinmux: pinctrl@1000000 {
 		uart2_console_active: uart2_console_active {
 			mux {
@@ -970,5 +977,24 @@
 			<  25000000   12    0    1     2 &gpll0_out_main>,
 			<  50000000   12    0    0     0 &gpll0_out_main>,
 			<>;
+	};
+	
+	div_clk1: div_clk1 {
+		compatible = "qcom,rpm-branch-clk";
+		qcom,res-type = "clka";
+		qcom,res-id = <11>;
+		qcom,key = "swen";
+		qcom,rpm-peer = <&div_clk1_ao>;
+		qcom,rcg-init-rate = <1920000>;
+	};
+
+	div_clk1_ao: div_clk1_ao {
+		compatible = "qcom,rpm-branch-a-clk";
+		qcom,res-type = "clka";
+		qcom,res-id = <11>;
+		qcom,key = "swen";
+		qcom,rpm-peer = <&div_clk1>;
+		qcom,rcg-init-rate = <1920000>;
+		/*qcom,always-on;*/
 	};
 };

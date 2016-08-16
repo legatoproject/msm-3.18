@@ -35,6 +35,9 @@
 #define clk_qpic_clk			&qpic_clk
 #define clk_qpic_a_clk			&qpic_a_clk
 #define clk_ln_bb_clk			&ln_bb_clk
+/* SWISTART */
+#define clk_div_clk1			&div_clk1
+/* SWISTOP */
 #define clk_cxo_dwc3_clk		&cxo_dwc3_clk
 #define clk_ce_clk			&ce_clk
 #define clk_ce_a_clk			&ce_a_clk
