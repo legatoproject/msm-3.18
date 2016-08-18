@@ -12,10 +12,11 @@
  * GNU General Public License for more details.
  *
  */
- 
+
 #ifndef BS_UPROTO_H
 #define BS_UPROTO_H
 
 extern uint64_t bsgetgpioflag(void);
 extern bool bsgethsicflag(void);
+extern bool bs_support_get(enum bsfeature feature);
 #endif

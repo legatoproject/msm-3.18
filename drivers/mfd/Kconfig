@@ -1332,6 +1332,16 @@ config MFD_STW481X
 	  in various ST Microelectronics and ST-Ericsson embedded
 	  Nomadik series.
 
+# SWISTART
+config MFD_SWIMCU
+	bool "Sierra Wireless WP76xx MCU Support"
+	select MFD_CORE
+	depends on I2C=y
+	default y
+	help
+	  Support for Sierra Wireless MCU
+# SWISTOP
+
 config WCD9306_CODEC
 	tristate "WCD9306 Codec"
 	select SLIMBUS

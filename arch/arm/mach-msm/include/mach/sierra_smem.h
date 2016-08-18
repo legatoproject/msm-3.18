@@ -653,5 +653,6 @@ int  sierra_smem_get_download_mode(void);
 int sierra_smem_boothold_mode_set(void);
 int sierra_smem_im_recovery_mode_set(void);
 unsigned char * sierra_smem_base_addr_get(void);
+extern uint32_t sierra_smem_get_hwconfig(void);
 
 #endif /* SIERRA_SMEM_H */

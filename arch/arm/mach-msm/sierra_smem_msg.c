@@ -143,3 +143,28 @@ int sierra_smem_im_recovery_mode_set(void)
         return 0;
 }
 EXPORT_SYMBOL(sierra_smem_im_recovery_mode_set);
+
+uint32_t sierra_smem_get_hwconfig(void)
+{
+	struct bc_smem_message_s *b2amsgp;
+	unsigned char *virtual_addr;
+	uint32_t hwconfig = BC_MSG_HWCONFIG_INVALID;
+
+	virtual_addr = sierra_smem_base_addr_get();
+
+	if (virtual_addr != NULL) {
+	/*  APPL mailbox */
+	virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+	b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+	if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
+			b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END) {
+				/* doube check CRC */
+				if (b2amsgp->crc32 ==  crc32_le(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)) {
+					hwconfig = b2amsgp->in.hwconfig ;
+				}
+			}
+		}
+	return hwconfig;
+}
+EXPORT_SYMBOL(sierra_smem_get_hwconfig);

@@ -17,36 +17,29 @@
 /* Local constants and enumerated types */
 
 /* RAM Copies of HW type, rev, etc. */
-extern bool bshwconfigread;
-
+extern bool bs_hwcfg_read;
 
 /* Structures */
-
 /************
  *
- * Name:    bshwconfig
+ * Name:     bs_hwconfig_s
  *
- * Purpose: to allow easy access to fields of the hardware configuration
+ * Purpose:  to allow easy access to fields of the hardware configuration
  *
- * Members:
- *          all             - single uint32 containing all fields
- *          hw.type         - hardware type
- *          hw.rev          - hardware revision
- *          hw.mfgmode      - manufacturing mode
- *          hw.spare        - spare
+ * Members:  see below
  *
  * Notes:
  *
  ************/
-union bshwconfig
+union bs_hwconfig_s
 {
-  uint32_t all;
-  struct __packed
+  uint32_t all;                 /* single uint32 containing all fields */
+  struct __packed               /* struct of individual fields         */
   {
-    uint8_t type;
-    uint8_t rev;
-    uint8_t mfgmode;
-    uint8_t spare;
+    uint8_t family;             /* hardware family                     */
+    uint8_t type;               /* hardware type                       */
+    uint8_t rev;                /* hardware revision                   */
+    uint8_t spare;              /* spare                               */
   } hw;
 };
 

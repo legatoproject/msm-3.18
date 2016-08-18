@@ -66,4 +66,3 @@ int sierra_smem_get_factory_mode(void)
   return mode;
 }
 EXPORT_SYMBOL(sierra_smem_get_factory_mode);
-

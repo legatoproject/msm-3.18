@@ -151,6 +151,36 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 	return NULL;
 }
 
+/**
+ * gpio_set_map_table()
+ *
+ * Purpose: set gpio mapping table according smem
+ *
+ * Returns: no return
+ */
+static void gpio_set_map_table( void )
+{
+	gRmode = sierra_smem_get_factory_mode();
+	if(gRmode == 1)
+	{
+		ext_gpio = ext_gpio_mft;
+		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
+	}
+	else
+	{
+		if ( bs_support_get (BSFEATURE_WP) )
+		{
+			ext_gpio = ext_gpio_wp;
+			gpio_ext_chip.ngpio = NR_EXT_GPIOS_WP;
+		}
+		else
+		{
+			ext_gpio = ext_gpio_ar;
+			gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
+		}
+	}
+}
+
 #endif /*CONFIG_SIERRA*/
 
 
@@ -604,17 +634,7 @@ static ssize_t export_store(struct class *class,
 	int			status;
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
-	gRmode = sierra_smem_get_factory_mode();
-	if(gRmode == 1)
-	{
-		ext_gpio = ext_gpio_mft;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
-	}
-	else
-	{
-		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-	}
+	gpio_set_map_table();
 	bool alias = false;
 
 	status = gpio = gpio_map_name_to_num(buf, &alias);
@@ -665,17 +685,7 @@ static ssize_t unexport_store(struct class *class,
 	int			status;
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
-	gRmode = sierra_smem_get_factory_mode();
-	if(gRmode == 1)
-	{
-		ext_gpio = ext_gpio_mft;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
-	}
-	else
-	{
-		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-	}
+	gpio_set_map_table();
 	bool alias = false;
 
 	status = gpio = gpio_map_name_to_num(buf, &alias);
@@ -797,17 +807,7 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
-	gRmode = sierra_smem_get_factory_mode();
-	if(gRmode == 1)
-	{
-		ext_gpio = ext_gpio_mft;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
-	}
-	else
-	{
-		ext_gpio = ext_gpio_ar;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-	}
+	gpio_set_map_table();
 	strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
 	ioname = ioname_buf;
 	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
@@ -1070,8 +1070,7 @@ static int __init gpiolib_sysfs_init(void)
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 	/* Assign product specific GPIO mapping */
-	gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-	ext_gpio = ext_gpio_ar;
+	gpio_set_map_table();
 	gpio_ext_chip.mask = bsgetgpioflag();
 	getap_multiplex_gpio();
 	status = gpiochip_export(&gpio_ext_chip);

@@ -1,0 +1,174 @@
+/*
+ * core.h  --  Core Driver for Sierra Wireless WP76xx KL03z MCU
+ *
+ * adapted from:
+ * core.h  --  Core Driver for Wolfson WM8350 PMIC
+ *
+ * Copyright (c) 2016 Sierra Wireless, Inc.
+ *
+ *  This program is free software; you can redistribute  it and/or modify it
+ *  under  the terms of  the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the  License, or (at your
+ *  option) any later version.
+ *
+ */
+
+#ifndef __LINUX_MFD_SWIMCU_CORE_H_
+#define __LINUX_MFD_SWIMCU_CORE_H_
+
+#include <linux/kernel.h>
+#include <linux/mutex.h>
+#include <linux/completion.h>
+
+#include <linux/mfd/swimcu/gpio.h>
+
+/* Kinetis ROM Bootloader I2C configuration */
+#define SWIMCU_BOOT_I2C_ADDR	0x10
+#define SWIMCU_BOOT_I2C_FREQ	100
+#define SWIMCU_BOOT_I2C_ID	0
+
+/* Kinetis Application I2C configuration    */
+#define SWIMCU_APPL_I2C_ADDR	0x3A
+#define SWIMCU_APPL_I2C_FREQ	100
+#define SWIMCU_APPL_I2C_ID	1
+
+#define SWIMCU_PM_OFF		0
+#define SWIMCU_PM_BOOT_SOURCE	1
+#define SWIMCU_PM_POWER_SWITCH	2
+#define SWIMCU_PM_MAX		SWIMCU_PM_POWER_SWITCH
+
+#define SWIMCU_ADC_VREF		1800
+
+enum swimcu_adc_index
+{
+	SWIMCU_ADC_FIRST = 0,
+	SWIMCU_ADC_PTA12 = SWIMCU_ADC_FIRST, /* ADC2 */
+	SWIMCU_ADC_PTB1 = 1, /* ADC3 */
+	SWIMCU_ADC_LAST = SWIMCU_ADC_PTB1,
+	SWIMCU_NUM_ADC = SWIMCU_ADC_LAST+1,
+	SWIMCU_ADC_INVALID = SWIMCU_NUM_ADC,
+};
+
+#define SWIMCU_FUNC_FLAG_FWUPD (1 << 0)
+#define SWIMCU_FUNC_FLAG_PM    (1 << 1)
+#define SWIMCU_FUNC_FLAG_EVENT (1 << 2)
+#define SWIMCU_FUNC_APPL (SWIMCU_FUNC_FLAG_FWUPD | SWIMCU_FUNC_FLAG_PM | SWIMCU_FUNC_FLAG_EVENT)
+
+#define SWIMCU_DRIVER_INIT_FIRST     0
+#define SWIMCU_DRIVER_INIT_EVENT     (1 << 0)
+#define SWIMCU_DRIVER_INIT_ADC       (1 << 1)
+#define SWIMCU_DRIVER_INIT_PING      (1 << 2)
+#define SWIMCU_DRIVER_INIT_FW        (1 << 3)
+#define SWIMCU_DRIVER_INIT_PM        (1 << 4)
+#define SWIMCU_DRIVER_INIT_GPIO      (1 << 5)
+
+#define SWIMCU_DEBUG
+
+#define SWIMCU_INIT_DEBUG_LOG	0x0001
+#define SWIMCU_EVENT_DEBUG_LOG	0x0002
+#define SWIMCU_PROT_DEBUG_LOG	0x0004
+#define SWIMCU_PM_DEBUG_LOG	0x0008
+#define SWIMCU_GPIO_DEBUG_LOG	0x0010
+#define SWIMCU_ADC_DEBUG_LOG	0x0020
+#define SWIMCU_FW_DEBUG_LOG	0x0040
+#define SWIMCU_MISC_DEBUG_LOG	0x0080
+#define SWIMCU_ALL_DEBUG_LOG	0x00ff
+
+#define SWIMCU_DEFAULT_DEBUG_LOG SWIMCU_INIT_DEBUG_LOG
+
+#ifdef SWIMCU_DEBUG
+#define SWIMCU_INIT_LOG		(swimcu_debug_mask & SWIMCU_INIT_DEBUG_LOG)
+#define SWIMCU_EVENT_LOG	(swimcu_debug_mask & SWIMCU_EVENT_DEBUG_LOG)
+#define SWIMCU_PROT_LOG		(swimcu_debug_mask & SWIMCU_PROT_DEBUG_LOG)
+#define SWIMCU_PM_LOG		(swimcu_debug_mask & SWIMCU_PM_DEBUG_LOG)
+#define SWIMCU_GPIO_LOG		(swimcu_debug_mask & SWIMCU_GPIO_DEBUG_LOG)
+#define SWIMCU_ADC_LOG		(swimcu_debug_mask & SWIMCU_ADC_DEBUG_LOG)
+#define SWIMCU_FW_LOG		(swimcu_debug_mask & SWIMCU_FW_DEBUG_LOG)
+#define SWIMCU_MISC_LOG		(swimcu_debug_mask & SWIMCU_MISC_DEBUG_LOG)
+#else
+#define SWIMCU_INIT_LOG		(false)
+#define SWIMCU_EVENT_LOG	(false)
+#define SWIMCU_PROT_LOG		(false)
+#define SWIMCU_PM_LOG		(false)
+#define SWIMCU_GPIO_LOG		(false)
+#define SWIMCU_ADC_LOG		(false)
+#define SWIMCU_FW_LOG		(false)
+#define SWIMCU_MISC_LOG		(false)
+#endif
+#define swimcu_log(id, ...) do { if (SWIMCU_##id##_LOG) pr_info(__VA_ARGS__); } while (0)
+
+extern int swimcu_debug_mask;
+
+#define SWIMCU_FAULT_TX_TO	0x0001
+#define SWIMCU_FAULT_TX_NAK	0x0002
+#define SWIMCU_FAULT_RX_TO	0x0004
+#define SWIMCU_FAULT_RX_CRC	0x0008
+#define SWIMCU_FAULT_RESET	0x0100
+#define SWIMCU_FAULT_EVENT_OFLOW 0x0200
+
+#define SWIMCU_FAULT_COUNT_MAX  9999
+
+extern int swimcu_fault_mask;
+extern int swimcu_fault_count;
+
+struct swimcu_hwmon {
+	struct platform_device *pdev;
+	struct device *classdev;
+};
+
+struct swimcu {
+	struct device *dev;
+	struct i2c_client *client;
+	int i2c_driver_id;
+
+	int driver_init_mask;
+
+	u8 version_major;
+	u8 version_minor;
+
+	struct mutex mcu_transaction_mutex;
+
+	struct mutex adc_mutex;
+	int adc_init_mask;
+
+	struct notifier_block nb;
+
+	struct kobject pm_boot_source_kobj;
+	struct kobject pm_firmware_kobj;
+
+	/* Client devices */
+	struct swimcu_gpio gpio;
+	struct swimcu_hwmon hwmon;
+};
+
+/**
+ * Data to be supplied by the platform to initialise the SWIMCU.
+ *
+ * @init: Function called during driver initialisation.  Should be
+ *        used by the platform to configure GPIO functions and similar.
+ * @irq_high: Set if SWIMCU IRQ is active high.
+ * @irq_base: Base IRQ for genirq (not currently used).
+ * @gpio_base: Base for gpiolib.
+ */
+struct swimcu_platform_data {
+	int gpio_base;
+	int nr_gpio;
+	int adc_base;
+	int nr_adc;
+	u16 func_flags;
+};
+
+
+/*
+ * SWIMCU device initialization and exit.
+ */
+int swimcu_device_init(struct swimcu *swimcu);
+void swimcu_device_exit(struct swimcu *swimcu);
+
+/*
+ * ADC Readback
+ */
+int swimcu_read_adc(struct swimcu *swimcu, int channel);
+
+void swimcu_set_fault_mask(int fault);
+#endif

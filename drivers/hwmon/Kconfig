@@ -1414,7 +1414,7 @@ config SENSORS_ADS7871
 
 config SENSORS_AMC6821
 	tristate "Texas Instruments AMC6821"
-	depends on I2C 
+	depends on I2C
 	help
 	  If you say yes here you get support for the Texas Instruments
 	  AMC6821 hardware monitoring chips.
@@ -1707,6 +1707,14 @@ config SENSORS_ULTRA45
 	help
 	  This driver provides support for the Ultra45 workstation environmental
 	  sensors.
+# SWISTART
+config SENSORS_SWIMCU
+	tristate "Sierra Wireless WP76xx MCU"
+	depends on MFD_SWIMCU
+	help
+	  If you say yes here you get support for the hardware
+	  monitoring features of the WP76xx MCU.
+# SWISTOP
 
 if ACPI
 

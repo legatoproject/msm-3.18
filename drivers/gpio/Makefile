@@ -109,7 +109,7 @@ obj-$(CONFIG_GPIO_ZEVIO)	+= gpio-zevio.o
 obj-$(CONFIG_GPIO_ZYNQ)		+= gpio-zynq.o
 obj-$(CONFIG_MSM_SMP2P)         += gpio-msm-smp2p.o
 obj-$(CONFIG_MSM_SMP2P_TEST)    += gpio-msm-smp2p-test.o
-
-#SIERRA
+# SWISTART
 obj-$(CONFIG_SIERRA_GPIO_WAKEN) += sierra_gpio_wake_n.o
-#SIERRA
+obj-$(CONFIG_GPIO_SWIMCU)	+= gpio-swimcu.o
+# SWISTOP
