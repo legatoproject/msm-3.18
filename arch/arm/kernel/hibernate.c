@@ -71,7 +71,16 @@ static int notrace arch_save_image(unsigned long unused)
  */
 int notrace swsusp_arch_suspend(void)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/*
+ *  function in 3.18 kernel will not use the second parameter "arch_save_image()"
+ */
+	return cpu_suspend(0);
+#else
 	return cpu_suspend(0, arch_save_image);
+#endif /* SIERRA */
+/* SWISTOP */
 }
 
 /*
