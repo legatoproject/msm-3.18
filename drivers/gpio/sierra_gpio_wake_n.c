@@ -89,9 +89,15 @@ static int wake_n_probe(struct platform_device *pdev)
 
 	snprintf(wake_n_pdata.name, sizeof(wake_n_pdata.name), "wake-n_gpio%d",
 		wake_n_pdata.gpio);
+
 	if (gpio_direction_input(wake_n_pdata.gpio)) {
 		pr_err("%s: failed to set GPIO%d to input\n", __func__,
 			wake_n_pdata.gpio);
+		goto release_gpio;
+	}
+
+	if (gpio_pull_up(gpio_to_desc(wake_n_pdata.gpio))) {
+		pr_err("%s: failed to set GPIO wake_N to pull-up\n", __func__);
 		goto release_gpio;
 	}
 
