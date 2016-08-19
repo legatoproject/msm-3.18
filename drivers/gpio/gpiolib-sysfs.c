@@ -77,7 +77,7 @@ static struct ext_gpio_map ext_gpio_ar[]={
 		{GPIO_NAME_RI,92,FUNCTION_UNALLOCATED}
 };
 
-static struct ext_gpio_map ext_gpio_ar7596_rev3[]={
+static struct ext_gpio_map ext_gpio_ar7594_rev4[]={
 		{"1", 86, FUNCTION_UNALLOCATED},
 		{"2", 96, FUNCTION_UNALLOCATED},
 		{"3", 98, FUNCTION_UNALLOCATED},
@@ -87,8 +87,8 @@ static struct ext_gpio_map ext_gpio_ar7596_rev3[]={
 		{"7", 82, FUNCTION_UNALLOCATED},
 		{"8", 34, FUNCTION_UNALLOCATED},
 		{"9", 30, FUNCTION_UNALLOCATED},
-	/* GPIO10 <--> msmgpio75 in REV2 */
-		{"10",75, FUNCTION_UNALLOCATED},
+	/* GPIO10 <--> msmgpio29 in REV4 */
+		{"10",29, FUNCTION_UNALLOCATED},
 		{"11",90, FUNCTION_UNALLOCATED},
 	/* GPIO12 as SPI1_CS1 */
 		{"12", 68,FUNCTION_EMBEDDED_HOST},
@@ -1194,7 +1194,7 @@ static int __init gpiolib_sysfs_init(void)
 #ifdef CONFIG_SIERRA
 	/* Assign product specific GPIO mapping */
 	gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-	ext_gpio = ext_gpio_ar7596_rev3;
+	ext_gpio = ext_gpio_ar7594_rev4;
 	hwtype = bsgethwtype();
 	hwrev = bsgethwrev();
 	switch (hwtype)
@@ -1225,7 +1225,7 @@ static int __init gpiolib_sysfs_init(void)
 			break;
 		default:
 			pr_err( "%s: No sysfs entries for gpio on unsupported product type:%d.\n", __func__, hwtype);
-			ext_gpio = ext_gpio_ar7596_rev3;
+			ext_gpio = ext_gpio_ar7594_rev4;
 			break;
 	}
 
