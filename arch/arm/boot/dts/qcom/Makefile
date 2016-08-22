@@ -146,7 +146,8 @@ dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	apqtitanium-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-mtp.dtb \
-	mdm9607-swi-ar.dtb
+	mdm9607-swi-ar.dtb \
+	mdm9607-swi-wp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
