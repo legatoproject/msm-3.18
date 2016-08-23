@@ -427,6 +427,7 @@ struct __attribute__((packed)) bccoworkmsg
   uint8_t  bcsleepind;       /* Sleep inidcation function */
   uint8_t  bcresettype;      /* reset type */
   uint8_t  bcreserved[3];  /*The unused memory,we need struct ends on a 32 bit boundary*/
+  uint32_t bcfunctions;      /* indicate whether HSIC is enabled or not */
   uint32_t magic_end;        /* Magic ending flag */
   uint32_t crc32;            /* CRC32 of above fields */
 };

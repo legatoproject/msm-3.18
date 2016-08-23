@@ -48,6 +48,11 @@
 #if defined(CONFIG_PPC_PS3)
 #include <asm/firmware.h>
 #endif
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif
+/* SWISTOP */
 
 /*-------------------------------------------------------------------------*/
 
@@ -1324,7 +1329,11 @@ MODULE_LICENSE ("GPL");
 static int __init ehci_hcd_init(void)
 {
 	int retval = 0;
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    int rc = 0;
+#endif
+/* SWISTOP */
 	if (usb_disabled())
 		return -ENODEV;
 
@@ -1349,9 +1358,27 @@ static int __init ehci_hcd_init(void)
 #endif
 
 #ifdef PLATFORM_DRIVER
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	retval = platform_driver_register(&PLATFORM_DRIVER);
 	if (retval < 0)
-		goto clean0;
+	    goto clean0;
+#else
+	if(1 == bsgethsicflag()){
+		retval = platform_driver_register(&PLATFORM_DRIVER);
+		if (retval < 0)
+			goto clean0;
+		rc = gpio_request(59, "SMSC9730_RESETPIN");
+		if (!rc) {
+		    gpio_direction_output(59, 1);
+		}
+		else {
+		    retval = ENODEV;
+		    goto clean0;
+		}
+	}
+#endif
+/* SWISTOP */
 #endif
 
 #ifdef PS3_SYSTEM_BUS_DRIVER
@@ -1386,7 +1413,15 @@ clean3:
 clean2:
 #endif
 #ifdef PLATFORM_DRIVER
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	platform_driver_unregister(&PLATFORM_DRIVER);
+#else
+	if(1 == bsgethsicflag()){
+		platform_driver_unregister(&PLATFORM_DRIVER);
+	}
+#endif
+/* SWISTOP */
 clean0:
 #endif
 #ifdef CONFIG_DYNAMIC_DEBUG
