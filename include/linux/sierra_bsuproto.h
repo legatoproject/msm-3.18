@@ -17,4 +17,5 @@
 #define BS_UPROTO_H
 
 extern uint64_t bsgetgpioflag(void);
+extern bool bsgethsicflag(void);
 #endif
