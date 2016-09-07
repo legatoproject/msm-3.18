@@ -4678,6 +4678,9 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa3_set_required_perf_profile;
 	api_ctrl->ipa_get_ipc_logbuf = ipa3_get_ipc_logbuf;
 	api_ctrl->ipa_get_ipc_logbuf_low = ipa3_get_ipc_logbuf_low;
+	api_ctrl->ipa_setup_uc_ntn_pipes = ipa3_setup_uc_ntn_pipes;
+	api_ctrl->ipa_tear_down_uc_offload_pipes =
+		ipa3_tear_down_uc_offload_pipes;
 
 	return 0;
 }
@@ -5128,16 +5131,16 @@ int ipa3_generate_eq_from_hw_rule(
 	num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
 	num_offset_meq_128 = attrib->num_offset_meq_128;
 
-	if (attrib->tos_eq_present)
+	if (attrib->tos_eq_present && extra)
 		attrib->tos_eq = *extra++;
 
-	if (attrib->protocol_eq_present)
+	if (attrib->protocol_eq_present && extra)
 		attrib->protocol_eq = *extra++;
 
-	if (attrib->tc_eq_present)
+	if (attrib->tc_eq_present && extra)
 		attrib->tc_eq = *extra++;
 
-	if (num_offset_meq_128) {
+	if (num_offset_meq_128 && extra) {
 		attrib->offset_meq_128[0].offset = *extra++;
 		for (i = 0; i < 8; i++)
 			attrib->offset_meq_128[0].mask[i] = *rest++;
@@ -5150,7 +5153,7 @@ int ipa3_generate_eq_from_hw_rule(
 		num_offset_meq_128--;
 	}
 
-	if (num_offset_meq_128) {
+	if (num_offset_meq_128 && extra) {
 		attrib->offset_meq_128[1].offset = *extra++;
 		for (i = 0; i < 8; i++)
 			attrib->offset_meq_128[1].mask[i] = *rest++;
@@ -5163,7 +5166,7 @@ int ipa3_generate_eq_from_hw_rule(
 		num_offset_meq_128--;
 	}
 
-	if (num_offset_meq_32) {
+	if (num_offset_meq_32 && extra) {
 		attrib->offset_meq_32[0].offset = *extra++;
 		attrib->offset_meq_32[0].mask = *((u32 *)rest);
 		rest += 4;
@@ -5173,7 +5176,7 @@ int ipa3_generate_eq_from_hw_rule(
 	}
 	IPADBG("buf=0x%p extra=0x%p rest=0x%p\n", buf, extra, rest);
 
-	if (num_offset_meq_32) {
+	if (num_offset_meq_32 && extra) {
 		attrib->offset_meq_32[1].offset = *extra++;
 		attrib->offset_meq_32[1].mask = *((u32 *)rest);
 		rest += 4;
@@ -5183,7 +5186,7 @@ int ipa3_generate_eq_from_hw_rule(
 	}
 	IPADBG("buf=0x%p extra=0x%p rest=0x%p\n", buf, extra, rest);
 
-	if (num_ihl_offset_meq_32) {
+	if (num_ihl_offset_meq_32 && extra) {
 		attrib->ihl_offset_meq_32[0].offset = *extra++;
 		attrib->ihl_offset_meq_32[0].mask = *((u32 *)rest);
 		rest += 4;
@@ -5192,7 +5195,7 @@ int ipa3_generate_eq_from_hw_rule(
 		num_ihl_offset_meq_32--;
 	}
 
-	if (num_ihl_offset_meq_32) {
+	if (num_ihl_offset_meq_32 && extra) {
 		attrib->ihl_offset_meq_32[1].offset = *extra++;
 		attrib->ihl_offset_meq_32[1].mask = *((u32 *)rest);
 		rest += 4;
@@ -5208,7 +5211,7 @@ int ipa3_generate_eq_from_hw_rule(
 		rest += 4;
 	}
 
-	if (num_ihl_offset_range_16) {
+	if (num_ihl_offset_range_16 && extra) {
 		attrib->ihl_offset_range_16[0].offset = *extra++;
 		attrib->ihl_offset_range_16[0].range_high = *((u16 *)rest);
 		rest += 2;
@@ -5216,7 +5219,7 @@ int ipa3_generate_eq_from_hw_rule(
 		rest += 2;
 		num_ihl_offset_range_16--;
 	}
-	if (num_ihl_offset_range_16) {
+	if (num_ihl_offset_range_16 && extra) {
 		attrib->ihl_offset_range_16[1].offset = *extra++;
 		attrib->ihl_offset_range_16[1].range_high = *((u16 *)rest);
 		rest += 2;
@@ -5225,13 +5228,13 @@ int ipa3_generate_eq_from_hw_rule(
 		num_ihl_offset_range_16--;
 	}
 
-	if (attrib->ihl_offset_eq_32_present) {
+	if (attrib->ihl_offset_eq_32_present && extra) {
 		attrib->ihl_offset_eq_32.offset = *extra++;
 		attrib->ihl_offset_eq_32.value = *((u32 *)rest);
 		rest += 4;
 	}
 
-	if (attrib->ihl_offset_eq_16_present) {
+	if (attrib->ihl_offset_eq_16_present && extra) {
 		attrib->ihl_offset_eq_16.offset = *extra++;
 		attrib->ihl_offset_eq_16.value = *((u16 *)rest);
 		rest += 4;
