@@ -249,6 +249,11 @@
 		gpio;
 	};
 
+	sierra_gpio_wake_n {
+		compatible = "sierra,gpio_wake_n";
+		wake-n-gpio = <&tlmm_pinmux 52 0>;
+	};
+  
 };
 
 &blsp1_uart1 {
