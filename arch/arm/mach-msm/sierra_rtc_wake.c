@@ -82,7 +82,6 @@ static void sierra_pm_rtc_suspend( void )
 
 	if( !local_dur )
 	{
-		pr_info("%s sleep_dur is 0, will not active rtc_alarm!\n", __FUNCTION__);
 		rtc_suspend_flag=0;
 		return;
 	}
@@ -323,7 +322,7 @@ static struct platform_driver sierra_rtc_wake_driver = {
 	.probe        = sierra_rtc_wake_probe,
 	.remove       = sierra_rtc_wake_remove,
 	.driver        = {
-		.name        = "swi_rtc_wake",
+		.name        = "sierra_rtc_wake",
 		.owner = THIS_MODULE,
 		.of_match_table = of_match_ptr(sierra_rtc_wake_dt_info),
 		},
