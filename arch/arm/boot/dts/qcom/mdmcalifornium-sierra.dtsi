@@ -1,0 +1,40 @@
+/*
+ * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* Sierra shared memory
+ *
+ * A section of memory at the top of DDR is reserved for Sierra
+ * boot-app messages, crash information, and other data.  This section
+ * is non-initialized in order to preserve data across reboots.  The
+ * size and base are (unfortunately) defined in multiple places.
+ * 
+ * WARNING:  These definitions must be kept in sync
+ *
+ * modem_proc/config/9655/cust_config.xml
+ * sierra/bs/api/bsaddress.h
+ * apps_proc/kernel/arch/arm/boot/dts/qcom/mdmcalifornium-sierra.dtsi
+ */
+/ {
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		sierra_smem: sierra_region@0x8ff00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8ff00000 0x100000>;
+		};
+	};
+};
+

@@ -74,6 +74,9 @@
 #include "mdmcalifornium-coresight.dtsi"
 #include "mdmcalifornium-ion.dtsi"
 #include "mdmcalifornium-pm.dtsi"
+/* SWISTART */
+#include "mdmcalifornium-sierra.dtsi"
+/* SWISTOP */
 
 &soc {
 	#address-cells = <1>;
