@@ -44,6 +44,56 @@
 &soc {
 	sound {
 		qcom,cdc-micbias2-headset-only;
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK";
+	};
+
+	qcom,msm-dai-q6 {
+		compatible = "qcom,msm-dai-q6";
+		afe_pcm_rx: qcom,msm-dai-q6-be-afe-pcm-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <224>;
+		};
+
+		afe_pcm_tx: qcom,msm-dai-q6-be-afe-pcm-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <225>;
+		};
+
+		afe_proxy_rx: qcom,msm-dai-q6-afe-proxy-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <241>;
+		};
+
+		afe_proxy_tx: qcom,msm-dai-q6-afe-proxy-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <240>;
+		};
+
+		incall_record_rx: qcom,msm-dai-q6-incall-record-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32771>;
+		};
+
+		incall_record_tx: qcom,msm-dai-q6-incall-record-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32772>;
+		};
+
+		incall_music_rx: qcom,msm-dai-q6-incall-music-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32773>;
+		};
+
+		incall_music_2_rx: qcom,msm-dai-q6-incall-music-2-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <32770>;
+		};
+
+		sb_6_rx: qcom,msm-dai-q6-sb-6-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16396>;
+		};
 	};
 
 	sierra_gpio_wake_n {
@@ -356,6 +406,21 @@
 			};
 		};
 
+		i2c_3 {
+			wcd9xxx_codec@d{
+				status = "disabled";
+			};
+			wcd9xxx_codec@77{
+				status = "disabled";
+			};
+			wcd9xxx_codec@66{
+				status = "disabled";
+			};
+			wcd9xxx_codec@55{
+				status = "disabled";
+			};
+		};
+
 		/* blsp_spi2_groups */
 
 		spi2_default: spi2_default {
@@ -505,6 +570,9 @@
 
 	};
 
+	wcd9xxx_intc: wcd9xxx-irq {
+		status = "disabled";
+	};
 
 /* Sierra shared memory
  *

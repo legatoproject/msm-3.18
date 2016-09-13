@@ -326,7 +326,7 @@ err:
 	afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
 done:
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
 	return 0;
 #else
 	return ret;
@@ -780,7 +780,12 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 			}
 		}
 		atomic_inc(&pdata->prim_clk_usrs);
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 		tomtom_mclk_enable(codec, 1, dapm);
+#endif
+/* SWISTOP */
+
 	} else {
 		if (atomic_read(&pdata->prim_clk_usrs) > 0)
 			atomic_dec(&pdata->prim_clk_usrs);
@@ -795,7 +800,11 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 				goto err;
 			}
 		}
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 		tomtom_mclk_enable(codec, 0, dapm);
+#endif
+/* SWISTOP */
 	}
 	pr_debug("%s clk2 %x mode %x\n",  __func__, lpass_clk->clk_val2,
 		 lpass_clk->clk_set_mode);
@@ -975,6 +984,8 @@ static const struct snd_soc_dapm_widget mdm9640_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	mdm_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_SPK("Lineout_1 amp", NULL),
 	SND_SOC_DAPM_SPK("Lineout_3 amp", NULL),
 	SND_SOC_DAPM_SPK("Lineout_2 amp", NULL),
@@ -994,6 +1005,8 @@ static const struct snd_soc_dapm_widget mdm9640_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+#endif
+/* SWISTOP */
 };
 
 static const char *const spk_function[] = {"Off", "On"};
@@ -1044,7 +1057,7 @@ static int msm_snd_get_ext_clk_cnt(void)
 	return clk_users;
 }
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
 int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 #else
 static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -1071,6 +1084,8 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * After DAPM Enable pins always
 	 * DAPM SYNC needs to be called.
 	 */
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
@@ -1114,9 +1129,12 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
+#endif
+/* SWISTOP */
 
 	snd_soc_dapm_sync(dapm);
-
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	mbhc_cfg.calibration = def_codec_mbhc_cal();
 	if (mbhc_cfg.calibration) {
 		ret = tomtom_hs_detect(codec, &mbhc_cfg);
@@ -1131,6 +1149,8 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	tomtom_register_ext_clk_cb(mdm_enable_codec_ext_clk,
 				msm_snd_get_ext_clk_cnt,
 				rtd->codec);
+#endif
+/* SWISTOP */
 
 	ret = mdm_enable_codec_ext_clk(rtd->codec, 1, false);
 	if (IS_ERR_VALUE(ret)) {
@@ -1138,8 +1158,11 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				__func__, ret);
 			goto done;
 	}
-
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	tomtom_enable_qfuse_sensing(rtd->codec);
+#endif
+/* SWISTOP */
 
 	ret = mdm_enable_codec_ext_clk(rtd->codec, 0, false);
 	if (IS_ERR_VALUE(ret)) {
@@ -1151,6 +1174,8 @@ done:
 	return ret;
 }
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 void *def_codec_mbhc_cal(void)
 {
 	void *tomtom_cal;
@@ -1229,6 +1254,8 @@ void *def_codec_mbhc_cal(void)
 
 	return tomtom_cal;
 }
+#endif
+/* SWISTOP */
 
 /* Digital audio interface connects codec <---> CPU */
 static struct snd_soc_dai_link mdm_dai[] = {
@@ -1599,7 +1626,7 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-rx",
 #else
@@ -1611,7 +1638,7 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
 /* SWISTART */
-#ifndef CONFIG_SIERRA
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 		.init  = &mdm_mi2s_audrx_init,
 #endif /* SIERRA */
 /* SWISTOP */
@@ -1626,7 +1653,7 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.cpu_dai_name = "msm-dai-q6-mi2s.0",
 		.platform_name = "msm-pcm-routing",
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
 		.codec_name = "msm-stub-codec.1",
 		.codec_dai_name = "msm-stub-tx",
 #else
