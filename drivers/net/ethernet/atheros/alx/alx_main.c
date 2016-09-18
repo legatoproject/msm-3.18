@@ -3346,8 +3346,10 @@ static int alx_suspend(struct device *dev)
 	if (retval)
 		return retval;
 
+#ifdef MDM_PLATFORM
 	if(alx_ipa_rm_try_release(adpt, true))
 		pr_err("%s -- ODU PROD Release unsuccessful \n",__func__);
+#endif
 
 	if (wakeup) {
 		pci_prepare_to_sleep(pdev);
@@ -3521,6 +3523,7 @@ static int alx_link_mac_restore(struct alx_adapter *adpt)
 }
 #endif
 
+#ifdef MDM_PLATFORM
 static int alx_ipa_set_perf_level(void)
 {
 	struct ipa_rm_perf_profile profile;
@@ -3554,6 +3557,7 @@ static int alx_ipa_set_perf_level(void)
 	alx_ipa->alx_ipa_perf_requested = true;
 	return ret;
 }
+#endif
 
 static void alx_link_task_routine(struct alx_adapter *adpt)
 {
@@ -3561,7 +3565,9 @@ static void alx_link_task_routine(struct alx_adapter *adpt)
 	struct alx_hw *hw = &adpt->hw;
 	char *link_desc;
 	int ret = 0;
+#ifdef MDM_PLATFORM
 	struct alx_ipa_ctx *alx_ipa = adpt->palx_ipa;
+#endif
 
 	if (!CHK_ADPT_FLAG(0, TASK_LSC_REQ))
 		return;
@@ -3732,6 +3738,7 @@ static void alx_task_routine(struct work_struct *work)
 	CLI_ADPT_FLAG(1, STATE_WATCH_DOG);
 }
 
+#ifdef MDM_PLATFORM
 /*
  * alx_ipa_send_routine - Sends packets to IPA/ODU bridge Driver
  * Scheduled on RX of IPA_WRITE_DONE Event
@@ -3809,6 +3816,7 @@ static void alx_ipa_send_routine(struct work_struct *work)
 	/* Release PROD if we dont have any more data to send*/
 	spin_unlock_bh(&adpt->flow_ctrl_lock);
 }
+#endif
 
 /* Calculate the transmit packet descript needed*/
 static bool alx_check_num_tpdescs(struct alx_tx_queue *txque,
@@ -4853,11 +4861,11 @@ static int __devinit alx_init(struct pci_dev *pdev,
 	struct alx_hw *hw = NULL;
 #ifdef MDM_PLATFORM
 	struct alx_ipa_ctx *alx_ipa = NULL;
+	struct odu_bridge_params *params_ptr, params;
+	params_ptr = &params;
 #endif
 	static int cards_found;
 	int retval;
-        struct odu_bridge_params *params_ptr, params;
-        params_ptr = &params;
 
 #ifdef MDM_PLATFORM
 	retval = msm_pcie_pm_control(MSM_PCIE_RESUME, pdev->bus->number,
@@ -4998,11 +5006,7 @@ static int __devinit alx_init(struct pci_dev *pdev,
 	netdev->base_addr = (unsigned long)adpt->hw.hw_addr;
 
 	/* set cb member of netdev structure*/
-#ifdef MDM_PLATFORM
-       netdev->netdev_ops = &alx_netdev_ops;
-#else
-	netdev_attach_ops(netdev, &alx_netdev_ops);
-#endif
+    netdev->netdev_ops = &alx_netdev_ops;
 	alx_set_ethtool_ops(netdev);
 	netdev->watchdog_timeo = ALX_WATCHDOG_TIME;
 	strlcpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
@@ -5491,10 +5495,6 @@ static struct pci_error_handlers alx_err_handler = {
 #ifdef CONFIG_PM_SLEEP
 static SIMPLE_DEV_PM_OPS(alx_pm_ops, alx_suspend, alx_resume);
 #define ALX_PM_OPS (&alx_pm_ops)
-#ifndef MDM_PLATFORM
-compat_pci_suspend(alx_suspend)
-compat_pci_resume(alx_resume)
-#endif
 #else
 #define ALX_PM_OPS      NULL
 #endif
