@@ -20,3 +20,7 @@
 	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
 	qcom,board-id = <8 0x80>;
 };
+
+&hsic_host {
+	hsic,swi_reset_gpio = <&tlmm_pinmux 59 0>;
+};

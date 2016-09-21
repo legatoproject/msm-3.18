@@ -55,6 +55,12 @@
 
 #include "hbm.c"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif
+/* SWISTOP */
+
 #define MSM_USB_BASE (hcd->regs)
 #define USB_REG_START_OFFSET 0x90
 #define USB_REG_END_OFFSET 0x250
@@ -2276,6 +2282,33 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	if (pdata && pdata->consider_ipa_handshake)
 		msm_bam_set_hsic_host_dev(&pdev->dev);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgethsicflag()){
+		/* enable reset GPIO if specified.
+		 * This function might not belong here. It should tie to
+		 * HSIC peripherial driver instead of host
+		 */
+		int swi_reset_gpio, swi_rc;
+		if (pdev->dev.of_node) {
+			swi_reset_gpio = of_get_named_gpio(pdev->dev.of_node, "hsic,swi_reset_gpio", 0);
+			if (swi_reset_gpio >= 0) {
+				swi_rc = gpio_request(swi_reset_gpio, "SMSC9730_RESETPIN");
+				if (swi_rc) {
+					dev_err(&pdev->dev, "%s: SWI invalid reset gpio %d\n",
+						__func__, swi_reset_gpio);
+				}
+				else {
+					gpio_direction_output(swi_reset_gpio, 1);
+					dev_info(&pdev->dev, "%s: SWI set reset GPIO %d to high\n",
+						__func__, swi_reset_gpio);
+				}
+			}
+		}
+	}
+#endif
+
 
 	return 0;
 
