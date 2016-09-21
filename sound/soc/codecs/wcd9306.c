@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,10 +51,6 @@
 
 /* RX_HPH_CNP_WG_TIME increases by 0.24ms */
 #define TAPAN_WG_TIME_FACTOR_US  240
-
-#define TAPAN_SB_PGD_PORT_RX_BASE   0x40
-#define TAPAN_SB_PGD_PORT_TX_BASE   0x50
-#define TAPAN_REGISTER_START_OFFSET 0x800
 
 #define CODEC_REG_CFG_MINOR_VER 1
 
@@ -3538,137 +3534,9 @@ static const struct snd_soc_dapm_route wcd9302_map[] = {
 	{"RDAC5 MUX", "DEM3_INV", "RDAC4 MUX"},
 };
 
-static int tapan_readable(struct snd_soc_codec *ssc, unsigned int reg)
-{
-	return tapan_reg_readable[reg];
-}
-
-static bool tapan_is_digital_gain_register(unsigned int reg)
-{
-	bool rtn = false;
-
-	switch (reg) {
-	case TAPAN_A_CDC_RX1_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_RX2_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_RX3_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_RX4_VOL_CTL_B2_CTL:
-	case TAPAN_A_CDC_TX1_VOL_CTL_GAIN:
-	case TAPAN_A_CDC_TX2_VOL_CTL_GAIN:
-	case TAPAN_A_CDC_TX3_VOL_CTL_GAIN:
-	case TAPAN_A_CDC_TX4_VOL_CTL_GAIN:
-		rtn = true;
-		break;
-	default:
-		break;
-	}
-	return rtn;
-}
-
-static int tapan_volatile(struct snd_soc_codec *ssc, unsigned int reg)
-{
-
-	int i = 0;
-
-	/* Registers lower than 0x100 are top level registers which can be
-	 * written by the Tapan core driver.
-	 */
-
-	if ((reg >= TAPAN_A_CDC_MBHC_EN_CTL) || (reg < 0x100))
-		return 1;
-
-	/* IIR Coeff registers are not cacheable */
-	if ((reg >= TAPAN_A_CDC_IIR1_COEF_B1_CTL) &&
-		(reg <= TAPAN_A_CDC_IIR2_COEF_B2_CTL))
-		return 1;
-
-	/* ANC filter registers are not cacheable */
-	if ((reg >= TAPAN_A_CDC_ANC1_IIR_B1_CTL) &&
-		(reg <= TAPAN_A_CDC_ANC1_LPF_B2_CTL))
-		return 1;
-	if ((reg >= TAPAN_A_CDC_ANC2_IIR_B1_CTL) &&
-		(reg <= TAPAN_A_CDC_ANC2_LPF_B2_CTL))
-		return 1;
-
-	/* Digital gain register is not cacheable so we have to write
-	 * the setting even it is the same
-	 */
-	if (tapan_is_digital_gain_register(reg))
-		return 1;
-
-	/* HPH status registers */
-	if (reg == TAPAN_A_RX_HPH_L_STATUS || reg == TAPAN_A_RX_HPH_R_STATUS)
-		return 1;
-
-	if (reg == TAPAN_A_MBHC_INSERT_DET_STATUS)
-		return 1;
-
-	for (i = 0; i < ARRAY_SIZE(audio_reg_cfg); i++)
-		if (audio_reg_cfg[i].reg_logical_addr -
-			TAPAN_REGISTER_START_OFFSET == reg)
-			return 1;
-
-	return 0;
-}
-
 #define TAPAN_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
 #define TAPAN_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 				  SNDRV_PCM_FORMAT_S24_LE)
-static int tapan_write(struct snd_soc_codec *codec, unsigned int reg,
-	unsigned int value)
-{
-	int ret;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TAPAN_MAX_REGISTER);
-
-	if (!tapan_volatile(codec, reg)) {
-		ret = snd_soc_cache_write(codec, reg, value);
-		if (ret != 0)
-			dev_err(codec->dev, "Cache write to %x failed: %d\n",
-				reg, ret);
-	}
-
-	if (unlikely(test_bit(BUS_DOWN, &tapan_p->status_mask))) {
-		printk_ratelimited("write 0x%02x while offline\n", reg);
-		return -ENODEV;
-	} else
-		return wcd9xxx_reg_write(&wcd9xxx->core_res, reg, value);
-}
-static unsigned int tapan_read(struct snd_soc_codec *codec,
-				unsigned int reg)
-{
-	unsigned int val;
-	int ret;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
-	struct tapan_priv *tapan_p = snd_soc_codec_get_drvdata(codec);
-
-	if (reg == SND_SOC_NOPM)
-		return 0;
-
-	BUG_ON(reg > TAPAN_MAX_REGISTER);
-
-	if (!tapan_volatile(codec, reg) && tapan_readable(codec, reg) &&
-		reg < codec->driver->reg_cache_size) {
-		ret = snd_soc_cache_read(codec, reg, &val);
-		if (ret >= 0)
-			return val;
-
-		dev_err(codec->dev, "Cache read from %x failed: %d\n",
-				reg, ret);
-	}
-
-	if (unlikely(test_bit(BUS_DOWN, &tapan_p->status_mask))) {
-		printk_ratelimited("write 0x%02x while offline\n", reg);
-		return -ENODEV;
-	}
-
-	val = wcd9xxx_reg_read(&wcd9xxx->core_res, reg);
-	return val;
-}
 
 static int tapan_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
@@ -3817,7 +3685,7 @@ static int tapan_get_channel_map(struct snd_soc_dai *dai,
 	case AIF2_PB:
 	case AIF3_PB:
 		if (!rx_slot || !rx_num) {
-			pr_err("%s: Invalid rx_slot %p or rx_num %p\n",
+			pr_err("%s: Invalid rx_slot %pK or rx_num %pK\n",
 				 __func__, rx_slot, rx_num);
 			return -EINVAL;
 		}
@@ -3834,7 +3702,7 @@ static int tapan_get_channel_map(struct snd_soc_dai *dai,
 	case AIF2_CAP:
 	case AIF3_CAP:
 		if (!tx_slot || !tx_num) {
-			pr_err("%s: Invalid tx_slot %p or tx_num %p\n",
+			pr_err("%s: Invalid tx_slot %pK or tx_num %pK\n",
 				 __func__, tx_slot, tx_num);
 			return -EINVAL;
 		}
@@ -5935,23 +5803,21 @@ static int wcd9xxx_enable_static_pa(struct wcd9xxx_mbhc *mbhc, bool enable)
 	return 0;
 }
 
+static inline int tapan_zdet_wr(struct snd_soc_codec *codec,
+				struct list_head *list, uint16_t reg,
+				uint8_t mask, uint8_t value)
+{
+	return wcd9xxx_soc_update_bits_push(codec, list,
+					reg, mask, value, 0);
+}
+
 static int tapan_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 			    enum mbhc_impedance_detect_stages stage)
 {
-
 	int ret = 0;
 	struct snd_soc_codec *codec = mbhc->codec;
 	struct tapan_priv *tapan = snd_soc_codec_get_drvdata(codec);
 	const int mux_wait_us = 25;
-
-	#define __wr(reg, mask, value)                       \
-	do {                                                 \
-		ret = wcd9xxx_soc_update_bits_push(codec,    \
-                               &tapan->reg_save_restore,     \
-                                  reg, mask, value, 0);      \
-	       if (ret < 0)                                  \
-		return ret;                                  \
-	} while (0)
 
 	switch (stage) {
 
@@ -5961,26 +5827,37 @@ static int tapan_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 		wcd9xxx_prepare_hph_pa(mbhc, &tapan->reg_save_restore);
 
 		/* Setup MBHC */
-		__wr(WCD9XXX_A_MBHC_SCALING_MUX_1, 0x7F, 0x40);
-		__wr(WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0);
-		__wr(WCD9XXX_A_TX_7_MBHC_TEST_CTL, 0xFF, 0x78);
-		__wr(WCD9XXX_A_TX_7_MBHC_EN, 0xFF, 0xEC);
-		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B4_CTL, 0xFF, 0x45);
-		__wr(WCD9XXX_A_CDC_MBHC_TIMER_B5_CTL, 0xFF, 0x80);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_MBHC_SCALING_MUX_1, 0x7F, 0x40);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_MBHC_SCALING_MUX_2, 0xFF, 0xF0);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_TX_7_MBHC_TEST_CTL, 0xFF, 0x78);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_TX_7_MBHC_EN, 0xFF, 0xEC);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_CDC_MBHC_TIMER_B4_CTL, 0xFF, 0x45);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_CDC_MBHC_TIMER_B5_CTL, 0xFF, 0x80);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x0A);
 
-		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x0A);
 		snd_soc_write(codec, WCD9XXX_A_CDC_MBHC_EN_CTL, 0x2);
-		__wr(WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x02);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				WCD9XXX_A_CDC_MBHC_CLK_CTL, 0xFF, 0x02);
 
 		/* Enable Impedance Detection */
-		__wr(WCD9XXX_A_MBHC_HPH, 0xFF, 0xC8);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+					WCD9XXX_A_MBHC_HPH, 0xFF, 0xC8);
 
 		/*
 		 * CnP setup for 0mV
 		 * Route static data as input to noise shaper
 		 */
-		__wr(TAPAN_A_CDC_RX1_B3_CTL, 0xFF, 0x02);
-		__wr(TAPAN_A_CDC_RX2_B3_CTL, 0xFF, 0x02);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				TAPAN_A_CDC_RX1_B3_CTL, 0xFF, 0x02);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				TAPAN_A_CDC_RX2_B3_CTL, 0xFF, 0x02);
 
 		snd_soc_update_bits(codec, WCD9XXX_A_RX_HPH_L_TEST,
 				    0x02, 0x00);
@@ -5988,7 +5865,8 @@ static int tapan_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 				    0x02, 0x00);
 
 		/* Reset the HPHL static data pointer */
-		__wr(TAPAN_A_CDC_RX1_B2_CTL, 0xFF, 0x00);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+				TAPAN_A_CDC_RX1_B2_CTL, 0xFF, 0x00);
 		/* Four consecutive writes to set 0V as static data input */
 		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
 		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
@@ -5996,7 +5874,8 @@ static int tapan_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 		snd_soc_write(codec, TAPAN_A_CDC_RX1_B1_CTL, 0x00);
 
 		/* Reset the HPHR static data pointer */
-		__wr(TAPAN_A_CDC_RX2_B2_CTL, 0xFF, 0x00);
+		ret |= tapan_zdet_wr(codec, &tapan->reg_save_restore,
+					TAPAN_A_CDC_RX2_B2_CTL, 0xFF, 0x00);
 		/* Four consecutive writes to set 0V as static data input */
 		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x00);
 		snd_soc_write(codec, TAPAN_A_CDC_RX2_B1_CTL, 0x00);
@@ -6064,7 +5943,6 @@ static int tapan_setup_zdet(struct wcd9xxx_mbhc *mbhc,
 			__func__, stage);
 		break;
 	}
-#undef __wr
 
 	return ret;
 }
@@ -6389,6 +6267,7 @@ static enum codec_variant tapan_get_codec_ver(struct device *cdc_dev,
 	do {
 		if ((wcd9xxx_reg_read(core_res, TAPAN_A_QFUSE_STATUS)))
 			break;
+		cond_resched();
 	} while (!(timedout = time_after(jiffies, timeout)));
 
 	if (wcd9xxx_reg_read(core_res, TAPAN_A_QFUSE_DATA_OUT1) ||
@@ -6445,7 +6324,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 				  NULL, WCD9XXX_CDC_TYPE_TAPAN);
 	if (ret) {
 		pr_err("%s: wcd9xxx init failed %d\n", __func__, ret);
-		return ret;
+		goto err_nomem_slimch;
 	}
 
 	tapan->cp_regulators[CP_REG_BUCK] = tapan_codec_find_regulator(codec,
@@ -6489,7 +6368,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 
 	if (ret) {
 		pr_err("%s: mbhc init failed %d\n", __func__, ret);
-		return ret;
+		goto err_hwdep;
 	}
 
 	tapan->codec = codec;
@@ -6510,7 +6389,7 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	ret = tapan_handle_pdata(tapan);
 	if (IS_ERR_VALUE(ret)) {
 		dev_err(codec->dev, "%s: bad pdata\n", __func__);
-		goto err_pdata;
+		goto err_hwdep;
 	}
 
 	tapan->spkdrv_reg =
@@ -6565,7 +6444,11 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_dapm_sync(dapm);
 
-	(void) tapan_setup_irqs(tapan);
+	ret = tapan_setup_irqs(tapan);
+	if (ret) {
+		pr_err("%s: tapan irq setup failed %d\n", __func__, ret);
+		goto err_pdata;
+	}
 
 	atomic_set(&kp_tapan_priv, (unsigned long)tapan);
 	mutex_lock(&codec->mutex);
@@ -6580,9 +6463,6 @@ static int tapan_codec_probe(struct snd_soc_codec *codec)
 	snd_soc_dapm_sync(dapm);
 
 	codec->component.ignore_pmdown_time = 1;
-
-	if (ret)
-		tapan_cleanup_irqs(tapan);
 
 	return ret;
 
@@ -6619,7 +6499,7 @@ static int tapan_codec_remove(struct snd_soc_codec *codec)
 		tapan->cp_regulators[index] = NULL;
 
 	tapan->spkdrv_reg = NULL;
-
+	kfree(tapan->fw_data);
 	kfree(tapan);
 	return 0;
 }

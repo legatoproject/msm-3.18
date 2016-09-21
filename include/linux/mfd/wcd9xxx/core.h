@@ -68,12 +68,8 @@ enum codec_variant {
 	WCD9330,
 	WCD9335,
 	WCD9326,
-/* SWISTART */
-#ifdef CONFIG_SIERRA
 	WCD9302,
 	WCD9306,
-#endif /* CONFIG_SIERRA*/
-/* SWISTOP */
 };
 
 enum {
