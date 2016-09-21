@@ -1329,11 +1329,7 @@ MODULE_LICENSE ("GPL");
 static int __init ehci_hcd_init(void)
 {
 	int retval = 0;
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-    int rc = 0;
-#endif
-/* SWISTOP */
+
 	if (usb_disabled())
 		return -ENODEV;
 
@@ -1368,14 +1364,9 @@ static int __init ehci_hcd_init(void)
 		retval = platform_driver_register(&PLATFORM_DRIVER);
 		if (retval < 0)
 			goto clean0;
-		rc = gpio_request(59, "SMSC9730_RESETPIN");
-		if (!rc) {
-		    gpio_direction_output(59, 1);
-		}
-		else {
-		    retval = ENODEV;
-		    goto clean0;
-		}
+	}
+	else {
+		pr_info("%s: SWI hsic host disabled\n", __func__);
 	}
 #endif
 /* SWISTOP */
