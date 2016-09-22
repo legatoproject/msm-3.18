@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 /*Inherit the ar DTS and overlay the difference */
-#include "mdm9607-swi-ar.dtsi"
+#include "mdm9607-swi-common.dtsi"
 
 
 &spi_2 {
