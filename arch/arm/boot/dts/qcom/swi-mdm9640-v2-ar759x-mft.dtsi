@@ -1088,9 +1088,10 @@
 	vdd-io-supply = <&pmd9635_l14>;
 	qcom,vdd-io-voltage-level = <1800000 2850000>;
 	qcom,vdd-io-current-level = <200 60000>;
+	cd-gpios = <&tlmm_pinmux 81 0x1>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on>;
+	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on &pmx_sdc1_cd_on>;
 	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off>;
 
 	qcom,bus-width = <4>;
