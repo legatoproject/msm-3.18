@@ -24,11 +24,6 @@
 			reg = <0x8ff00000 0x100000>;
 		};
 	};
-
-	aliases {
-		serial0 = &blsp1_uart1;
-		spi2  = &spi_2;
-	};
 };
 
 &soc {
