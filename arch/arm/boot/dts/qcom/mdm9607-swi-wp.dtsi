@@ -13,11 +13,16 @@
 /*Inherit the ar DTS and overlay the difference */
 #include "mdm9607-swi-common.dtsi"
 
+/ {
+	aliases {
+		serial0 = &blsp1_uart1;
+		spi2  = &spi_2;
+	};
+};
 
 &spi_2 {
 	status = "disabled";
 };
-
 
 &bluetooth {
 	qca,bt-reset-gpio;
@@ -27,7 +32,6 @@
 	qca,bt-vdd-io-voltage-level;
 	qca,bt-vdd-xtal-voltage-level;
 };
-
 
 &pm8019_gpios {
 	gpio@c200 { /* GPIO 3 */
@@ -59,7 +63,6 @@
 	};
 
 };
-
 
 /* WP76 ADC configuration only used MPP2/4, which are already defined in mdm9607-swi-ar.dtsi*/
 &pm8019_vadc {
@@ -113,4 +116,26 @@
 		qcom,src-sel = <0>; /* Function constant */
 		status = "ok";
 	};
+};
+
+&uart_console_sleep {
+	mux {
+		pins = "gpio12", "gpio13";
+		function = "blsp_uart1";
+	};
+	config {
+		pins = "gpio12", "gpio13";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
+
+&blsp1_uart1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&blsp1_uart5 {
+	status = "disabled";
 };

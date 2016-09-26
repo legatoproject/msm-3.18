@@ -24,6 +24,11 @@
 		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
 	};
+	
+	aliases {
+		serial0 = &blsp1_uart5;
+		spi2  = &spi_2;
+	};
 };
 
 &soc {
@@ -41,11 +46,11 @@
 
 		uart_console_sleep: uart_console_sleep {
 			mux {
-				pins = "gpio12", "gpio13";
-				function = "blsp_uart1";
+				pins = "gpio8", "gpio9";
+				function = "blsp_uart5";
 			};
 			config {
-				pins = "gpio12", "gpio13";
+				pins = "gpio8", "gpio9";
 				drive-strength = <2>;
 				bias-pull-down;
 			};
@@ -94,7 +99,6 @@
 					bias-disable = <0>; /* No PULL */
 				};
 			};
-
 
 			spi1_sleep: spi1_sleep {
 				/* suspended state */
@@ -202,7 +206,6 @@
 			};
 		};
 
-
 	/* SDC pin type */
 
 		codec_reset {
@@ -232,12 +235,10 @@
 		};
 	};
 
-
 	sdcard_ext_vreg: sdcard_ext_vreg {
 	/*undefine use of pm-gpio4, we don't use pm-gpio4 for sdcard_ext_vreg*/
 		gpio;
 	};
-
 
 	rome_vreg: rome_vreg {
 	/*undefine use of pm-gpio3, we don't use pm-gpio3 for rome_vreg*/
@@ -256,28 +257,23 @@
   
 };
 
-&blsp1_uart1 {
+&blsp1_uart5 {
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
-
 &i2c_4 {
 	status = "ok";
 };
-
 
 &spi_1 {
 	status = "ok";
 };
 
-
 &spi_2 {
-	status = "ok";
+	status = "disabled";
 };
-
-
 
 &blsp1_uart2 {
 	status = "ok";
@@ -354,7 +350,6 @@
 	};
 
 };
-
 
 &sdhc_1 {
 	vdd-io-supply = <&mdm9607_l11>;
