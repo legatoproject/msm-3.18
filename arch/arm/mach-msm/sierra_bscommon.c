@@ -103,7 +103,7 @@ bool bsgethsicflag(void)
 
 	virtual_addr = sierra_smem_base_addr_get();
 	if (virtual_addr) {
-	 /*  APPL mailbox */
+	/*  APPL mailbox */
 	virtual_addr += BSMEM_COWORK_OFFSET;
 
 	mp = (struct bccoworkmsg *)virtual_addr;
@@ -139,14 +139,14 @@ EXPORT_SYMBOL(bsgethsicflag);
  *
  * Parms:    none
  *
-  urn:   hardware type
+ * Return:   hardware type
  *
  * Abort:    none
  *
  * Notes:
  *
  ************/
-enum bshwtype bs_hwtype_get(void)
+enum bshwtype bs_hwtype_get (void)
 {
 	if (!bs_hwcfg_read)
 	{
@@ -443,3 +443,55 @@ bool bs_support_get (enum bsfeature feature)
 	return supported;
 }
 EXPORT_SYMBOL(bs_support_get);
+
+/************
+ *
+ * Name:     bs_uart_fun_get()
+ *
+ * Purpose:  Provide to get UARTs function seting
+ *
+ * Parms:    uart Number
+ *
+ * Return:   UART function
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+int8_t bs_uart_fun_get (uint uart_num)
+{
+	struct bccoworkmsg *mp;
+	unsigned char *virtual_addr;
+
+	if (uart_num >= BS_UART_LINE_MAX) {
+		return -1;
+	}
+
+	virtual_addr = sierra_smem_base_addr_get();
+
+	if (virtual_addr) {
+		/*  APPL mailbox */
+		virtual_addr += BSMEM_COWORK_OFFSET;
+		mp = (struct bccoworkmsg *)virtual_addr;
+
+		if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+				mp->magic_end == BS_SMEM_COWORK_MAGIC_END ) {
+			/* doube check CRC */
+			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE)) {
+				/*get gpio flag*/
+				return (int8_t)mp->bcuartfun[uart_num];
+			} else {
+				printk(KERN_ERR"sierra:-%s-failed: crc error", __func__);
+				return -1;
+			}
+		} else {
+			printk(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
+			return -1;
+		}
+	} else {
+		printk(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
+		return -1;
+	}
+}
+EXPORT_SYMBOL(bs_uart_fun_get);

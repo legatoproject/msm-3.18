@@ -101,5 +101,66 @@ enum bsfeature
 	BSFEATURE_MAX							/* Used for bounds checking */
 };
 
+/************
+ *
+ * Name:     bs_uart_func_e
+ *
+ * Purpose:  Enumerated list of different functions supported by App processor
+ *
+ * Members:  BS_UART_FUNC_DISABLED  - UART disabled
+ *           BS_UART_FUNC_AT - UART reserved for AT service
+ *           BS_UART_FUNC_DM - UART reserved for DM service
+ *           BS_UART_FUNC_NMEA - UART reserved for NMEA service
+ *           BS_UART_FUNC_CONSOLE - UART reserved for CONSOLE service
+ *           BS_UART_FUNC_APP - UART open for all application usage
+ *           BS_UART_FUNC_APP - used for bounds checking
+ *           BS_UART_FUNC_INVALID - function is invalid
+ *
+ * Notes:    None
+ *
+ ************/
+enum bs_uart_func_e
+{
+  BS_UART_FUNC_DISABLED = 0,
+  BS_UART_FUNC_AT       = 1,
+  BS_UART_FUNC_DM       = 2,
+  BS_UART_FUNC_NMEA     = 4,
+  BS_UART_FUNC_CONSOLE  = 16,
+  BS_UART_FUNC_APP      = 17,
+  BS_UART_FUNC_MAX,
+  BS_UART_FUNC_INVALID  = 0xFF,
+};
+
+/************
+ *
+ * Members:  BS_UART1_LINE - line number of UART1
+ *           BS_UART2_LINE - line number of UART2
+ *           BS_UART_LINE_MAX - used for bounds checking
+ * Notes:    None
+ *
+ ************/
+enum bs_uart_line_e
+{
+  BS_UART1_LINE = 0,
+  BS_UART2_LINE,
+  BS_UART_LINE_MAX,
+};
+
+/************
+ *
+ * Members:  BS_UART_TYPE_HSL - high speed lite UART
+ *           BS_UART_TYPE_HS - high speed UART
+ *           BS_UART_TYPE_MAX - used for bounds checking
+ * Notes:    None
+ *
+ ************/
+enum bs_uart_type_e
+{
+  BS_UART_TYPE_HSL = 0,
+  BS_UART_TYPE_HS,
+  BS_UART_TYPE_MAX,
+};
+
+
 #include "sierra_bsuproto.h"
 #endif
