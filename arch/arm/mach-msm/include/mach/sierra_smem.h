@@ -104,6 +104,7 @@
 
 #define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
 #define BS_SMEM_PR_SW_SIZE                 0x0010   /* 16 bytes for interlock between program refresh and normal SW update */
+#define BS_SMEM_SECB_SIZE                  0x0080   /* 128 bytes for secure boot */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -118,6 +119,7 @@
 #define BSMEM_COWORK_OFFSET                (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_DSSD_OFFSET                  (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_PR_SW_OFFSET                 (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_SECB_OFFSET                  (BSMEM_PR_SW_OFFSET + BS_SMEM_PR_SW_SIZE + BS_SMEM_CRC_SIZE )
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -125,8 +127,12 @@
 #define BC_SMEM_MSG_MAGIC_BEG      0x92B15380U
 #define BC_SMEM_MSG_MAGIC_END      0x31DDF742U
 
-/* Version of the shared memory structure which is used by this
- * module.  Module is compatible with earlier versions
+#define BS_SMEM_SECBOOT_MAGIC_BEG      0x5342494DU
+#define BS_SMEM_SECBOOT_MAGIC_END      0x5342494DU
+
+
+/* Version of the shared memory structure which is used by this 
+ * module.  Module is compatible with earlier versions 
  */
 #define BC_SMEM_MSG_VERSION                  2
 #define BC_SMEM_MSG_CRC32_VERSION_MIN        2
@@ -478,23 +484,42 @@ struct __attribute__((packed)) bs_smem_mode_switch
 
 /************
  *
+ * Name:     bs_sec_fuse_info_s
+ *
+ * Purpose:  secure boot related qfuse info
+ *
+ * Notes:    make sure uint32 fields is 4-byte aligned
+ *
+ *
+ ************/
+struct __attribute__((packed)) bs_sec_fuse_info_s
+{
+  uint8_t        root_of_trust[32]; /**< sha256 hash of the root certificate */
+  uint64_t       msm_hw_id;             
+  uint32_t       serial_num;
+} ;
+
+
+/************
+ *
  * Name:     bs_smem_secboot_info
  *
- * Purpose:  secboot SMEM structure containing secure boot enable or not info.
+ * Purpose:  secboot SMEM structure containing secure boot qfuse info.
  *
  * Members:  see below
  *
- * Notes:    None
+ * Notes:    make sure uint32 fields is 4-byte aligned
  *
  *
  ************/
 struct __attribute__((packed)) bs_smem_secboot_info
 {
-  uint32_t magic_beg;                                /* Beginning marker  */
-  uint32_t auth_enable;                              /* secboot auth enable flag */
-  uint32_t reseved[4];                               /* reseved for future usage */  
-  uint32_t magic_end;                                /* Beginning marker  */
-  uint32_t crc32;                                    /* crc32             */
+  uint32_t  magic_beg;                                    /* Beginning marker  */
+  uint32_t  auth_enable;                                  /* secboot auth enable flag */
+  struct bs_sec_fuse_info_s  fuse_info;                          /* secboot hw fuse info */
+  uint8_t   pad[BS_SMEM_SECB_SIZE - sizeof(struct bs_sec_fuse_info_s) - 4 *sizeof(uint32_t)]; /* padding zone */
+  uint32_t  magic_end;                                    /* Beginning marker  */
+  uint32_t  crc32;                                        /* crc32             */
 };
 
 
