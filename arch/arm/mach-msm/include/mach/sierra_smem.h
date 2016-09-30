@@ -233,22 +233,28 @@
  * sierra_smem.h(in kernel) and swidssd.h(in APSS).
  */
 #define DS_MAGIC_NUMBER                     0x6475616C  /* "dual" */
+#define DS_SSID_SUB_SYSTEM_1                1           /* sub system 1 */
+#define DS_SSID_SUB_SYSTEM_2                2           /* sub system 2 */
+#define DS_SSID_NOT_SET                     0xFF        /* Used during parameter delivery if SSIDs not set */
 #define DS_SYSTEM_1                         0x73797331  /* "sys1" */ 
 #define DS_SYSTEM_2                         0x74656D32  /* "tem2" */
 #define DS_OUT_OF_SYNC                      0x4F6F5300  /* "OoS" */
 #define DS_IS_SYNC                          0x73796E63  /* "sync" */
+#define DS_EFS_CORRUPTION                   0x45465343  /* "EFSC" */
 #define DS_BOOT_UP_CHANGED                  0x6368616E  /* "chan" */
-#define DS_FLAG_NOT_SET                     0xFFFFFFFF  /* Used during parameter delivery if 'boot_system', 'swap_reason', 'out_of_sync' and 'sw_update_state' not set */
+#define DS_FLAG_NOT_SET                     0xFFFFFFFF  /* Used during parameter delivery if 'swap_reason',  'sw_update_state', 
+                                                                                                    * 'out_of_sync', 'efs_corruption_in_sw_update' and 'edb_in_sw_update' not set
+                                                                                                    */
 /* Bitmasks for images
- * 1. It is used for 'updated image flag', 'bad image flag' and 'refresh flag' 
+ * 1. It is used for 'bad image flag' 
  * 2. It is 64 bits length in order to consider future products may use different images
  */
-#define DS_IMAGE_CLEAR_FLAG                 0x0 /* Used during parameter delivery if 'updated image flag', 'bad image flag' and 'refresh flag' is cleared */
+#define DS_IMAGE_CLEAR_FLAG                 0x0 /* Used during parameter delivery if 'bad image flag' is cleared */
 #define DS_IMAGE_SBL                        (1 << 0)   /* SBL */
-#define DS_IMAGE_MIBIB_1                    (1 << 1)   /* MIBIB copy 1, only for bad image management */
-#define DS_IMAGE_MIBIB_2                    (1 << 2)   /* MIBIB copy 2, only for bad image management */
+#define DS_IMAGE_MIBIB                      (1 << 1)   /* MIBIB */
+#define DS_RESERVED_IMAGE_MASK_1            (1 << 2)   /* Reserved */
 #define DS_IMAGE_SEDB                       (1 << 3)   /* SEDB partition */
-#define DS_IMAGE_SEDB_2                     (1 << 4)   /* SEDB2 partition */
+#define DS_RESERVED_IMAGE_MASK_2            (1 << 4)   /* Reserved */
 #define DS_IMAGE_TZ_1                       (1 << 5)   /* TZ of system 1 */
 #define DS_IMAGE_TZ_2                       (1 << 6)   /* TZ of system 2 */
 #define DS_IMAGE_RPM_1                      (1 << 7)   /* RPM of system 2 */
@@ -265,7 +271,8 @@
 #define DS_IMAGE_USERDATA_2                 (1 << 18)  /* Legato FRM of system 2 */
 #define DS_IMAGE_CUSTOMER_0                 (1 << 19)  /* 'customer0' partition which stores customer application of system 1 */
 #define DS_IMAGE_CUSTOMER_2                 (1 << 20)  /* 'customer2' partition which stores customer application of system 2 */
-#define DS_IMAGE_FLAG_NOT_SET               0xFFFFFFFFFFFFFFFF /* Used during parameter delivery if 'updated image flag', 'bad image flag' and 'refresh flag' not set */
+#define DS_IMAGE_FLAG_NOT_SET               0xFFFFFFFFFFFFFFFF /* Used during parameter delivery if 'bad image flag' not set */
+
 
 /* Interlock between program refresh and normal SW update. 
  * It is necessary to sync in prudefs.h(in mpss) and sierra_smem.h(in kernel) 
@@ -545,13 +552,17 @@ struct __attribute__((packed)) bs_smem_secboot_info
 struct __attribute__((packed)) ds_smem_message_s
 {
   uint32_t  magic_beg;             /* Magic begin flag */
-  uint32_t  boot_system;           /* Boot system flag */
+  uint8_t   ssid_modem_idx;        /* SSID modem index flag */
+  uint8_t   ssid_lk_idx;           /* SSID LK index flag */
+  uint8_t   ssid_linux_idx;        /* SSID Linux index flag */
+  uint8_t   reserved_8bits;        /* Reserved for 8 bytes align */
   uint32_t  swap_reason;           /* Dual system swap reasons */
   uint32_t  is_changed;            /* Mark if it is changed or not during boot up */
   uint64_t  bad_image;             /* Record bad images */
   uint32_t  magic_end;             /* Magic ending flag */
   uint32_t  crc32;                 /* CRC32 of above fields */
 };
+
 
 /*************
  *
