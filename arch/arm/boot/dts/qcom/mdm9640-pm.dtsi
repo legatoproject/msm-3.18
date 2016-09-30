@@ -197,6 +197,9 @@
 			<0xff 207>, /* rpm_ipc(27)   */
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 270>; /* bam_irq[0] */
+		/* SWISTART */
+		qcom,gpio-parent = <&tlmm_pinmux>;
+		/* SWISTOP */
 		qcom,gpio-map = <3 80>,
 			<4 91>,
 			<5 1>,
