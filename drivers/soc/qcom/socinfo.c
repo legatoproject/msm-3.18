@@ -64,6 +64,7 @@ enum {
 	HW_PLATFORM_RCM	= 21,
 	HW_PLATFORM_STP = 23,
 	HW_PLATFORM_SBC = 24,
+	HW_PLATFORM_ADP = 25,
 	HW_PLATFORM_INVALID
 };
 
@@ -84,6 +85,7 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_DTV] = "DTV",
 	[HW_PLATFORM_STP] = "STP",
 	[HW_PLATFORM_SBC] = "SBC",
+	[HW_PLATFORM_ADP] = "ADP",
 };
 
 enum {
@@ -107,6 +109,22 @@ const char *qrd_hw_platform_subtype[] = {
 	[PLATFORM_SUBTYPE_SKUAB] = "SKUAB",
 	[PLATFORM_SUBTYPE_SKUG] = "SKUG",
 	[PLATFORM_SUBTYPE_QRD_INVALID] = "INVALID",
+};
+
+enum {
+	PLATFORM_SUBTYPE_MOJAVE_V1 = 0x0,
+	PLATFORM_SUBTYPE_MMX = 0x1,
+	PLATFORM_SUBTYPE_MOJAVE_FULL_V2 = 0x2,
+	PLATFORM_SUBTYPE_MOJAVE_BARE_V2 = 0x3,
+	PLATFORM_SUBTYPE_ADP_INVALID,
+};
+
+const char *adp_hw_platform_subtype[] = {
+	[PLATFORM_SUBTYPE_MOJAVE_V1] = "MOJAVE_V1",
+	[PLATFORM_SUBTYPE_MMX] = "MMX",
+	[PLATFORM_SUBTYPE_MOJAVE_FULL_V2] = "_MOJAVE_V2_FULL",
+	[PLATFORM_SUBTYPE_MOJAVE_BARE_V2] = "_MOJAVE_V2_BARE",
+	[PLATFORM_SUBTYPE_ADP_INVALID] = "INVALID",
 };
 
 enum {
@@ -562,6 +580,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	[308] = {MSM_CPU_8917, "MSM8217"},
 	[309] = {MSM_CPU_8917, "MSM8617"},
 
+	/* MSM8920 IDs */
+	[320] = {MSM_CPU_8920, "MSM8920"},
+
 	/* MSM8940 IDs */
 	[313] = {MSM_CPU_8940, "MSM8940"},
 
@@ -683,13 +704,14 @@ static uint32_t socinfo_get_foundry_id(void)
 		: 0;
 }
 
-static uint32_t socinfo_get_serial_number(void)
+uint32_t socinfo_get_serial_number(void)
 {
 	return socinfo ?
 		(socinfo_format >= SOCINFO_VERSION(0, 10) ?
 			socinfo->v0_10.serial_number : 0)
 		: 0;
 }
+EXPORT_SYMBOL(socinfo_get_serial_number);
 
 static uint32_t socinfo_get_chip_family(void)
 {
@@ -822,6 +844,14 @@ msm_get_platform_subtype(struct device *dev,
 		}
 		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
 					qrd_hw_platform_subtype[hw_subtype]);
+	}
+	if (HW_PLATFORM_ADP == socinfo_get_platform_type()) {
+		if (hw_subtype >= PLATFORM_SUBTYPE_ADP_INVALID) {
+			pr_err("Invalid hardware platform sub type for adp found\n");
+			hw_subtype = PLATFORM_SUBTYPE_ADP_INVALID;
+		}
+		return snprintf(buf, PAGE_SIZE, "%-.32s\n",
+					adp_hw_platform_subtype[hw_subtype]);
 	} else {
 		if (hw_subtype >= PLATFORM_SUBTYPE_INVALID) {
 			pr_err("Invalid hardware platform subtype\n");
@@ -1240,6 +1270,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msm8917()) {
 		dummy_socinfo.id = 303;
 		strlcpy(dummy_socinfo.build_id, "msm8917 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msm8920()) {
+		dummy_socinfo.id = 320;
+		strlcpy(dummy_socinfo.build_id, "msm8920 - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msm8940()) {
 		dummy_socinfo.id = 313;

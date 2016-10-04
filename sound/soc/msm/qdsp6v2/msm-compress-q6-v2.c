@@ -175,7 +175,8 @@ struct msm_compr_audio {
 	spinlock_t lock;
 };
 
-const u32 compr_codecs[] = {SND_AUDIOCODEC_AC3, SND_AUDIOCODEC_EAC3};
+const u32 compr_codecs[] = {
+	SND_AUDIOCODEC_AC3, SND_AUDIOCODEC_EAC3, SND_AUDIOCODEC_DTS};
 
 struct query_audio_effect {
 	uint32_t mod_id;
@@ -636,7 +637,7 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 			COMPR_PLAYBACK_MIN_NUM_FRAGMENTS;
 	prtd->compr_cap.max_fragments =
 			COMPR_PLAYBACK_MAX_NUM_FRAGMENTS;
-	prtd->compr_cap.num_codecs = 12;
+	prtd->compr_cap.num_codecs = 13;
 	prtd->compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	prtd->compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
@@ -649,6 +650,7 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 	prtd->compr_cap.codecs[9] = SND_AUDIOCODEC_VORBIS;
 	prtd->compr_cap.codecs[10] = SND_AUDIOCODEC_ALAC;
 	prtd->compr_cap.codecs[11] = SND_AUDIOCODEC_APE;
+	prtd->compr_cap.codecs[12] = SND_AUDIOCODEC_DTS;
 }
 
 static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
@@ -874,6 +876,10 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 			pr_err("%s: CMD Format block failed ret %d\n",
 					__func__, ret);
 		break;
+	case FORMAT_DTS:
+		pr_debug("SND_AUDIOCODEC_DTS\n");
+		/* no media format block needed */
+		break;
 
 	default:
 		pr_debug("%s, unsupported format, skip", __func__);
@@ -953,7 +959,8 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		return -EINVAL;
 	}
 
-	if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
+	if ((prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE) ||
+		(prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_3LE))
 		bits_per_sample = 24;
 	else if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S32_LE)
 		bits_per_sample = 32;
@@ -1008,19 +1015,24 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	if (ret < 0)
 		pr_err("%s : Set Volume failed : %d", __func__, ret);
 
-	ret = q6asm_send_cal(ac);
-	if (ret < 0)
-		pr_debug("%s : Send cal failed : %d", __func__, ret);
+	if (prtd->compr_passthr != LEGACY_PCM) {
+		pr_debug("%s : Don't send cal and PP params for compress path",
+				__func__);
+	} else {
+		ret = q6asm_send_cal(ac);
+		if (ret < 0)
+			pr_debug("%s : Send cal failed : %d", __func__, ret);
 
-	ret = q6asm_set_softpause(ac, &softpause);
-	if (ret < 0)
-		pr_err("%s: Send SoftPause Param failed ret=%d\n",
-				__func__, ret);
-	ret = q6asm_set_softvolume(ac, &softvol);
-	if (ret < 0)
-		pr_err("%s: Send SoftVolume Param failed ret=%d\n",
-				__func__, ret);
+		ret = q6asm_set_softpause(ac, &softpause);
+		if (ret < 0)
+			pr_err("%s: Send SoftPause Param failed ret=%d\n",
+					__func__, ret);
 
+		ret = q6asm_set_softvolume(ac, &softvol);
+		if (ret < 0)
+			pr_err("%s: Send SoftVolume Param failed ret=%d\n",
+					__func__, ret);
+	}
 	ret = q6asm_set_io_mode(ac, (COMPRESSED_STREAM_IO | ASYNC_IO_MODE));
 	if (ret < 0) {
 		pr_err("%s: Set IO mode failed\n", __func__);
@@ -1387,6 +1399,12 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 		break;
 	}
 
+	case SND_AUDIOCODEC_DTS: {
+		pr_debug("%s: SND_AUDIOCODEC_DTS\n", __func__);
+		prtd->codec = FORMAT_DTS;
+		break;
+	}
+
 	default:
 		pr_err("codec not supported, id =%d\n", params->codec.id);
 		return -EINVAL;
@@ -1717,7 +1735,12 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 			prtd->app_pointer  = 0;
 			prtd->first_buffer = 1;
 			prtd->last_buffer = 0;
-			prtd->gapless_state.gapless_transition = 1;
+			/*
+			 * Set gapless transition flag only if EOS hasn't been
+			 * acknowledged already.
+			 */
+			if (atomic_read(&prtd->eos))
+				prtd->gapless_state.gapless_transition = 1;
 			prtd->marker_timestamp = 0;
 
 			/*
@@ -1741,6 +1764,7 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		   stream can be used for gapless playback
 		*/
 		prtd->gapless_state.set_next_stream_id = false;
+		prtd->gapless_state.gapless_transition = 0;
 		pr_debug("%s:CMD_EOS stream_id %d\n", __func__, ac->stream_id);
 
 		prtd->eos_ack = 0;
@@ -2172,6 +2196,8 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_ALAC:
 		break;
 	case SND_AUDIOCODEC_APE:
+		break;
+	case SND_AUDIOCODEC_DTS:
 		break;
 	default:
 		pr_err("%s: Unsupported audio codec %d\n",
@@ -2648,6 +2674,7 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 	case FORMAT_VORBIS:
 	case FORMAT_ALAC:
 	case FORMAT_APE:
+	case FORMAT_DTS:
 		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
 			 prtd->codec);
 		break;

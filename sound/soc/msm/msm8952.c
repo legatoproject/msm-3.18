@@ -1582,6 +1582,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "WSA_SPK OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -1954,7 +1955,6 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		.cpu_dai_name = "LSM1",
 		.platform_name = "msm-lsm-client",
 		.dynamic = 1,
-		.dpcm_playback = 1,
 		.dpcm_capture = 1,
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			SND_SOC_DPCM_TRIGGER_POST },
@@ -2239,6 +2239,24 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 		/* this dai link has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA8,
+	},
+	{/* hw:x,37 */
+		.name = "QCHAT",
+		.stream_name = "QCHAT",
+		.cpu_dai_name = "QCHAT",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.dpcm_playback = 1,
+		.dpcm_capture = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		/* this dai link has playback support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_QCHAT,
 	},
 	/* Backend I2S DAI Links */
 	{

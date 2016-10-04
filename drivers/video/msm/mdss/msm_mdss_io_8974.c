@@ -16,6 +16,8 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/iopoll.h>
+#include <linux/kthread.h>
 
 #include "mdss_dsi.h"
 #include "mdss_edp.h"
@@ -425,6 +427,20 @@ static void mdss_dsi_ctrl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
 	udelay(100);
 	wmb();	/* maek sure reset cleared */
+}
+
+int mdss_dsi_phy_pll_reset_status(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc;
+	u32 val;
+	u32 const sleep_us = 10, timeout_us = 100;
+
+	pr_debug("%s: polling for RESETSM_READY_STATUS.CORE_READY\n",
+		__func__);
+	rc = readl_poll_timeout(ctrl->phy_io.base + 0x4cc, val,
+		(val & 0x1), sleep_us, timeout_us);
+
+	return rc;
 }
 
 void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -2223,18 +2239,8 @@ int mdss_dsi_post_clkoff_cb(void *priv,
 		pdata = &ctrl->panel_data;
 
 		for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-			/*
-			 * if DSI state is active
-			 * 1. allow to turn off the core power module.
-			 * 2. allow to turn off phy power module if it is
-			 * turned off
-			 *
-			 * allow to turn off all power modules if DSI is not
-			 * active
-			 */
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
-				(i != DSI_CORE_PM) &&
-				(ctrl->phy_power_off && (i != DSI_PHY_PM)))
+				(i != DSI_CORE_PM))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,
@@ -2279,15 +2285,12 @@ int mdss_dsi_pre_clkon_cb(void *priv,
 		 * 3.> CTRL_PM need to be enabled/disabled
 		 *     only during unblank/blank. Their state should
 		 *     not be changed during static screen.
-		 * 4.> PHY_PM can be turned enabled/disabled
-		 *     if phy regulators are enabled/disabled.
 		 */
 		pr_debug("%s: Enable DSI core power\n", __func__);
 		for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
 			if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) &&
 				(!pdata->panel_info.cont_splash_enabled) &&
-				(i != DSI_CORE_PM) &&
-				(ctrl->phy_power_off && (i != DSI_PHY_PM)))
+				(i != DSI_CORE_PM))
 				continue;
 			rc = msm_dss_enable_vreg(
 				sdata->power_data[i].vreg_config,

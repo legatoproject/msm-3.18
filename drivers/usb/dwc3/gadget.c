@@ -391,6 +391,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 {
 	struct dwc3		*dwc = dep->dwc;
+	u32			num_trbs = DWC3_TRB_NUM;
 
 	if (dep->trb_pool)
 		return 0;
@@ -399,13 +400,14 @@ static int dwc3_alloc_trb_pool(struct dwc3_ep *dep)
 		return 0;
 
 	dep->trb_pool = dma_zalloc_coherent(dwc->dev,
-			sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
+			sizeof(struct dwc3_trb) * num_trbs,
 			&dep->trb_pool_dma, GFP_ATOMIC);
 	if (!dep->trb_pool) {
 		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
 				dep->name);
 		return -ENOMEM;
 	}
+	dep->num_trbs = num_trbs;
 
 	return 0;
 }
@@ -658,6 +660,17 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	dep->comp_desc = NULL;
 	dep->type = 0;
 	dep->flags = 0;
+
+	/*
+	 * Clean up ep ring to avoid getting xferInProgress due to stale trbs
+	 * with HWO bit set from previous composition when update transfer cmd
+	 * is issued.
+	 */
+	if (dep->number > 1 && dep->trb_pool) {
+		memset(&dep->trb_pool[0], 0,
+			sizeof(struct dwc3_trb) * dep->num_trbs);
+		dbg_event(dep->number, "Clr_TRB", 0);
+	}
 
 	return 0;
 }
@@ -927,6 +940,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 	unsigned int		last_one = 0;
 	int			maxpkt_size;
 	bool			isoc;
+	struct dwc3		*dwc = dep->dwc;
 
 	maxpkt_size = usb_endpoint_maxp(dep->endpoint.desc);
 	isoc = usb_endpoint_xfer_isoc(dep->endpoint.desc);
@@ -3515,7 +3529,6 @@ static void dwc3_interrupt_bh(unsigned long param)
 {
 	struct dwc3 *dwc = (struct dwc3 *) param;
 
-	pm_runtime_get(dwc->dev);
 	dwc3_thread_interrupt(dwc->irq, dwc);
 	enable_irq(dwc->irq);
 }
@@ -3543,7 +3556,6 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 	dwc->bh_completion_time[dwc->bh_dbg_index] = temp_time;
 	dwc->bh_dbg_index = (dwc->bh_dbg_index + 1) % 10;
 
-	pm_runtime_put(dwc->dev);
 	return ret;
 }
 

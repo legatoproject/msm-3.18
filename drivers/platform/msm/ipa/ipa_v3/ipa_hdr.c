@@ -321,6 +321,7 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	struct ipa3_hdr_proc_ctx_tbl *htbl = &ipa3_ctx->hdr_proc_ctx_tbl;
 	int id;
 	int needed_len;
+	int mem_size;
 
 	IPADBG_LOW("processing type %d hdr_hdl %d\n",
 		proc_ctx->type, proc_ctx->hdr_hdl);
@@ -360,6 +361,14 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	} else {
 		IPAERR("unexpected needed len %d\n", needed_len);
 		WARN_ON(1);
+		goto bad_len;
+	}
+
+	mem_size = (ipa3_ctx->hdr_proc_ctx_tbl_lcl) ?
+		IPA_MEM_PART(apps_hdr_proc_ctx_size) :
+		IPA_MEM_PART(apps_hdr_proc_ctx_size_ddr);
+	if (htbl->end + ipa_hdr_proc_ctx_bin_sz[bin] > mem_size) {
+		IPAERR("hdr proc ctx table overflow\n");
 		goto bad_len;
 	}
 
@@ -406,7 +415,8 @@ static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	return 0;
 
 bad_len:
-	hdr_entry->ref_cnt--;
+	if (add_ref_hdr)
+		hdr_entry->ref_cnt--;
 	entry->cookie = 0;
 	kmem_cache_free(ipa3_ctx->hdr_proc_ctx_cache, entry);
 	return -EPERM;
@@ -577,7 +587,7 @@ static int __ipa3_del_hdr_proc_ctx(u32 proc_ctx_hdl, bool release_hdr)
 	}
 
 	if (release_hdr)
-		__ipa3_release_hdr(entry->hdr->id);
+		__ipa3_del_hdr(entry->hdr->id);
 
 	/* move the offset entry to appropriate free list */
 	list_move(&entry->offset_entry->link,
@@ -881,12 +891,19 @@ int ipa3_reset_hdr(void)
 			&ipa3_ctx->hdr_tbl.head_hdr_entry_list, link) {
 
 		/* do not remove the default header */
-		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME))
+		if (!strcmp(entry->name, IPA_LAN_RX_HDR_NAME)) {
+			if (entry->is_hdr_proc_ctx) {
+				IPAERR("default header is proc ctx\n");
+				mutex_unlock(&ipa3_ctx->lock);
+				WARN_ON(1);
+				return -EFAULT;
+			}
 			continue;
+		}
 
 		if (ipa3_id_find(entry->id) == NULL) {
-			WARN_ON(1);
 			mutex_unlock(&ipa3_ctx->lock);
+			WARN_ON(1);
 			return -EFAULT;
 		}
 		if (entry->is_hdr_proc_ctx) {
@@ -939,8 +956,8 @@ int ipa3_reset_hdr(void)
 		link) {
 
 		if (ipa3_id_find(ctx_entry->id) == NULL) {
-			WARN_ON(1);
 			mutex_unlock(&ipa3_ctx->lock);
+			WARN_ON(1);
 			return -EFAULT;
 		}
 		list_del(&ctx_entry->link);
@@ -1103,8 +1120,8 @@ int ipa3_put_hdr(u32 hdr_hdl)
 		goto bail;
 	}
 
-	if (entry == NULL || entry->cookie != IPA_COOKIE) {
-		IPAERR("bad params\n");
+	if (entry->cookie != IPA_COOKIE) {
+		IPAERR("invalid header entry\n");
 		result = -EINVAL;
 		goto bail;
 	}

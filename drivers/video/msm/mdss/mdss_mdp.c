@@ -1187,7 +1187,7 @@ static int mdss_bus_rt_bw_vote(bool enable)
 	int rc = 0;
 	bool changed = false;
 
-	if (!mdata->hw_rt_bus_hdl)
+	if (!mdata->hw_rt_bus_hdl || mdata->handoff_pending)
 		return 0;
 
 	if (enable) {
@@ -1713,8 +1713,10 @@ static int mdss_mdp_debug_init(struct platform_device *pdev,
 	mdss_debug_register_dump_range(pdev, dbg_blk, "qcom,regs-dump-mdp",
 		"qcom,regs-dump-names-mdp", "qcom,regs-dump-xin-id-mdp");
 
-	mdss_debug_register_io("vbif", &mdata->vbif_io, NULL);
-	mdss_debug_register_io("vbif_nrt", &mdata->vbif_nrt_io, NULL);
+	if (mdata->vbif_io.base)
+		mdss_debug_register_io("vbif", &mdata->vbif_io, NULL);
+	if (mdata->vbif_nrt_io.base)
+		mdss_debug_register_io("vbif_nrt", &mdata->vbif_nrt_io, NULL);
 
 	return 0;
 }
@@ -2139,13 +2141,16 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 	char *t = NULL;
 	char pan_intf_str[MDSS_MAX_PANEL_LEN];
 	int rc, i, panel_len;
-	char pan_name[MDSS_MAX_PANEL_LEN];
+	char pan_name[MDSS_MAX_PANEL_LEN] = {'\0'};
 
 	if (!pan_cfg)
 		return -EINVAL;
 
 	if (mdss_mdp_panel[0] == '0') {
+		pr_debug("panel name is not set\n");
 		pan_cfg->lk_cfg = false;
+		pan_cfg->pan_intf = MDSS_PANEL_INTF_INVALID;
+		return -EINVAL;
 	} else if (mdss_mdp_panel[0] == '1') {
 		pan_cfg->lk_cfg = true;
 	} else {
@@ -2155,7 +2160,7 @@ static int mdss_mdp_get_pan_cfg(struct mdss_panel_cfg *pan_cfg)
 		return -EINVAL;
 	}
 
-	/* skip lk cfg and delimiter; ex: "0:" */
+	/* skip lk cfg and delimiter; ex: "1:" */
 	strlcpy(pan_name, &mdss_mdp_panel[2], MDSS_MAX_PANEL_LEN);
 	t = strnstr(pan_name, ":", MDSS_MAX_PANEL_LEN);
 	if (!t) {
@@ -2254,12 +2259,12 @@ static void __update_sspp_info(struct mdss_mdp_pipe *pipe,
 #define SPRINT(fmt, ...) \
 		(*cnt += scnprintf(buf + *cnt, len - *cnt, fmt, ##__VA_ARGS__))
 
-	for (i = 0; i < pipe_cnt; i++) {
+	for (i = 0; i < pipe_cnt && pipe; i++) {
 		SPRINT("pipe_num:%d pipe_type:%s pipe_ndx:%d rects:%d pipe_is_handoff:%d display_id:%d ",
 			pipe->num, type, pipe->ndx, pipe->multirect.max_rects,
 			pipe->is_handed_off, mdss_mdp_get_display_id(pipe));
 		SPRINT("fmts_supported:");
-		for (j = 0; j < num_bytes && pipe; j++)
+		for (j = 0; j < num_bytes; j++)
 			SPRINT("%d,", pipe->supported_formats[j]);
 		SPRINT("\n");
 		pipe += pipe->multirect.max_rects;
@@ -2445,7 +2450,7 @@ static ssize_t mdss_mdp_store_max_limit_bw(struct device *dev,
 	struct mdss_data_type *mdata = dev_get_drvdata(dev);
 	u32 data = 0;
 
-	if (1 != sscanf(buf, "%d", &data)) {
+	if (kstrtouint(buf, 0, &data)) {
 		pr_info("Not able scan to bw_mode_bitmap\n");
 	} else {
 		mdata->bw_mode_bitmap = data;
@@ -3212,28 +3217,34 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-pipe-sw-reset-off",
 		&sw_reset_offset, 1);
 	if (sw_reset_offset) {
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-vig-sw-reset-map", mdata->vig_pipes,
-			mdata->nvig_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-rgb-sw-reset-map", mdata->rgb_pipes,
-			mdata->nrgb_pipes);
-		mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
-			"qcom,mdss-pipe-dma-sw-reset-map", mdata->dma_pipes,
-			mdata->ndma_pipes);
+		if (mdata->vig_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-vig-sw-reset-map",
+				mdata->vig_pipes, mdata->nvig_pipes);
+		if (mdata->rgb_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-rgb-sw-reset-map",
+				mdata->rgb_pipes, mdata->nrgb_pipes);
+		if (mdata->dma_pipes)
+			mdss_mdp_parse_dt_pipe_sw_reset(pdev, sw_reset_offset,
+				"qcom,mdss-pipe-dma-sw-reset-map",
+				mdata->dma_pipes, mdata->ndma_pipes);
 	}
 
 	mdata->has_panic_ctrl = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-panic-ctrl");
 	if (mdata->has_panic_ctrl) {
-		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
-			"qcom,mdss-pipe-vig-panic-ctrl-offsets",
+		if (mdata->vig_pipes)
+			mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+				"qcom,mdss-pipe-vig-panic-ctrl-offsets",
 				mdata->vig_pipes, mdata->nvig_pipes);
-		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
-			"qcom,mdss-pipe-rgb-panic-ctrl-offsets",
+		if (mdata->rgb_pipes)
+			mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+				"qcom,mdss-pipe-rgb-panic-ctrl-offsets",
 				mdata->rgb_pipes, mdata->nrgb_pipes);
-		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
-			"qcom,mdss-pipe-dma-panic-ctrl-offsets",
+		if (mdata->dma_pipes)
+			mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
+				"qcom,mdss-pipe-dma-panic-ctrl-offsets",
 				mdata->dma_pipes, mdata->ndma_pipes);
 	}
 

@@ -67,6 +67,8 @@
 /* The below virtual channel cannot be used by any entity */
 #define IPA_GSI_CH_20_WA_VIRT_CHAN 29
 
+#define IPA_DEFAULT_SYS_YELLOW_WM 32
+
 static struct sk_buff *ipa3_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys);
 static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys);
@@ -1884,6 +1886,7 @@ static void ipa3_replenish_wlan_rx_cache(struct ipa3_sys_context *sys)
 				gsi_xfer_elem_one.addr = rx_pkt->data.dma_addr;
 				gsi_xfer_elem_one.len = IPA_WLAN_RX_BUFF_SZ;
 				gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
+				gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
 				gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 				gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -2071,6 +2074,7 @@ static void ipa3_replenish_rx_cache(struct ipa3_sys_context *sys)
 			gsi_xfer_elem_one.addr = rx_pkt->data.dma_addr;
 			gsi_xfer_elem_one.len = sys->rx_buff_sz;
 			gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
+			gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
 			gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 			gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -2177,6 +2181,7 @@ static void ipa3_replenish_rx_cache_recycle(struct ipa3_sys_context *sys)
 			gsi_xfer_elem_one.addr = rx_pkt->data.dma_addr;
 			gsi_xfer_elem_one.len = sys->rx_buff_sz;
 			gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
+			gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
 			gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 			gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -2242,6 +2247,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 			gsi_xfer_elem_one.addr = rx_pkt->data.dma_addr;
 			gsi_xfer_elem_one.len = sys->rx_buff_sz;
 			gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOT;
+			gsi_xfer_elem_one.flags |= GSI_XFER_FLAG_EOB;
 			gsi_xfer_elem_one.type = GSI_XFER_ELEM_DATA;
 			gsi_xfer_elem_one.xfer_user_data = rx_pkt;
 
@@ -2272,7 +2278,7 @@ static void ipa3_fast_replenish_rx_cache(struct ipa3_sys_context *sys)
 
 	queue_work(sys->repl_wq, &sys->repl_work);
 
-	if (rx_len_cached == 0) {
+	if (rx_len_cached <= IPA_DEFAULT_SYS_YELLOW_WM) {
 		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
 			IPA_STATS_INC_CNT(ipa3_ctx->stats.wan_rx_empty);
 		else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
@@ -2377,7 +2383,6 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 
 	if (skb->len == 0) {
 		IPAERR("ZLT\n");
-		sys->free_skb(skb);
 		return rc;
 	}
 
@@ -2437,7 +2442,6 @@ static int ipa3_lan_rx_pyld_hdlr(struct sk_buff *skb,
 				sys->prev_skb = skb2;
 			}
 			sys->len_rem -= skb->len;
-			sys->free_skb(skb);
 			return rc;
 		}
 	}
@@ -2451,7 +2455,7 @@ begin:
 		if (skb->len < pkt_status_sz) {
 			WARN_ON(sys->prev_skb != NULL);
 			IPADBG_LOW("status straddles buffer\n");
-			sys->prev_skb = skb;
+			sys->prev_skb = skb_copy(skb, GFP_KERNEL);
 			sys->len_partial = skb->len;
 			return rc;
 		}
@@ -2543,7 +2547,7 @@ begin:
 				IPAHAL_PKT_STATUS_EXCEPTION_NONE) {
 				WARN_ON(sys->prev_skb != NULL);
 				IPADBG_LOW("Ins header in next buffer\n");
-				sys->prev_skb = skb;
+				sys->prev_skb = skb_copy(skb, GFP_KERNEL);
 				sys->len_partial = skb->len;
 				return rc;
 			}
@@ -2564,7 +2568,7 @@ begin:
 			}
 
 			skb2 = ipa3_skb_copy_for_client(skb,
-				status.pkt_len + pkt_status_sz);
+				min(status.pkt_len + pkt_status_sz, skb->len));
 			if (likely(skb2)) {
 				if (skb->len < len + pkt_status_sz) {
 					IPADBG_LOW("SPL skb len %d len %d\n",
@@ -3110,7 +3114,7 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 				sys->free_rx_wrapper =
 					ipa3_recycle_rx_wrapper;
 				sys->rx_pool_sz =
-					IPA_GENERIC_RX_POOL_SZ;
+					ipa3_ctx->lan_rx_ring_size;
 				in->ipa_ep_cfg.aggr.aggr_byte_limit =
 				IPA_GENERIC_AGGR_BYTE_LIMIT;
 				in->ipa_ep_cfg.aggr.aggr_pkt_limit =
@@ -3697,6 +3701,7 @@ static void ipa_gsi_irq_rx_notify_cb(struct gsi_chan_xfer_notify *notify)
 
 	switch (notify->evt_id) {
 	case GSI_CHAN_EVT_EOT:
+	case GSI_CHAN_EVT_EOB:
 		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
 		if (!atomic_read(&sys->curr_polling_state)) {
 			/* put the gsi channel into polling mode */

@@ -61,7 +61,6 @@
 			reusable;
 			alignment = <0 0x400000>;
 			size = <0 0x7000000>;
-			status = "disabled";
 		};
 
 		qseecom_mem: qseecom_region@0 {
@@ -1765,6 +1764,8 @@
 		qcom,proxy-clock-names = "xo";
 		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk";
 
+		qcom,pas-id = <5>;
+		qcom,pil-mss-memsetup;
 		qcom,firmware-name = "modem";
 		qcom,pil-self-auth;
 		qcom,override-acc-1 = <0x80800000>;

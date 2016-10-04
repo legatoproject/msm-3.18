@@ -991,6 +991,7 @@ static void mdss_dsi_debugfs_cleanup(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		struct mdss_dsi_debugfs_info *dfs = ctrl->debugfs_info;
 		if (dfs && dfs->root)
 			debugfs_remove_recursive(dfs->root);
+		kfree(dfs);
 		pdata = pdata->next;
 	} while (pdata);
 	pr_debug("%s: Cleaned up mdss_dsi_debugfs_info\n", __func__);
@@ -2033,6 +2034,13 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 	if (sctrl_pdata)
 		MIPI_OUTP((sctrl_pdata->ctrl_base) + DSI_DYNAMIC_REFRESH_CTRL,
 				0x00);
+
+	rc = mdss_dsi_phy_pll_reset_status(ctrl_pdata);
+	if (rc) {
+		pr_err("%s: pll cannot be locked reset core ready failed %d\n",
+			__func__, rc);
+		goto dfps_timeout;
+	}
 
 	__mdss_dsi_mask_dfps_errors(ctrl_pdata, false);
 	if (sctrl_pdata)
