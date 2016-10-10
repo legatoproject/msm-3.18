@@ -39,6 +39,12 @@
 	reg = <0x82500000 0x5500000>;
 };
 
+&modem_adsp_mem {
+	compatible = "removed-dma-pool";
+	no-map;
+	reg = <0x82500000 0x5500000>;
+};
+
 &soc {
 	/* @QC : enable USB VBUS detection through PMIC MPP 2 */
 	usb_detect {

@@ -64,6 +64,12 @@
 
 };
 
+&modem_adsp_mem {
+        compatible = "removed-dma-pool";
+        no-map-fixup;
+        reg = <0x82a00000 0x5000000>;
+};
+
 /* WP76 ADC configuration only used MPP2/4, which are already defined in mdm9607-swi-ar.dtsi*/
 &pm8019_vadc {
 	/* Disable VADC Channel configuration MPP1*/
