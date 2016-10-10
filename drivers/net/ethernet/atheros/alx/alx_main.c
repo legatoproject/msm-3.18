@@ -71,7 +71,7 @@ static void alx_stop_internal(struct alx_adapter *adpt, u32 ctrl);
 static void alx_init_ring_ptrs(struct alx_adapter *adpt);
 
 #ifdef MDM_PLATFORM
-static int alx_ipa_rm_try_release(struct alx_adapter *adpt, bool suspend);
+static int alx_ipa_rm_try_release(struct alx_adapter *adpt);
 static int alx_ipa_setup_rm(struct alx_adapter *adpt);
 
 /* Global CTX PTR which can be used for debugging */
@@ -3347,7 +3347,7 @@ static int alx_suspend(struct device *dev)
 		return retval;
 
 #ifdef MDM_PLATFORM
-	if(alx_ipa_rm_try_release(adpt, true))
+	if(alx_ipa_rm_try_release(adpt))
 		pr_err("%s -- ODU PROD Release unsuccessful \n",__func__);
 #endif
 
@@ -3662,7 +3662,7 @@ static void alx_link_task_routine(struct alx_adapter *adpt)
 		} else {
 			CLI_ADPT_FLAG(2, ODU_CONNECT);
 			adpt->palx_ipa->alx_ipa_perf_requested = false;
-			if(alx_ipa_rm_try_release(adpt, false))
+			if(alx_ipa_rm_try_release(adpt))
                            pr_err("%s -- ODU PROD Release unsuccessful \n",
                                                                      __func__);
 		}
@@ -4266,8 +4266,13 @@ static void alx_ipa_tx_dp_cb(void *priv, enum ipa_dp_evt_type evt,
 			!CHK_ADPT_FLAG(2, WQ_SCHED)) {
 			schedule_ipa_work = true;
 		}
-                if (adpt->pendq_cnt == 0)
-                  alx_ipa_rm_try_release(adpt, false);
+                spin_lock_bh(&alx_ipa->rm_ipa_lock);
+                if (alx_ipa->ipa_rx_completion == 0) {
+                  spin_unlock_bh(&alx_ipa->rm_ipa_lock);
+                  alx_ipa_rm_try_release(adpt);
+                }
+                else
+                   spin_unlock_bh(&alx_ipa->rm_ipa_lock);
 		spin_unlock_bh(&adpt->flow_ctrl_lock);
 		if (schedule_ipa_work) {
 			SET_ADPT_FLAG(2, WQ_SCHED);
@@ -4592,8 +4597,10 @@ static void alx_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 	struct alx_adapter *adpt = user_data;
         struct alx_ipa_ctx *alx_ipa = adpt->palx_ipa;
 
-        pr_debug(" %s IPA RM Evt: %d alx_ipa->ipa_prod_rm_state  %s\n",__func__,
+	spin_lock_bh(&alx_ipa->ipa_rm_state_lock);
+        pr_info(" %s IPA RM Evt: %d alx_ipa->ipa_prod_rm_state  %s\n",__func__,
 		event, alx_ipa_rm_state_to_str(alx_ipa->ipa_prod_rm_state));
+	spin_unlock_bh(&alx_ipa->ipa_rm_state_lock);
 
         switch(event) {
         case IPA_RM_RESOURCE_GRANTED:
@@ -4780,11 +4787,10 @@ static int alx_ipa_rm_request(struct alx_adapter *adpt)
 {
 	int ret = 0;
 	struct alx_ipa_ctx *alx_ipa = adpt->palx_ipa;
-
-	pr_debug("%s - IPA RM PROD State state %s\n",__func__,
+        spin_lock_bh(&alx_ipa->ipa_rm_state_lock);
+	pr_info("%s - IPA RM PROD State state %s\n",__func__,
 			alx_ipa_rm_state_to_str(alx_ipa->ipa_prod_rm_state));
 
-	spin_lock_bh(&alx_ipa->ipa_rm_state_lock);
 	switch (alx_ipa->ipa_prod_rm_state) {
 	case ALX_IPA_RM_GRANTED:
 		spin_unlock_bh(&alx_ipa->ipa_rm_state_lock);
@@ -4832,19 +4838,25 @@ static int alx_ipa_rm_request(struct alx_adapter *adpt)
 }
 
 /* Release IPA RM Resource for ODU_PROD if not needed*/
-static int alx_ipa_rm_try_release(struct alx_adapter *adpt, bool  suspend)
+static int alx_ipa_rm_try_release(struct alx_adapter *adpt)
 {
         int ret = -1;
         struct alx_ipa_ctx *alx_ipa = adpt->palx_ipa;
-	pr_debug("%s:%d \n",__func__,__LINE__);
-        if(suspend)
+	pr_info("%s:%d \n",__func__,__LINE__);
+        spin_lock_bh(&alx_ipa->rm_ipa_lock);
+        if (alx_ipa->ipa_prod_rm_state == ALX_IPA_RM_RELEASED)
+        {
+          spin_unlock_bh(&alx_ipa->rm_ipa_lock);
+          pr_info("%s:RM state released; return \n",__func__);
+          return 0;
+        }
+        spin_unlock_bh(&alx_ipa->rm_ipa_lock);
 		ret = ipa_rm_release_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
-	else
-		ret = ipa_rm_inactivity_timer_release_resource(
-					IPA_RM_RESOURCE_ODU_ADAPT_PROD);
 
         if (ret == 0){
+          spin_lock_bh(&alx_ipa->rm_ipa_lock);
           alx_ipa->ipa_prod_rm_state = ALX_IPA_RM_RELEASED;
+          spin_unlock_bh(&alx_ipa->rm_ipa_lock);
         }
         return ret;
 }
