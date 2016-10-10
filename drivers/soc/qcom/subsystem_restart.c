@@ -330,6 +330,29 @@ static ssize_t keep_alive_store(struct device *dev,
 
 	return count;
 }
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t firmware_load(struct device *dev,
+                struct device_attribute *attr, const char *buf,
+                size_t count)
+{
+    struct subsys_device *subsys = to_subsys(dev);
+    const char *p;
+    int orig_count = count;
+    int ret;
+
+    p = memchr(buf, '\n', count);
+    if (p)
+        count = p - buf;
+
+    if (!strncasecmp(buf, "1", count) &&
+        (subsystem_get(to_subsys(dev)->desc->fw_name) != NULL))
+        return 0;
+
+    return -EPERM;
+}
+#endif
+/* SWISTOP */
 
 int subsys_get_restart_level(struct subsys_device *dev)
 {
@@ -381,6 +404,11 @@ static struct device_attribute subsys_attrs[] = {
 	__ATTR(firmware_name, 0644, firmware_name_show, firmware_name_store),
 	__ATTR(system_debug, 0644, system_debug_show, system_debug_store),
 	__ATTR(keep_alive, 0644, keep_alive_show, keep_alive_store),
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	__ATTR(firmware_load, 0644, NULL, firmware_load),
+#endif
+/* SWISTOP */
 	__ATTR_NULL,
 };
 
