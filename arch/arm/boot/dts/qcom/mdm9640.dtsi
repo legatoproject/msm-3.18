@@ -542,8 +542,6 @@
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
 
-		qcom,ep-wakeirq;
-
 		linux,pci-domain = <0>;
 
 		qcom,pcie-phy-ver = <0x90>;
