@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include "mdm9607-swi.dtsi"
+#include "mdm9607-swi-mft.dtsi"
 #include "mdm9607-pinctrl.dtsi"
 
 / {
@@ -24,9 +24,9 @@
 		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
 	};
-	
+
 	aliases {
-		serial0 = &blsp1_uart5;
+		/*serial0 = &blsp1_uart5;*/
 		spi2  = &spi_2;
 	};
 };
@@ -59,6 +59,32 @@
 				pins = "gpio8", "gpio9";
 				drive-strength = <2>;
 				bias-pull-down;
+			};
+		};
+
+		blsp1_uart5_active: blsp1_uart5_active {
+			mux {
+				pins = "gpio8", "gpio9", "gpio10", "gpio11";
+				function = "blsp_uart5";
+			};
+
+			config {
+				pins = "gpio8", "gpio9", "gpio10", "gpio11";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart5_sleep: blsp1_uart5_sleep {
+			mux {
+				pins = "gpio8", "gpio9", "gpio10", "gpio11";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio8", "gpio9", "gpio10", "gpio11";
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -260,13 +286,11 @@
 		compatible = "sierra,gpio_wake_n";
 		wake-n-gpio = <&tlmm_pinmux 52 0>;
 	};
-  
+
 };
 
 &blsp1_uart5 {
 	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart_console_sleep>;
 };
 
 &i2c_4 {
@@ -282,6 +306,10 @@
 };
 
 &blsp1_uart2 {
+	status = "ok";
+};
+
+&blsp1_uart3 {
 	status = "ok";
 };
 
