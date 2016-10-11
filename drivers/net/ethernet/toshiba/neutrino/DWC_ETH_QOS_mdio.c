@@ -80,7 +80,6 @@
  */
 #include "DWC_ETH_QOS_yheader.h"
 void DWC_ETH_QOS_reload_fqtss_cfg(struct DWC_ETH_QOS_prv_data *pdata);
-extern BOOL enable_phy;
 
 /*!
 * \brief read MII PHY register, function called by the driver alone
@@ -109,7 +108,7 @@ INT DWC_ETH_QOS_mdio_read_direct(struct DWC_ETH_QOS_prv_data *pdata,
 	DBGPR_MDIO("--> DWC_ETH_QOS_mdio_read_direct: phyaddr = %d, phyreg = %d\n",
 	      phyaddr, phyreg);
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return -1;
         }
@@ -157,7 +156,7 @@ INT DWC_ETH_QOS_mdio_write_direct(struct DWC_ETH_QOS_prv_data *pdata,
 	DBGPR_MDIO("--> DWC_ETH_QOS_mdio_write_direct: phyaddr = %d, phyreg = %d, phydata = %#x\n",
 	      phyaddr, phyreg, phydata);
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return -1;
         }
@@ -198,7 +197,7 @@ static INT DWC_ETH_QOS_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
 	struct hw_if_struct *hw_if = &(pdata->hw_if);
 	int phydata;
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return -1;
         }
@@ -244,7 +243,7 @@ static INT DWC_ETH_QOS_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
 	DBGPR_MDIO("--> DWC_ETH_QOS_mdio_write: phyaddr = %d, phyreg = %d, phydata = %#x\n",
 	      phyaddr, phyreg, phydata);
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return -1;
         }
@@ -283,7 +282,7 @@ static INT DWC_ETH_QOS_mdio_reset(struct mii_bus *bus)
 
 	DBGPR_MDIO("-->DWC_ETH_QOS_mdio_reset: phyaddr : %d\n", pdata->phyaddr);
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return -ENODEV;
         }
@@ -411,7 +410,7 @@ static void DWC_ETH_QOS_adjust_link(struct net_device *dev)
 	//unsigned long flags;
 	int new_state = 0;
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return;
         }
@@ -421,6 +420,13 @@ static void DWC_ETH_QOS_adjust_link(struct net_device *dev)
 
 	DBGPR_MDIO("-->DWC_ETH_QOS_adjust_link. address %d link %d\n", phydev->addr,
 	      phydev->link);
+
+	/* Ignore adjust_link interrupts if PCI link is down. PCI
+	 * link down event will eventually stop the phy state machine */
+	if (pdata->pdev->error_state != pci_channel_io_normal) {
+		DBGPR_MDIO("%s: PCI link is down returning.\n");
+		return;
+	}
 
 	//spin_lock_irqsave(&pdata->lock, flags);
 
@@ -525,7 +531,7 @@ static int DWC_ETH_QOS_init_phy(struct net_device *dev)
 
 	DBGPR_MDIO("-->DWC_ETH_QOS_init_phy\n");
 
-	if (!enable_phy) {
+	if (!pdata->enable_phy) {
 		NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
 		return -ENODEV;
 	}
@@ -602,7 +608,7 @@ int DWC_ETH_QOS_mdio_register(struct net_device *dev)
 
 	DBGPR_MDIO("-->DWC_ETH_QOS_mdio_register\n");
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return -ENODEV;
         }
@@ -700,7 +706,7 @@ void DWC_ETH_QOS_mdio_unregister(struct net_device *dev)
 
 	DBGPR_MDIO("-->DWC_ETH_QOS_mdio_unregister\n");
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return;
         }
@@ -708,6 +714,7 @@ void DWC_ETH_QOS_mdio_unregister(struct net_device *dev)
 	if (pdata->phydev) {
 		phy_stop(pdata->phydev);
 		phy_disconnect(pdata->phydev);
+		phy_device_free(pdata->phydev);
 		pdata->phydev = NULL;
 	}
 

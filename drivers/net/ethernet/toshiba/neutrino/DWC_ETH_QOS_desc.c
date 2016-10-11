@@ -420,15 +420,52 @@ static void DWC_ETH_QOS_wrapper_tx_descriptor_init_single_q(
 	struct s_TX_NORMAL_DESC *desc = GET_TX_DESC_PTR(chInx, 0);
 	dma_addr_t desc_dma = GET_TX_DESC_DMA_ADDR(chInx, 0);
 	struct hw_if_struct *hw_if = &(pdata->hw_if);
+	struct sk_buff *skb = NULL;
 
 	DBGPR("-->DWC_ETH_QOS_wrapper_tx_descriptor_init_single_q: "\
 		"chInx = %u\n", chInx);
+
+	if (pdata->ipa_enabled) {
+		/* Allocate TX Buffer Pool Structure */
+		if (chInx == NTN_TX_DMA_CH_2) {
+			GET_TX_BUFF_DMA_POOL_BASE_ADRR(chInx) =
+				kzalloc(sizeof(dma_addr_t) * TX_DESC_CNT, GFP_KERNEL);
+			if (GET_TX_BUFF_DMA_POOL_BASE_ADRR(chInx) == NULL)
+				NMSGPR_ALERT( "ERROR: Unable to allocate IPA \
+							  TX Buff structure for TXCH2\n");
+			else
+				NMSGPR_INFO("IPA tx_dma_buff_addrs %p \n",
+						GET_TX_BUFF_DMA_POOL_BASE_ADRR(chInx));
+		}
+	}
 
 	for (i = 0; i < TX_DESC_CNT; i++) {
 		GET_TX_DESC_PTR(chInx, i) = &desc[i];
 		GET_TX_DESC_DMA_ADDR(chInx, i) =
 		    (desc_dma + sizeof(struct s_TX_NORMAL_DESC) * i);
 		GET_TX_BUF_PTR(chInx, i) = &buffer[i];
+
+		if (pdata->ipa_enabled) {
+			/* Create a memory pool for TX offload path */
+			/* Currently only CH2 is supported */
+			if (chInx == NTN_TX_DMA_CH_2) {
+				skb = __netdev_alloc_skb_ip_align(pdata->dev, DWC_ETH_QOS_ETH_FRAME_LEN_IPA, GFP_KERNEL);
+				if (skb == NULL) {
+					NMSGPR_ALERT("Failed to allocate skb for IPA\n");
+					return;
+				}
+				GET_TX_BUFF_LOGICAL_ADDR(chInx, i) = skb;
+				GET_TX_BUFF_DMA_ADDR(chInx, i) = dma_map_single(&pdata->pdev->dev,
+						skb->data, DWC_ETH_QOS_ETH_FRAME_LEN_IPA, DMA_TO_DEVICE);
+			}
+		}
+	}
+
+	if (pdata->ipa_enabled && chInx == NTN_TX_DMA_CH_2){
+		NMSGPR_INFO("Created the virtual memory pool address for TX CH2 for %d desc \n",
+			    TX_DESC_CNT);
+		NMSGPR_INFO("DMA MAPed the virtual memory pool address for TX CH2 for %d descs \n",
+			    TX_DESC_CNT);
 	}
 
 	desc_data->cur_tx = 0;
@@ -475,8 +512,22 @@ static void DWC_ETH_QOS_wrapper_rx_descriptor_init_single_q(
 
 	memset(buffer, 0, (sizeof(struct DWC_ETH_QOS_rx_buffer) * RX_DESC_CNT));
 
+	/* Allocate RX Buffer Pool Structure */
+	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+		if (!GET_RX_BUFF_POOL_BASE_ADRR(chInx)) {
+			GET_RX_BUFF_POOL_BASE_ADRR(chInx) =
+				kzalloc(sizeof(dma_addr_t) * RX_DESC_CNT, GFP_KERNEL);
+			if (GET_RX_BUFF_POOL_BASE_ADRR(chInx) == NULL)
+				NMSGPR_ALERT("ERROR: Unable to allocate IPA \
+						 RX Buff structure for RXCH0\n");
+			else
+				NMSGPR_INFO("IPA rx_buff_addrs %p \n",
+						GET_RX_BUFF_POOL_BASE_ADRR(chInx));
+		}
+	}
+
 	for (i = 0; i < RX_DESC_CNT; i++) {
-		GET_RX_DESC_PTR(chInx, i) = &desc[i];
+                GET_RX_DESC_PTR(chInx, i) = &desc[i];
 		GET_RX_DESC_DMA_ADDR(chInx, i) =
 		    (desc_dma + sizeof(struct s_RX_NORMAL_DESC) * i);
 		GET_RX_BUF_PTR(chInx, i) = &buffer[i];
@@ -484,8 +535,18 @@ static void DWC_ETH_QOS_wrapper_rx_descriptor_init_single_q(
 		if (pdata->alloc_rx_buf(chInx, pdata, GET_RX_BUF_PTR(chInx, i), GFP_KERNEL))
 			break;
 
+		/* Assign the RX memory pool for offload data path */
+		if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+			GET_RX_BUFF_DMA_ADDR(chInx, i) =
+			((struct DWC_ETH_QOS_rx_buffer *)GET_RX_BUF_PTR(chInx, i))->dma;
+		}
+
 		wmb();
 	}
+	NMSGPR_INFO("Allocated %d buffers for RX Channel: %d \n", RX_DESC_CNT, chInx);
+	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0)
+		NMSGPR_INFO("Assign virtual memory pool address for RX CH0 for %d desc\n",
+					RX_DESC_CNT);
 
 	desc_data->cur_rx = 0;
 	desc_data->dirty_rx = 0;
@@ -724,6 +785,7 @@ static void DWC_ETH_QOS_tx_buf_free_mem(struct DWC_ETH_QOS_prv_data *pdata,
 					UINT tx_chCnt)
 {
 	UINT chInx;
+	UINT i = 0;
 
 	DBGPR("-->DWC_ETH_QOS_tx_buf_free_mem: tx_chCnt = %d\n", tx_chCnt);
 
@@ -735,6 +797,37 @@ static void DWC_ETH_QOS_tx_buf_free_mem(struct DWC_ETH_QOS_prv_data *pdata,
 			kfree(GET_TX_BUF_PTR(chInx, 0));
 			GET_TX_BUF_PTR(chInx, 0) = NULL;
 		}
+
+		if (pdata->ipa_enabled) {
+			/* Free memory pool for TX offload path */
+			/* Currently only CH2 is supported */
+			if (chInx == NTN_TX_DMA_CH_2) {
+				for (i = 0; i < TX_DESC_CNT; i++) {
+					dma_unmap_single((&pdata->pdev->dev),
+						GET_TX_BUFF_DMA_ADDR(chInx, i),
+						DWC_ETH_QOS_ETH_FRAME_LEN_IPA,
+						DMA_TO_DEVICE);
+					GET_TX_BUFF_DMA_ADDR(chInx, i) = 0;
+					if (GET_TX_BUFF_LOGICAL_ADDR(chInx, i)) {
+						dev_kfree_skb_any(GET_TX_BUFF_LOGICAL_ADDR(chInx, i));
+						GET_TX_BUFF_LOGICAL_ADDR(chInx, i) = NULL;
+					} else {
+						NMSGPR_ALERT("Failed to de-allocate skb \n");
+						return;
+					}
+				}
+				NMSGPR_INFO("Freed the memory allocated for TX CH 2 for IPA \n");
+				/* De-Allocate TX DMA Buffer Pool Structure */
+				if (GET_TX_BUFF_DMA_POOL_BASE_ADRR(chInx)) {
+					kfree(GET_TX_BUFF_DMA_POOL_BASE_ADRR(chInx));
+					GET_TX_BUFF_DMA_POOL_BASE_ADRR(chInx) = NULL;
+					NMSGPR_INFO("Freed the TX Buffer Pool Structure for TX CH 2 for IPA \n");
+				} else {
+					NMSGPR_ALERT("Unable to DeAlloc TX Buff structure\n");
+				}
+			}
+		}
+
 	}
 
 	DBGPR("<--DWC_ETH_QOS_tx_buf_free_mem\n");
@@ -763,6 +856,17 @@ static void DWC_ETH_QOS_rx_buf_free_mem(struct DWC_ETH_QOS_prv_data *pdata,
 		if (GET_RX_BUF_PTR(chInx, 0)) {
 			kfree(GET_RX_BUF_PTR(chInx, 0));
 			GET_RX_BUF_PTR(chInx, 0) = NULL;
+		}
+
+		/* Deallocate RX Buffer Pool Structure */
+		if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+			if (GET_RX_BUFF_POOL_BASE_ADRR(chInx)) {
+				kfree(GET_RX_BUFF_POOL_BASE_ADRR(chInx));
+				GET_RX_BUFF_POOL_BASE_ADRR(chInx) = NULL;
+			} else {
+				NMSGPR_ALERT( "Unable to De-allocate "
+						" RX Buff structure\n");
+			}
 		}
 	}
 
@@ -941,7 +1045,7 @@ static int DWC_ETH_QOS_map_non_page_buffs(struct DWC_ETH_QOS_prv_data *pdata,
 			if (dma_mapping_error((&pdata->pdev->dev), prev_buffer->dma2)) {
 				NMSGPR_ALERT( "failed to do the dma map\n");
 				return - ENOMEM;
-			}
+                        }
 			prev_buffer->len2 = size;
 			prev_buffer->buf2_mapped_as_page = Y_FALSE;
 
@@ -1006,7 +1110,7 @@ static int DWC_ETH_QOS_map_page_buffs(struct DWC_ETH_QOS_prv_data *pdata,
 	DBGPR("-->DWC_ETH_QOS_map_page_buffs\n");
 
 	if (size > DWC_ETH_QOS_MAX_DATA_PER_TX_BUF) {
-		if (!prev_buffer->dma2) {
+		if (prev_buffer && !prev_buffer->dma2) {
 			DBGPR("prev_buffer->dma2 is empty\n");
 			/* fill the first buffer pointer in pre_buffer->dma2 */
             NMSGPR_ERR("dma_map_page: %s: %s: %d\n", __FILE__, __FUNCTION__, __LINE__);
@@ -1072,7 +1176,7 @@ static int DWC_ETH_QOS_map_page_buffs(struct DWC_ETH_QOS_prv_data *pdata,
 			buffer->buf2_mapped_as_page = Y_TRUE;
 		}
 	} else {
-		if (!prev_buffer->dma2) {
+		if (prev_buffer && !prev_buffer->dma2) {
 			DBGPR("prev_buffer->dma2 is empty\n");
 			/* fill the first buffer pointer in pre_buffer->dma2 */
             NMSGPR_ERR("dma_map_page: %s: %s: %d\n", __FILE__, __FUNCTION__, __LINE__);
@@ -1356,6 +1460,9 @@ static void DWC_ETH_QOS_unmap_rx_skb(struct DWC_ETH_QOS_prv_data *pdata,
 {
 	DBGPR("-->DWC_ETH_QOS_unmap_rx_skb\n");
 
+	if (!buffer)
+		return;
+
 	/* unmap the first buffer */
 	if (buffer->dma) {
 #ifdef NTN_RX_DATA_BUF_IN_SRAM
@@ -1413,6 +1520,11 @@ static void DWC_ETH_QOS_re_alloc_skb(struct DWC_ETH_QOS_prv_data *pdata,
 
 	DBGPR("-->DWC_ETH_QOS_re_alloc_skb: desc_data->skb_realloc_idx = %d "\
 		" chInx = %u\n", desc_data->skb_realloc_idx, chInx);
+
+	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+		NMSGPR_INFO("skb re-allocation is not required for RXCH0 for IPA \n");
+		return;
+	}
 
 	for (i = 0; i < desc_data->dirty_rx; i++) {
 		buffer = GET_RX_BUF_PTR(chInx, desc_data->skb_realloc_idx);

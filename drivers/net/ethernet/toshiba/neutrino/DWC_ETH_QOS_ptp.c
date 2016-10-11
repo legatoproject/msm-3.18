@@ -300,6 +300,32 @@ static struct ptp_clock_info DWC_ETH_QOS_ptp_clock_ops = {
 	.enable = DWC_ETH_QOS_enable,
 };
 
+/*!
+ * \brief Print the PTP clock time to the buffer.
+ *
+ * \details This function reads the PTP clock from the hardware and then print
+ * it to the buffer that will be returned to user space.
+ *
+ * \param[in] dev - device pointer
+ * \param[in] attr - sysfs attribute
+ * \param[in] buf - buffer that will be returned to user space
+ *
+ * \return ssize_t
+ *
+ * \retval number of characters in the buffer when returned.
+ */
+static ssize_t DWC_ETH_QOS_ptp_clock_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct net_device *ndev = pci_get_drvdata(to_pci_dev(dev));
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(ndev);
+	struct timespec ts;
+
+	DWC_ETH_QOS_get_time(&pdata->ptp_clock_ops, &ts);
+
+	return sprintf(buf, "%lld.%.9ld\n", (long long)ts.tv_sec, ts.tv_nsec);
+}
+static DEVICE_ATTR(ptp_clock, S_IRUSR, DWC_ETH_QOS_ptp_clock_show, NULL);
 
 /*!
  * \brief API to register ptp clock driver.
@@ -339,6 +365,8 @@ int DWC_ETH_QOS_ptp_init(struct DWC_ETH_QOS_prv_data *pdata)
 	} else
 		NMSGPR_ALERT( "Added PTP HW clock successfully\n");
 
+	ret = device_create_file(&pdata->pdev->dev, &dev_attr_ptp_clock);
+
 	DBGPR_PTP("<--DWC_ETH_QOS_ptp_init\n");
 
 	return ret;
@@ -367,6 +395,8 @@ void DWC_ETH_QOS_ptp_remove(struct DWC_ETH_QOS_prv_data *pdata)
 		ptp_clock_unregister(pdata->ptp_clock);
 		NMSGPR_ALERT( "Removed PTP HW clock successfully\n");
 	}
+
+	device_remove_file(&pdata->pdev->dev, &dev_attr_ptp_clock);
 
 	DBGPR_PTP("<--DWC_ETH_QOS_ptp_remove\n");
 }

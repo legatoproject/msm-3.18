@@ -86,13 +86,12 @@
 #include "DWC_ETH_QOS_yheader.h"
 #include "DWC_ETH_QOS_yapphdr.h"
 #include "DWC_ETH_QOS_drv.h"
+#include "DWC_ETH_QOS_ipa.h"
 
 extern ULONG dwc_eth_ntn_reg_pci_base_addr;
 extern ULONG dwc_eth_ntn_SRAM_pci_base_addr_phy;
 extern ULONG dwc_eth_ntn_SRAM_pci_base_addr_virt;
 extern ULONG dwc_eth_ntn_hostmem_pci_base_addr_virt;
-
-extern BOOL enable_phy;
 
 #include "DWC_ETH_QOS_yregacc.h"
 
@@ -126,7 +125,6 @@ static int q_op_mode[DWC_ETH_QOS_MAX_TX_QUEUE_CNT] = {
 module_param_array(q_op_mode, int, NULL, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(q_op_mode,
 	"MTL queue operation mode [0-DISABLED, 1-AVB, 2-DCB, 3-GENERIC]");
-
 
 #ifdef NTN_POLLING_METHOD
 static void polling_task(void)
@@ -351,6 +349,8 @@ static void DWC_ETH_QOS_rx_desc_mang_ds_dump(struct DWC_ETH_QOS_prv_data *pdata)
 	struct DWC_ETH_QOS_rx_wrapper_descriptor *rx_desc_data = NULL;
 	struct s_RX_NORMAL_DESC *rx_desc = NULL;
 	int chInx, i;
+	dma_addr_t *base_ptr = GET_RX_BUFF_POOL_BASE_ADRR(NTN_RX_DMA_CH_0);
+	struct DWC_ETH_QOS_rx_buffer *rx_buf_ptrs = NULL;
 
 #ifndef YDEBUG
 	return;
@@ -389,6 +389,10 @@ static void DWC_ETH_QOS_rx_desc_mang_ds_dump(struct DWC_ETH_QOS_prv_data *pdata)
 			rx_desc_data->rsf_on);
 		NMSGPR_ALERT( "\trx_pbl                = %d\n",
 			rx_desc_data->rx_pbl);
+		if (pdata->ipa_enabled) {
+			NMSGPR_ALERT("\tRX Base Ring     = %p\n",
+				     &GET_RX_BUFF_POOL_BASE_ADRR(chInx));
+		}
 
 		NMSGPR_ALERT( "\t[<desc_add> <index >] = <RDES0> : <RDES1> : <RDES2> : <RDES3>\n");
 		for (i = 0; i < RX_DESC_CNT; i++) {
@@ -396,6 +400,14 @@ static void DWC_ETH_QOS_rx_desc_mang_ds_dump(struct DWC_ETH_QOS_prv_data *pdata)
 			NMSGPR_ALERT( "\t[%4p %03d] = %#x : %#x : %#x : %#x\n",
 				rx_desc, i, rx_desc->RDES0, rx_desc->RDES1,
 				rx_desc->RDES2, rx_desc->RDES3);
+			if (pdata->ipa_enabled) {
+				rx_buf_ptrs = GET_RX_BUF_PTR(chInx, i);
+				NMSGPR_ALERT("\t skb mempool %p skb rx buf %p ,"
+					     "skb len %d skb dma %p base %p\n",
+					     (void *)GET_RX_BUFF_DMA_ADDR(chInx, i),
+					     rx_buf_ptrs->skb, rx_buf_ptrs->len,
+					     (void *)rx_buf_ptrs->dma, (void *)(base_ptr + i));
+			}
 		}
 	}
 
@@ -407,7 +419,7 @@ static void DWC_ETH_QOS_restart_phy(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	DBGPR("-->DWC_ETH_QOS_restart_phy\n");
 
-        if (!enable_phy) {
+        if (!pdata->enable_phy) {
                 NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
                 return;
         }
@@ -673,8 +685,6 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 
 	DBGPR("-->DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS\n");
 
-	/* Read interrupt mask */
-	NTN_INTC_INTMCUMASK1_RgRd(varNTN_INTC_INTMCUMASK1);
 
         /* TOP level status register: Check if there is any interrupt from EMAC, if not return with IRQ_NONE. */
         NTN_INTC_INTSTATUS_RgRd(varNTN_INTC_INTSTATUS);
@@ -691,6 +701,12 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 				continue;
         if(!pdata->rx_dma_ch_for_host[chInx])
             continue;
+
+		if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+			pr_debug("ISR is routed to IPA uC for RXCH0. Skip for this channel \n");
+			continue;
+		}
+
 	    	rx_dma_ch = GET_RX_DMA_CH_PTR(chInx);
 
             	/* DMA RX Channel level status register */
@@ -768,6 +784,11 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 
 			if(!pdata->tx_dma_ch_for_host[chInx])
                         continue;
+
+		if (pdata->ipa_enabled && chInx == NTN_TX_DMA_CH_2) {
+			pr_debug("TX interrupts are handled by IPA uc for TXCH2.skip for the host \n");
+			continue;
+		}
 
                 /* DMA TX Channel level status register */
                 DMA_TXCHSTS_RgRd(chInx, var_raw_DMA_TXCHSTS);
@@ -849,7 +870,7 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 			DWC_ETH_QOS_GStatus = S_MAC_ISR_PMTIS;
 			MAC_PMTCSR_RgRd(varMAC_PMTCSR);
 			if (pdata->power_down)
-				DWC_ETH_QOS_powerup(pdata->dev, DWC_ETH_QOS_IOCTL_CONTEXT);
+				schedule_work(&pdata->powerup_work);
 		}
 
 		/* RGMII/SMII interrupt */
@@ -951,8 +972,19 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 		}
         }
 
-    /* Enable interrupts again : Only TX & RX DMA channel interrupts */
-	varNTN_INTC_INTMCUMASK1 &= NTN_INTC_GMAC_INT_MASK;
+	/* Read interrupt mask */
+	NTN_INTC_INTMCUMASK1_RgRd(varNTN_INTC_INTMCUMASK1);
+
+	if (pdata->ipa_enabled) {
+		/* Enable all GMAC interrupts apart from offload channels controlled by IPA*/
+		varNTN_INTC_INTMCUMASK1 &= (NTN_INTC_GMAC_INT_MASK |
+					(1 << NTN_INTC_GMAC_INT_TXCH2_BIT_POS) |
+					(1 << NTN_INTC_GMAC_INT_RXCH0_BIT_POS));
+	} else {
+		/* Enable interrupts again : Only TX & RX DMA channel interrupts */
+		varNTN_INTC_INTMCUMASK1 &= NTN_INTC_GMAC_INT_MASK;
+	}
+
 	NTN_INTC_INTMCUMASK1_RgWr(varNTN_INTC_INTMCUMASK1);
 
 	DBGPR("<--DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS\n");
@@ -1068,45 +1100,46 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 
 	DBGPR("-->DWC_ETH_QOS_print_all_hw_features\n");
 
-	NMSGPR_ALERT( "\n");
-	NMSGPR_ALERT( "=====================================================/\n");
-	NMSGPR_ALERT( "\n");
-	NMSGPR_ALERT( "10/100 Mbps Support                         : %s\n",
+	DBGPR( "\n");
+	DBGPR( "=====================================================/\n");
+	DBGPR( "\n");
+	DBGPR( "10/100 Mbps Support                         : %s\n",
 		pdata->hw_feat.mii_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "1000 Mbps Support                           : %s\n",
+	DBGPR( "1000 Mbps Support                           : %s\n",
 		pdata->hw_feat.gmii_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "Half-duplex Support                         : %s\n",
+	DBGPR( "Half-duplex Support                         : %s\n",
 		pdata->hw_feat.hd_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "PCS Registers(TBI/SGMII/RTBI PHY interface) : %s\n",
+	DBGPR( "PCS Registers(TBI/SGMII/RTBI PHY interface) : %s\n",
 		pdata->hw_feat.pcs_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "VLAN Hash Filter Selected                   : %s\n",
+	DBGPR( "VLAN Hash Filter Selected                   : %s\n",
 		pdata->hw_feat.vlan_hash_en ? "YES" : "NO");
 	pdata->vlan_hash_filtering = pdata->hw_feat.vlan_hash_en;
-	NMSGPR_ALERT( "SMA (MDIO) Interface                        : %s\n",
+	DBGPR( "SMA (MDIO) Interface                        : %s\n",
 		pdata->hw_feat.sma_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "PMT Remote Wake-up Packet Enable            : %s\n",
+	DBGPR( "PMT Remote Wake-up Packet Enable            : %s\n",
 		pdata->hw_feat.rwk_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "PMT Magic Packet Enable                     : %s\n",
+	DBGPR( "PMT Magic Packet Enable                     : %s\n",
 		pdata->hw_feat.mgk_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "RMON/MMC Module Enable                      : %s\n",
+	DBGPR( "RMON/MMC Module Enable                      : %s\n",
 		pdata->hw_feat.mmc_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "ARP Offload Enabled                         : %s\n",
+	DBGPR( "ARP Offload Enabled                         : %s\n",
 		pdata->hw_feat.arp_offld_en ? "YES" : "NO");
-	NMSGPR_ALERT( "IEEE 1588-2008 Timestamp Enabled            : %s\n",
+	DBGPR( "IEEE 1588-2008 Timestamp Enabled            : %s\n",
 		pdata->hw_feat.ts_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "Energy Efficient Ethernet Enabled           : %s\n",
+	DBGPR( "Energy Efficient Ethernet Enabled           : %s\n",
 		pdata->hw_feat.eee_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "Transmit Checksum Offload Enabled           : %s\n",
+	DBGPR( "Transmit Checksum Offload Enabled           : %s\n",
 		pdata->hw_feat.tx_coe_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "Receive Checksum Offload Enabled            : %s\n",
+	DBGPR( "Receive Checksum Offload Enabled            : %s\n",
 		pdata->hw_feat.rx_coe_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "MAC Addresses 16–31 Selected                : %s\n",
+	DBGPR( "MAC Addresses 16–31 Selected                : %s\n",
 		pdata->hw_feat.mac_addr16_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "MAC Addresses 32–63 Selected                : %s\n",
+	DBGPR( "MAC Addresses 32–63 Selected                : %s\n",
 		pdata->hw_feat.mac_addr32_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "MAC Addresses 64–127 Selected               : %s\n",
+	DBGPR( "MAC Addresses 64–127 Selected               : %s\n",
 		pdata->hw_feat.mac_addr64_sel ? "YES" : "NO");
-
+	DBGPR( "IPA Feature Enabled                          : %s\n",
+		pdata->ipa_enabled ? "YES" : "NO");
 	if (pdata->hw_feat.mac_addr64_sel)
 		pdata->max_addr_reg_cnt = 128;
 	else if (pdata->hw_feat.mac_addr32_sel)
@@ -1130,9 +1163,9 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 		str = "BOTH";
 		break;
 	}
-	NMSGPR_ALERT( "Timestamp System Time Source                : %s\n",
+	DBGPR( "Timestamp System Time Source                : %s\n",
 		str);
-	NMSGPR_ALERT( "Source Address or VLAN Insertion Enable     : %s\n",
+	DBGPR( "Source Address or VLAN Insertion Enable     : %s\n",
 		pdata->hw_feat.sa_vlan_ins ? "YES" : "NO");
 
 	switch (pdata->hw_feat.act_phy_sel) {
@@ -1163,7 +1196,7 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 	default:
 		str = "RESERVED";
 	}
-	NMSGPR_ALERT( "Active PHY Selected                         : %s\n",
+	DBGPR( "Active PHY Selected                         : %s\n",
 		str);
 
 	switch(pdata->hw_feat.rx_fifo_size) {
@@ -1206,7 +1239,7 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 	default:
 		str = "RESERVED";
 	}
-	NMSGPR_ALERT( "MTL Receive FIFO Size                       : %s\n",
+	DBGPR( "MTL Receive FIFO Size                       : %s\n",
 		str);
 
 	switch(pdata->hw_feat.tx_fifo_size) {
@@ -1249,21 +1282,21 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 	default:
 		str = "RESERVED";
 	}
-	NMSGPR_ALERT( "MTL Transmit FIFO Size                       : %s\n",
+	DBGPR( "MTL Transmit FIFO Size                       : %s\n",
 		str);
-	NMSGPR_ALERT( "IEEE 1588 High Word Register Enable          : %s\n",
+	DBGPR( "IEEE 1588 High Word Register Enable          : %s\n",
 		pdata->hw_feat.adv_ts_hword ? "YES" : "NO");
-	NMSGPR_ALERT( "DCB Feature Enable                           : %s\n",
+	DBGPR( "DCB Feature Enable                           : %s\n",
 		pdata->hw_feat.dcb_en ? "YES" : "NO");
-	NMSGPR_ALERT( "Split Header Feature Enable                  : %s\n",
+	DBGPR( "Split Header Feature Enable                  : %s\n",
 		pdata->hw_feat.sph_en ? "YES" : "NO");
-	NMSGPR_ALERT( "TCP Segmentation Offload Enable              : %s\n",
+	DBGPR( "TCP Segmentation Offload Enable              : %s\n",
 		pdata->hw_feat.tso_en ? "YES" : "NO");
-	NMSGPR_ALERT( "DMA Debug Registers Enabled                  : %s\n",
+	DBGPR( "DMA Debug Registers Enabled                  : %s\n",
 		pdata->hw_feat.dma_debug_gen ? "YES" : "NO");
-	NMSGPR_ALERT( "AV Feature Enabled                           : %s\n",
+	DBGPR( "AV Feature Enabled                           : %s\n",
 		pdata->hw_feat.av_sel ? "YES" : "NO");
-	NMSGPR_ALERT( "Low Power Mode Enabled                       : %s\n",
+	DBGPR( "Low Power Mode Enabled                       : %s\n",
 		pdata->hw_feat.lp_mode_en ? "YES" : "NO");
 
 	switch(pdata->hw_feat.hash_tbl_sz) {
@@ -1276,17 +1309,17 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 		pdata->max_hash_table_size = 0;
 		break;
 	}
-	NMSGPR_ALERT( "Hash Table Size                              : %s\n",
+	DBGPR( "Hash Table Size                              : %s\n",
 		str);
-	NMSGPR_ALERT( "Total number of L3 or L4 Filters             : %d L3/L4 Filter\n",
+	DBGPR( "Total number of L3 or L4 Filters             : %d L3/L4 Filter\n",
 		pdata->hw_feat.l3l4_filter_num);
-	NMSGPR_ALERT( "Number of MTL Receive Queues                 : %d\n",
+	DBGPR( "Number of MTL Receive Queues                 : %d\n",
 		(pdata->hw_feat.rx_q_cnt + 1));
-	NMSGPR_ALERT( "Number of MTL Transmit Queues                : %d\n",
+	DBGPR( "Number of MTL Transmit Queues                : %d\n",
 		(pdata->hw_feat.tx_q_cnt + 1));
-	NMSGPR_ALERT( "Number of DMA Receive Channels               : %d\n",
+	DBGPR( "Number of DMA Receive Channels               : %d\n",
 		(pdata->hw_feat.rx_ch_cnt + 1));
-	NMSGPR_ALERT( "Number of DMA Transmit Channels              : %d\n",
+	DBGPR( "Number of DMA Transmit Channels              : %d\n",
 		(pdata->hw_feat.tx_ch_cnt + 1));
 
 	switch(pdata->hw_feat.pps_out_num) {
@@ -1308,7 +1341,7 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 	default:
 		str = "RESERVED";
 	}
-	NMSGPR_ALERT( "Number of PPS Outputs                        : %s\n",
+	DBGPR( "Number of PPS Outputs                        : %s\n",
 		str);
 
 	switch(pdata->hw_feat.aux_snap_num) {
@@ -1330,11 +1363,11 @@ void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata)
 	default:
 		str = "RESERVED";
 	}
-	NMSGPR_ALERT( "Number of Auxiliary Snapshot Inputs          : %s",
+	DBGPR( "Number of Auxiliary Snapshot Inputs          : %s",
 		str);
 
-	NMSGPR_ALERT( "\n");
-	NMSGPR_ALERT( "=====================================================/\n");
+	DBGPR( "\n");
+	DBGPR( "=====================================================/\n");
 
 	DBGPR("<--DWC_ETH_QOS_print_all_hw_features\n");
 }
@@ -1393,13 +1426,20 @@ static int DWC_ETH_QOS_alloc_rx_buf(UINT chInx, struct DWC_ETH_QOS_prv_data *pda
 		goto map_skb;
 	}
 
-	skb = __netdev_alloc_skb_ip_align(pdata->dev, pdata->rx_buffer_len, gfp);
+	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0)
+		skb = __netdev_alloc_skb_ip_align(pdata->dev, DWC_ETH_QOS_ETH_FRAME_LEN_IPA, gfp);
+	else
+		skb = __netdev_alloc_skb_ip_align(pdata->dev, pdata->rx_buffer_len, gfp);
+
 	if (skb == NULL) {
 		NMSGPR_ALERT( "Failed to allocate skb\n");
 		return -ENOMEM;
 	}
 	buffer->skb = skb;
-	buffer->len = pdata->rx_buffer_len;
+	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0)
+		buffer->len = DWC_ETH_QOS_ETH_FRAME_LEN_IPA;
+	else
+		buffer->len = pdata->rx_buffer_len;
 
  map_skb:
 
@@ -1423,8 +1463,13 @@ static int DWC_ETH_QOS_alloc_rx_buf(UINT chInx, struct DWC_ETH_QOS_prv_data *pda
 	if (dma_mapping_error(&pdata->pdev->dev, buffer->dma_iommu))
 		NMSGPR_ALERT( "failed to do the RX dma map\n");
 #else
-	buffer->dma = dma_map_single(&pdata->pdev->dev, skb->data,
-				     pdata->rx_buffer_len, DMA_FROM_DEVICE);
+	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0)
+		buffer->dma = dma_map_single(&pdata->pdev->dev, skb->data,
+			DWC_ETH_QOS_ETH_FRAME_LEN_IPA, DMA_FROM_DEVICE);
+	else
+		buffer->dma = dma_map_single(&pdata->pdev->dev, skb->data,
+				pdata->rx_buffer_len, DMA_FROM_DEVICE);
+
 	if (dma_mapping_error(&pdata->pdev->dev, buffer->dma))
 		NMSGPR_ALERT( "failed to do the RX dma map\n");
 
@@ -1538,6 +1583,7 @@ static void DWC_ETH_QOS_default_tx_confs_single_q(
 	desc_data->context_setup = 0;
 	desc_data->default_mss = 0;
 
+	NMSGPR_INFO("OSF on/off : %d for channel Idx %d\n", desc_data->osf_on, chInx);
 	DBGPR("<--DWC_ETH_QOS_default_tx_confs_single_q\n");
 }
 
@@ -1630,6 +1676,89 @@ static INT DWC_ETH_QOS_config_phy_aneg (struct DWC_ETH_QOS_prv_data *pdata, unsi
 	return Y_SUCCESS;
 }
 
+/*!
+* \brief Common init function used on interface up and also resume
+*
+* \details Initializes common structures and queues during network
+* initialization
+*
+* \param[in] dev - pointer to net_device structure
+*
+* \return void
+*/
+static void DWC_ETH_QOS_init_common(struct net_device *dev)
+{
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+	struct hw_if_struct *hw_if = &pdata->hw_if;
+	struct desc_if_struct *desc_if = &(pdata->desc_if);
+
+	DBGPR("-->DWC_ETH_QOS_init_common\n");
+
+	/* default configuration */
+	DWC_ETH_QOS_default_common_confs(pdata);
+	DWC_ETH_QOS_default_tx_confs(pdata);
+	DWC_ETH_QOS_default_rx_confs(pdata);
+	DWC_ETH_QOS_configure_rx_fun_ptr(pdata);
+
+	DWC_ETH_QOS_set_rx_mode(dev);
+
+	DWC_ETH_QOS_config_phy_aneg(pdata, 0, 0);
+
+	desc_if->wrapper_tx_desc_init(pdata);
+	desc_if->wrapper_rx_desc_init(pdata);
+
+	DWC_ETH_QOS_tx_desc_mang_ds_dump(pdata);
+	DWC_ETH_QOS_rx_desc_mang_ds_dump(pdata);
+
+	DWC_ETH_QOS_mmc_setup(pdata);
+
+	/* initializes MAC and DMA */
+	hw_if->init(pdata);
+
+	DWC_ETH_QOS_config_phy_aneg(pdata, 1, 0);
+
+	if (pdata->enable_phy && pdata->phydev)
+		phy_start(pdata->phydev);
+
+	pdata->eee_enabled = DWC_ETH_QOS_eee_init(pdata);
+
+	DBGPR("<--DWC_ETH_QOS_init_common\n");
+}
+
+static int DWC_ETH_QOS_request_irq(struct net_device *dev)
+{
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+	int ret = Y_SUCCESS;
+
+	pdata->irq_number = dev->irq;
+
+#ifdef NTN_POLLING_METHOD
+	ret = request_irq(pdata->irq_number, DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS_DUMMY,
+					  IRQF_SHARED, DEV_NAME, pdata);
+#else
+	ret = request_irq(pdata->irq_number, DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS,
+					  IRQF_SHARED, DEV_NAME, pdata);
+	NDBGPR_L1("DWC_ETH_QOS IRQ %d requested\n", pdata->irq_number);
+#endif
+
+	if (ret != 0) {
+		NMSGPR_ALERT("DWC_ETH_QOS request_irq failed ret %d\n", ret);
+		ret = -EBUSY;
+	}
+
+	return ret;
+}
+
+static void DWC_ETH_QOS_free_irq(struct net_device *dev)
+{
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+
+	if (pdata->irq_number != 0) {
+		NDBGPR_L1("DWC_ETH_QOS IRQ %d freed\n", pdata->irq_number);
+		free_irq(pdata->irq_number, pdata);
+		pdata->irq_number = 0;
+	}
+}
 
 /*!
 * \brief API to open a deivce for data transmission & reception.
@@ -1650,26 +1779,13 @@ static int DWC_ETH_QOS_open(struct net_device *dev)
 {
 	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
 	int ret = Y_SUCCESS;
-	struct hw_if_struct *hw_if = &pdata->hw_if;
 	struct desc_if_struct *desc_if = &pdata->desc_if;
+	struct hw_if_struct *hw_if = &pdata->hw_if;
 
 	DBGPR("-->DWC_ETH_QOS_open\n");
 
-	pdata->irq_number = dev->irq;
-
-#ifdef NTN_POLLING_METHOD
-	ret = request_irq(pdata->irq_number, DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS_DUMMY,
-			  IRQF_SHARED, DEV_NAME, pdata);
-#else
-	ret = request_irq(pdata->irq_number, DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS,
-			  IRQF_SHARED, DEV_NAME, pdata);
-	NDBGPR_L1( "DWC_ETH_QOS interrupt mode, IRQ requested\n");
-#endif
-
-	NDBGPR_L1( "request_IRQ ret value is %d\n",ret);
-	if (ret != 0) {
-		NMSGPR_ALERT( "Unable to register IRQ %d\n",
-		       pdata->irq_number);
+	if (DWC_ETH_QOS_request_irq(dev) != 0) {
+		NMSGPR_ALERT("Unable to register IRQ %d\n", pdata->irq_number);
 		ret = -EBUSY;
 		goto err_irq_0;
 	}
@@ -1682,39 +1798,24 @@ static int DWC_ETH_QOS_open(struct net_device *dev)
 		goto err_out_desc_buf_alloc_failed;
 	}
 
-	/* default configuration */
-	DWC_ETH_QOS_default_common_confs(pdata);
-	DWC_ETH_QOS_default_tx_confs(pdata);
-	DWC_ETH_QOS_default_rx_confs(pdata);
-	DWC_ETH_QOS_configure_rx_fun_ptr(pdata);
+	DWC_ETH_QOS_init_common(dev);
 
 	DWC_ETH_QOS_napi_enable_mq(pdata);
 
-	DWC_ETH_QOS_set_rx_mode(dev);
+	netif_tx_start_all_queues(dev);
 
-	DWC_ETH_QOS_config_phy_aneg(pdata, 0, 0);
+	if (pdata->ipa_enabled) {
+		/* Helper flag for IPA Ready CB */
+		pdata->prv_ipa.is_dev_ready = true;
 
-	desc_if->wrapper_tx_desc_init(pdata);
-	desc_if->wrapper_rx_desc_init(pdata);
+		/* Configure IPA Related Stuff */
+		if (!pdata->prv_ipa.ipa_ready)
+			return ret;
 
-	DWC_ETH_QOS_tx_desc_mang_ds_dump(pdata);
-	DWC_ETH_QOS_rx_desc_mang_ds_dump(pdata);
-
-	DWC_ETH_QOS_mmc_setup(pdata);
-
-	/* initializes MAC and DMA */
-	hw_if->init(pdata);
-
-
-    DWC_ETH_QOS_config_phy_aneg(pdata, 1, 0);
-
-	if (enable_phy && pdata->phydev)
-		phy_start(pdata->phydev);
-
-	pdata->eee_enabled = DWC_ETH_QOS_eee_init(pdata);
-
-	if (enable_phy && pdata->phydev)
-		netif_tx_start_all_queues(dev);
+		ret = DWC_ETH_QOS_enable_ipa_offload(pdata);
+		if (ret)
+			return ret;
+	}
 
 #ifdef NTN_POLLING_METHOD
 	polling_task_data = (void*)pdata;
@@ -1723,13 +1824,14 @@ static int DWC_ETH_QOS_open(struct net_device *dev)
 	schedule_delayed_work(&task, usecs_to_jiffies(NTN_POLL_DELAY_US));
 #endif //NTN_POLLING_METHOD
 
+	hw_if->ntn_wrap_ts_valid_window_config(pdata->ntn_timestamp_valid_window);
+
 	DBGPR("<--DWC_ETH_QOS_open\n");
 
 	return ret;
 
  err_out_desc_buf_alloc_failed:
-	free_irq(pdata->irq_number, pdata);
-	pdata->irq_number = 0;
+	DWC_ETH_QOS_free_irq(dev);
 
  err_irq_0:
 	DBGPR("<--DWC_ETH_QOS_open\n");
@@ -1754,26 +1856,30 @@ static int DWC_ETH_QOS_close(struct net_device *dev)
 	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
 	struct hw_if_struct *hw_if = &pdata->hw_if;
 	struct desc_if_struct *desc_if = &pdata->desc_if;
+	int ret = 0;
 
 	DBGPR("-->DWC_ETH_QOS_close\n");
 
 	if (pdata->eee_enabled)
 		del_timer_sync(&pdata->eee_ctrl_timer);
 
-	if (enable_phy && pdata->phydev)
+	if (pdata->enable_phy && pdata->phydev)
 		phy_stop(pdata->phydev);
 
 	netif_tx_disable(dev);
 	DWC_ETH_QOS_all_ch_napi_disable(pdata);
 
+	if (pdata->ipa_enabled) {
+		ret = DWC_ETH_QOS_disable_ipa_offload(pdata);
+		if (ret)
+			return ret;
+	}
+
 	/* issue software reset to device */
 	hw_if->exit();
 	desc_if->tx_free_mem(pdata);
 	desc_if->rx_free_mem(pdata);
-	if (pdata->irq_number != 0) {
-		free_irq(pdata->irq_number, pdata);
-		pdata->irq_number = 0;
-	}
+	DWC_ETH_QOS_free_irq(dev);
 
 #ifdef NTN_POLLING_METHOD
 	cancel_delayed_work_sync(&task);
@@ -2138,7 +2244,7 @@ static int DWC_ETH_QOS_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	if ((pdata->eee_enabled) && (pdata->tx_path_in_lpi_mode) &&
 		(!pdata->use_lpi_tx_automate)){
-		NMSGPR_ALERT( "DWC_ETH_QOS_disable_eee_mode for chInx = %d\n", chInx);
+		DBGPR( "DWC_ETH_QOS_disable_eee_mode for chInx = %d\n", chInx);
 		DWC_ETH_QOS_disable_eee_mode(pdata);
 	}
 
@@ -2533,6 +2639,12 @@ static void DWC_ETH_QOS_tx_interrupt(struct net_device *dev,
 	DBGPR("-->DWC_ETH_QOS_tx_interrupt: desc_data->tx_pkt_queued = %d"
 		" dirty_tx = %d, chInx = %u\n",
 		desc_data->tx_pkt_queued, desc_data->dirty_tx, chInx);
+
+	if (pdata->ipa_enabled && chInx == NTN_TX_DMA_CH_2) {
+		NMSGPR_INFO("TX status interrupts are handled by IPA uc for TXCH2 \
+					skip for the host \n");
+		return;
+	}
 
 	spin_lock_irqsave(&pdata->tx_lock, flags);
 
@@ -3074,6 +3186,11 @@ int DWC_ETH_QOS_poll_mq(struct napi_struct *napi, int budget)
 #endif
 		if(!pdata->rx_dma_ch_for_host[chInx])
 			continue;
+
+		if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+			pr_debug("RX pkts are recieved by IPA uC..so skip for the host \n");
+			continue;
+		}
 
 		rx_dma_ch = GET_RX_DMA_CH_PTR(chInx);
 
@@ -4105,8 +4222,8 @@ static int DWC_ETH_QOS_config_pfc(struct net_device *dev,
  *     	req->flags = 3: PCIe config Register Write
  *
  *		req->bar_num = 0: Use BAR0 for Register access
- *		req->bar_num = 1: Use BAR1 for SRAM access
- *		req->bar_num = 2: Use BAR2 for Flash access
+ *		req->bar_num = 2: Use BAR2 for SRAM access
+ *		req->bar_num = 4: Use BAR4 for Flash access
  *
  *	req->adrs : register address
  *	req->ptr : pointer to data
@@ -5031,7 +5148,7 @@ static int DWC_ETH_QOS_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	DBGPR("-->DWC_ETH_QOS_ioctl\n");
 
-	if (!netif_running(dev) || (enable_phy && !pdata->phydev)) {
+	if (!netif_running(dev) || (pdata->enable_phy && !pdata->phydev)) {
 		DBGPR("<--DWC_ETH_QOS_ioctl - error\n");
 		return -EINVAL;
 	}
@@ -5092,12 +5209,15 @@ u16	DWC_ETH_QOS_select_queue(struct net_device *dev, struct sk_buff *skb, void *
 	UINT eth_or_vlan_tag;
 	UINT avb_priority;
 	UINT eth_type;
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+	UINT tx_ch_host = pdata->ipa_enabled ? NTN_TX_PKT_HOST_IPA : NTN_TX_PKT_HOST;
 
 	DBGPR("-->DWC_ETH_QOS_select_queue\n");
 
 	/* Linearize the skb in case it is in fragments */
 	if (skb_linearize(skb) != 0) {
-		return NTN_TX_PKT_HOST;
+
+		return tx_ch_host;
 	}
 
 	/* TX Channel assignment based on Vlan tag and protocol type */
@@ -5119,7 +5239,7 @@ u16	DWC_ETH_QOS_select_queue(struct net_device *dev, struct sk_buff *skb, void *
 			}else if(avb_priority == NTN_AVB_PRIORITY_CLASS_B){
 				txqueue_select = NTN_TX_PKT_AVB_CLASS_B;
 			}else{
-				txqueue_select = NTN_TX_PKT_HOST;
+				txqueue_select = tx_ch_host;
 			}
 		}else{
 			/* VLAN but not AVB send it to Q0 */
@@ -5135,7 +5255,7 @@ u16	DWC_ETH_QOS_select_queue(struct net_device *dev, struct sk_buff *skb, void *
 				txqueue_select = NTN_TX_PKT_GPTP;
 				break;
 			default:
-				txqueue_select = NTN_TX_PKT_HOST;
+				txqueue_select = tx_ch_host;
 				break;
 		}
 	}
@@ -5326,7 +5446,6 @@ INT DWC_ETH_QOS_powerdown(struct net_device *dev, UINT wakeup_type,
 {
 	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
 	struct hw_if_struct *hw_if = &(pdata->hw_if);
-	ULONG flags;
 
 	DBGPR(KERN_ALERT "-->DWC_ETH_QOS_powerdown\n");
 
@@ -5339,10 +5458,10 @@ INT DWC_ETH_QOS_powerdown(struct net_device *dev, UINT wakeup_type,
 		return -EINVAL;
 	}
 
-	if (enable_phy && pdata->phydev)
-		phy_stop(pdata->phydev);
+	mutex_lock(&pdata->pmt_lock);
 
-	spin_lock_irqsave(&pdata->pmt_lock, flags);
+	if (pdata->enable_phy && pdata->phydev)
+		phy_stop(pdata->phydev);
 
 	if (caller == DWC_ETH_QOS_DRIVER_CONTEXT)
 		netif_device_detach(dev);
@@ -5354,6 +5473,8 @@ INT DWC_ETH_QOS_powerdown(struct net_device *dev, UINT wakeup_type,
 	DWC_ETH_QOS_stop_all_ch_tx_dma(pdata);
 	DWC_ETH_QOS_stop_all_ch_rx_dma(pdata);
 
+	DWC_ETH_QOS_free_irq(dev);
+
 	/* enable power down mode by programming the PMT regs */
 	if (wakeup_type & DWC_ETH_QOS_REMOTE_WAKEUP)
 		hw_if->enable_remote_pmt();
@@ -5364,11 +5485,21 @@ INT DWC_ETH_QOS_powerdown(struct net_device *dev, UINT wakeup_type,
 	if (caller == DWC_ETH_QOS_IOCTL_CONTEXT)
 		pdata->power_down = 1;
 
-	spin_unlock_irqrestore(&pdata->pmt_lock, flags);
+	mutex_unlock(&pdata->pmt_lock);
 
 	DBGPR("<--DWC_ETH_QOS_powerdown\n");
 
 	return 0;
+}
+
+/* Work function to call powerup as interruptible task */
+void DWC_ETH_QOS_powerup_handler(struct work_struct *work)
+{
+	struct DWC_ETH_QOS_prv_data *pdata = container_of(work,
+		struct DWC_ETH_QOS_prv_data, powerup_work);
+	DBGPR("<--DWC_ETH_QOS_powerup_handler\n");
+	DWC_ETH_QOS_powerup(pdata->dev, DWC_ETH_QOS_IOCTL_CONTEXT);
+	DBGPR("-->DWC_ETH_QOS_powerup_handler\n");
 }
 
 /*!
@@ -5396,7 +5527,7 @@ INT DWC_ETH_QOS_powerup(struct net_device *dev, UINT caller)
 {
 	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
 	struct hw_if_struct *hw_if = &(pdata->hw_if);
-	ULONG flags;
+	struct desc_if_struct *desc_if = &(pdata->desc_if);
 
 	DBGPR("-->DWC_ETH_QOS_powerup\n");
 
@@ -5407,7 +5538,7 @@ INT DWC_ETH_QOS_powerup(struct net_device *dev, UINT caller)
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&pdata->pmt_lock, flags);
+	mutex_lock(&pdata->pmt_lock);
 
 	if (pdata->power_down_type & DWC_ETH_QOS_MAGIC_WAKEUP) {
 		hw_if->disable_magic_pmt();
@@ -5421,8 +5552,23 @@ INT DWC_ETH_QOS_powerup(struct net_device *dev, UINT caller)
 
 	pdata->power_down = 0;
 
-	if (enable_phy && pdata->phydev)
-		phy_start(pdata->phydev);
+	if (DWC_ETH_QOS_request_irq(dev) != 0) {
+		NMSGPR_ALERT("Unable to register IRQ %d\n", pdata->irq_number);
+		return -EBUSY;
+	}
+
+	if (pdata->pcierst_resx) {
+		/* Clean old rx skbs to avoid leak since they are allocated
+		 * again when initializing rx descriptors */
+		desc_if->rx_skb_free_mem(pdata, NTN_RX_DMA_CH_CNT);
+		/* Avoid leak of eee timer */
+		if (pdata->eee_enabled)
+			del_timer_sync(&pdata->eee_ctrl_timer);
+		DWC_ETH_QOS_init_common(dev);
+	} else {
+		if (pdata->enable_phy && pdata->phydev)
+			phy_start(pdata->phydev);
+	}
 
 	/* enable MAC TX/RX */
 	hw_if->start_mac_tx_rx();
@@ -5438,7 +5584,7 @@ INT DWC_ETH_QOS_powerup(struct net_device *dev, UINT caller)
 
 	netif_tx_start_all_queues(dev);
 
-	spin_unlock_irqrestore(&pdata->pmt_lock, flags);
+	mutex_unlock(&pdata->pmt_lock);
 
 	DBGPR("<--DWC_ETH_QOS_powerup\n");
 
@@ -6677,8 +6823,12 @@ void DWC_ETH_QOS_init_rx_coalesce(struct DWC_ETH_QOS_prv_data *pdata)
 
 		rx_desc_data->use_riwt = 1;
 		rx_desc_data->rx_coal_frames = DWC_ETH_QOS_RX_MAX_FRAMES;
-		rx_desc_data->rx_riwt =
-			DWC_ETH_QOS_usec2riwt(DWC_ETH_QOS_OPTIMAL_DMA_RIWT_USEC, pdata);
+
+		if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0)
+			rx_desc_data->rx_riwt = DWC_ETH_QOS_MAX_DMA_RIWT;
+		else
+			rx_desc_data->rx_riwt =
+				DWC_ETH_QOS_usec2riwt(DWC_ETH_QOS_OPTIMAL_DMA_RIWT_USEC, pdata);
 	}
 
 	DBGPR("<--DWC_ETH_QOS_init_rx_coalesce\n");

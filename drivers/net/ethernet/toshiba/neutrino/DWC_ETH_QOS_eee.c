@@ -101,8 +101,6 @@
 						   status */
 #define CL45_CLK_STOP_EN	0x400 /* Enable xMII Clock Stop */
 
-extern BOOL enable_phy;
-
 void DWC_ETH_QOS_enable_eee_mode(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	struct DWC_ETH_QOS_tx_wrapper_descriptor *tx_desc_data = NULL;
@@ -432,7 +430,7 @@ bool DWC_ETH_QOS_eee_init(struct DWC_ETH_QOS_prv_data *pdata)
 	if (pdata->hw_feat.eee_sel) {
 #ifndef DWC_ETH_QOS_CUSTOMIZED_EEE_TEST
 		/* check if the PHY supports EEE */
-                if (enable_phy && pdata->phydev) {
+                if (pdata->enable_phy && pdata->phydev) {
 		        if (DWC_ETH_QOS_phy_init_eee(pdata->phydev, 1))
 			        goto phy_eee_failed;
                 } else {

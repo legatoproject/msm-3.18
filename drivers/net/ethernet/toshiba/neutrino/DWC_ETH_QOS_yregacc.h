@@ -108,7 +108,8 @@
 #define  MAC_OFFSET         (0xA000)
 #define  INTC_OFFSET        (0x8000)
 
-#define  NTN_REG_BASE_ADRS  (dwc_eth_ntn_reg_pci_base_addr)
+#define  NTN_REG_BASE_ADRS      (dwc_eth_ntn_reg_pci_base_addr)
+#define  NTN_REG_PHY_BASE_ADRS  (dwc_eth_ntn_reg_pci_base_addr_phy)
 #define  NTN_SRAM_BASE_ADRS (dwc_eth_ntn_SRAM_pci_base_addr_virt)
 #define  BASE_ADDRESS       (NTN_REG_BASE_ADRS + MAC_OFFSET)
 #define  MAC_BASE_ADDRESS   (NTN_REG_BASE_ADRS + MAC_OFFSET)
@@ -136,6 +137,15 @@
 #define  DMA_TX_CH_BASE_ADDRESS     (NTN_REG_BASE_ADRS + WRAPPER_DMA_TX_CH_OFFSET)
 #define  DMA_RX_CH_BASE_ADDRESS     (NTN_REG_BASE_ADRS + WRAPPER_DMA_RX_CH_OFFSET)
 #define  M3STAT_BASE_ADDRESS        (NTN_SRAM_BASE_ADRS + M3_SRAM_DEBUG_OFFSET)
+#define  DMA_TX_CH_PHY_BASE_ADDRESS (NTN_REG_PHY_BASE_ADRS + WRAPPER_DMA_TX_CH_OFFSET)
+#define  DMA_RX_CH_PHY_BASE_ADDRESS (NTN_REG_PHY_BASE_ADRS + WRAPPER_DMA_RX_CH_OFFSET)
+
+#define NTN_M3_DBG_CNT_START   0x0000C800
+#define NTN_M3_DBG_DMA_TXCH2_DB_OFST  (2 * 4)
+#define NTN_M3_DBG_DMA_RXCH0_DB_OFST  (6 * 4)
+#define NTN_M3_DBG_RSVD_OFST   (4*14)
+#define NTN_M3_DBG_IPA_CAPABLE_MASK 0x2
+#define PCIE_SRAM_BAR_NUM 2
 /******************************************************************************/
 
 /* virtual_registers Low Bit Macro Name's */
@@ -28327,6 +28337,7 @@
 #define DMA_TXCH_DESC_LISTHADDR_RgOffAddr(n)        ((volatile ULONG *)(DMA_TX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x0C ))
 #define DMA_TXCH_DESC_LISTLADDR_RgOffAddr(n)        ((volatile ULONG *)(DMA_TX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x10 ))
 #define DMA_TXCH_DESC_TAILPTR_RgOffAddr(n)          ((volatile ULONG *)(DMA_TX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x14 ))
+#define DMA_TXCH_DESC_TAILPTR_RgOffAddr_Phy(n)      ((volatile ULONG *)(DMA_TX_CH_PHY_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x14 ))
 #define DMA_TXCH_DESC_RING_LENGTH_RgOffAddr(n)      ((volatile ULONG *)(DMA_TX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x18 ))
 #define DMA_TXCH_CUR_DESC_RgOffAddr(n)              ((volatile ULONG *)(DMA_TX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x1C ))
 #define DMA_TXCH_CUR_BUFHA_RgOffAddr(n)             ((volatile ULONG *)(DMA_TX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x20 ))
@@ -28338,6 +28349,7 @@
 #define DMA_RXCH_DESC_LISTHADDR_RgOffAddr(n)        ((volatile ULONG *)(DMA_RX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x0C ))
 #define DMA_RXCH_DESC_LISTLADDR_RgOffAddr(n)        ((volatile ULONG *)(DMA_RX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x10 ))
 #define DMA_RXCH_DESC_TAILPTR_RgOffAddr(n)          ((volatile ULONG *)(DMA_RX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x14 ))
+#define DMA_RXCH_DESC_TAILPTR_RgOffAddr_Phy(n)      ((volatile ULONG *)(DMA_RX_CH_PHY_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x14 ))
 #define DMA_RXCH_DESC_RING_LENGTH_RgOffAddr(n)      ((volatile ULONG *)(DMA_RX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x18 ))
 #define DMA_RXCH_CUR_DESC_RgOffAddr(n)              ((volatile ULONG *)(DMA_RX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x1C ))
 #define DMA_RXCH_CUR_BUFHA_RgOffAddr(n)             ((volatile ULONG *)(DMA_RX_CH_BASE_ADDRESS + (n * DMA_INTER_CH_OFFSET) + 0x20 ))
@@ -28584,14 +28596,11 @@
 #define DMA_TXCH_DESC_LISTHADDR_RgWr(n, data) { iowrite32(data, (void *)DMA_TXCH_DESC_LISTHADDR_RgOffAddr(n));   }
 #define DMA_TXCH_DESC_LISTHADDR_RgRd(n, data) { (data) = ioread32((void *)DMA_TXCH_DESC_LISTHADDR_RgOffAddr(n)); }
 
-
 #define DMA_TXCH_DESC_LISTLADDR_RgWr(n, data) { iowrite32(data, (void *)DMA_TXCH_DESC_LISTLADDR_RgOffAddr(n));   }
 #define DMA_TXCH_DESC_LISTLADDR_RgRd(n, data) { (data) = ioread32((void *)DMA_TXCH_DESC_LISTLADDR_RgOffAddr(n)); }
 
-
 #define DMA_TXCH_DESC_TAILPTR_RgWr(n, data) { iowrite32(data, (void *)DMA_TXCH_DESC_TAILPTR_RgOffAddr(n));   }
 #define DMA_TXCH_DESC_TAILPTR_RgRd(n, data) { (data) = ioread32((void *)DMA_TXCH_DESC_TAILPTR_RgOffAddr(n)); }
-
 
 #define DMA_TXCH_DESC_RING_LENGTH_RgWr(n, data) { iowrite32(data, (void *)DMA_TXCH_DESC_RING_LENGTH_RgOffAddr(n));   }
 #define DMA_TXCH_DESC_RING_LENGTH_RgRd(n, data) { (data) = ioread32((void *)DMA_TXCH_DESC_RING_LENGTH_RgOffAddr(n)); }
@@ -29140,6 +29149,17 @@
         data = ((data >> 4) & ETH_AVB_WRAPPER_TS_CTRL_Mask);\
 } while(0)
 
+#define ETH_AVB_WRAPPER_TS_CTRL_TSTMP_WINDOW_Wr(data) do {\
+        ULONG v;\
+        ETH_AVB_WRAPPER_TS_CTRL_RgRd(v);\
+        v = ((v & 0xFF00FFFF) | ((data & 0xFF)<<16));\
+        ETH_AVB_WRAPPER_TS_CTRL_RgWr(v);\
+} while(0)
+
+#define ETH_AVB_WRAPPER_TS_CTRL_TSTMP_WINDOW_Rd(data) do {\
+        ETH_AVB_WRAPPER_TS_CTRL_RgRd(data);\
+        data = ((data >> 16) & 0xFF);\
+} while(0)
 
 /******************************************************************************/
 /**                         Neutrino Wrapper PTP  registers                  **/
@@ -29262,6 +29282,20 @@
         iowrite32(data, (void *)NTN_NEMACCTL_RgOffAddr);\
 } while(0)
 
+#define NTN_NMODESTS_HOST_BOOT_MASK      (0x1<<6)
+#define NTN_NMODESTS_SECURE_BOOT_MASK    (0x1)
+#define NTN_NCTLSTS_HW_SEQ_COMPLETE_MASK (0x1)
+
+/* Neutrino boot mode option */
+#define NTN_NMODESTS_RgRd(data) do {\
+        (data) = ioread32((void *)NTN_NMODESTS_RgOffAddr);\
+} while(0)
+
+/* Neutrino control and status */
+#define NTN_NCTLSTS_RgRd(data) do {\
+        (data) = ioread32((void *)NTN_NCTLSTS_RgOffAddr);\
+} while(0)
+
 #define NTN_NEMACCTL_TX_CLK_MASK     	   (~0x7)
 #define NTN_NEMACCTL_TX_CLK_125MHz  	   (0x0)
 #define NTN_NEMACCTL_TX_CLK_25MHz   	   (0x2)
@@ -29311,6 +29345,8 @@
 } while(0)
 
 #define NTN_INTC_GMAC_INT_MASK  (0x3FC000FF)
+#define NTN_INTC_GMAC_INT_TXCH2_BIT_POS 13
+#define NTN_INTC_GMAC_INT_RXCH0_BIT_POS 16
 
 #define NTN_INTC_INTSTATUS_GMAC_LPOS    (9)
 #define NTN_INTC_INTSTATUS_GMAC_HPOS    (13)
@@ -29588,7 +29624,7 @@
 } while(0)
 
 #define NTN_INTC_INTMCUMASK1_TXCHINT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> (NTN_INTC_INTMCUMASK1_TXCHINT_StartPos + n)) & NTN_INTC_INTMCUMASK1_TXCHINT_Mask);\
 } while(0)
 
@@ -29601,7 +29637,7 @@
 } while(0)
 
 #define NTN_INTC_INTMCUMASK1_RXCHINT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> (NTN_INTC_INTMCUMASK1_RXCHINT_StartPos + n)) & NTN_INTC_INTMCUMASK1_RXCHINT_Mask);\
 } while(0)
 
@@ -29616,8 +29652,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_RXCH5INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_RXCH5INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_RXCH5INT_StartPos) & NTN_INTC_INTMCUMASK1_RXCH5INT_Mask);\
 } while(0)
 
@@ -29629,8 +29665,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_RXCH4INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_RXCH4INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_RXCH4INT_StartPos) & NTN_INTC_INTMCUMASK1_RXCH4INT_Mask);\
 } while(0)
 
@@ -29642,8 +29678,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_RXCH3INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_RXCH3INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_RXCH3INT_StartPos) & NTN_INTC_INTMCUMASK1_RXCH3INT_Mask);\
 } while(0)
 
@@ -29655,8 +29691,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_RXCH2INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_RXCH2INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_RXCH2INT_StartPos) & NTN_INTC_INTMCUMASK1_RXCH2INT_Mask);\
 } while(0)
 
@@ -29668,8 +29704,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_RXCH1INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_RXCH1INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_RXCH1INT_StartPos) & NTN_INTC_INTMCUMASK1_RXCH1INT_Mask);\
 } while(0)
 
@@ -29681,8 +29717,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_RXCH0INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_RXCH0INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_RXCH0INT_StartPos) & NTN_INTC_INTMCUMASK1_RXCH0INT_Mask);\
 } while(0)
 
@@ -29694,8 +29730,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_TXCH4INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_TXCH4INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_TXCH4INT_StartPos) & NTN_INTC_INTMCUMASK1_TXCH4INT_Mask);\
 } while(0)
 
@@ -29707,8 +29743,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_TXCH3INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_TXCH3INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_TXCH3INT_StartPos) & NTN_INTC_INTMCUMASK1_TXCH3INT_Mask);\
 } while(0)
 
@@ -29720,8 +29756,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_TXCH2INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_TXCH2INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_TXCH2INT_StartPos) & NTN_INTC_INTMCUMASK1_TXCH2INT_Mask);\
 } while(0)
 
@@ -29733,8 +29769,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_TXCH1INT_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_TXCH1INT_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_TXCH1INT_StartPos) & NTN_INTC_INTMCUMASK1_TXCH1INT_Mask);\
 } while(0)
 
@@ -29759,8 +29795,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_MAC_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_MAC_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_MAC_StartPos) & NTN_INTC_INTMCUMASK1_MAC_Mask);\
 } while(0)
 
@@ -29772,8 +29808,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_MACPM_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_MACPM_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_MACPM_StartPos) & NTN_INTC_INTMCUMASK1_MACPM_Mask);\
 } while(0)
 
@@ -29785,8 +29821,8 @@
         NTN_INTC_INTMCUMASK1_RgWr(v);\
 } while(0)
 
-#define NTN_INTC_INTMCUMASK1_MACLPI_UdfRd(n, data) do {\
-        NTN_INTC_INTMCUMASK1_RgRd(n, data);\
+#define NTN_INTC_INTMCUMASK1_MACLPI_UdfRd(data) do {\
+        NTN_INTC_INTMCUMASK1_RgRd(data);\
         data = ((data >> NTN_INTC_INTMCUMASK1_MACLPI_StartPos) & NTN_INTC_INTMCUMASK1_MACLPI_Mask);\
 } while(0)
 

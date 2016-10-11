@@ -1007,17 +1007,33 @@ static INT config_sub_second_increment(ULONG ptp_clock)
 
 static ULONG_LONG get_systime(void)
 {
-  ULONG_LONG ns;
+  ULONG ns1, ns2;
   ULONG varmac_stnsr;
   ULONG varmac_stsr;
 
+  /* Read the nanoseconds once */
   MAC_STNSR_RgRd(varmac_stnsr);
-  ns = GET_VALUE(varmac_stnsr, MAC_STNSR_TSSS_LPOS, MAC_STNSR_TSSS_HPOS);
-  /* convert sec/high time value to nanosecond */
-  MAC_STSR_RgRd(varmac_stsr);
-  ns = ns + (varmac_stsr * 1000000000ull);
+  ns1 = GET_VALUE(varmac_stnsr, MAC_STNSR_TSSS_LPOS, MAC_STNSR_TSSS_HPOS);
 
-  return ns;
+  while (1) {
+    /* Read the seconds */
+    MAC_STSR_RgRd(varmac_stsr);
+
+    /* Read the nanoseconds again */
+    MAC_STNSR_RgRd(varmac_stnsr);
+    ns2 = GET_VALUE(varmac_stnsr, MAC_STNSR_TSSS_LPOS, MAC_STNSR_TSSS_HPOS);
+
+    /* If the nanoseconds didn't roll over, break and return the time */
+    if (ns2 > ns1) {
+      break;
+    }
+
+    /* If the nanoseconds did roll over, read the time again */
+    ns1 = ns2;
+  }
+
+  /* convert sec/high time value to nanosecond */
+  return ((ULONG_LONG) ns2) + (varmac_stsr * 1000000000ull);
 }
 
 
@@ -3018,18 +3034,30 @@ static void rx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata, UINT chInx)
 		/* set control bits - OWN, INTE and BUF1V */
 		RX_NORMAL_DESC_RDES3_Ml_Wr(RX_NORMAL_DESC->RDES3,
 					   (0xc1000000));
-		buffer->inte = (1 << 30);
 
-		/* reconfigure INTE bit if RX watchdog timer is enabled */
-		if (rx_desc_data->use_riwt) {
-			if ((i % rx_desc_data->rx_coal_frames) != 0) {
-				UINT varRDES3 = 0;
-				RX_NORMAL_DESC_RDES3_Ml_Rd(RX_NORMAL_DESC->RDES3,
-					varRDES3);
-				/* reset INTE */
-				RX_NORMAL_DESC_RDES3_Ml_Wr(RX_NORMAL_DESC->RDES3,
-						(varRDES3 & ~(1 << 30)));
-				buffer->inte = 0;
+		/* Don't Set the IOC bit for IPA controlled Desc */
+		if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+			UINT varRDES3 = 0;
+			RX_NORMAL_DESC_RDES3_Ml_Rd(RX_NORMAL_DESC->RDES3,
+									   varRDES3);
+			/* reset IOC for all buffers */
+			RX_NORMAL_DESC_RDES3_Ml_Wr(RX_NORMAL_DESC->RDES3,
+									   (varRDES3 & ~(1 << 30)));
+		}
+		else {
+			buffer->inte = (1 << 30);
+
+			/* reconfigure INTE bit if RX watchdog timer is enabled */
+			if (rx_desc_data->use_riwt) {
+				if ((i % rx_desc_data->rx_coal_frames) != 0) {
+					UINT varRDES3 = 0;
+					RX_NORMAL_DESC_RDES3_Ml_Rd(RX_NORMAL_DESC->RDES3,
+						varRDES3);
+					/* reset INTE */
+					RX_NORMAL_DESC_RDES3_Ml_Wr(RX_NORMAL_DESC->RDES3,
+							(varRDES3 & ~(1 << 30)));
+					buffer->inte = 0;
+				}
 			}
 		}
 
@@ -3039,6 +3067,11 @@ static void rx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata, UINT chInx)
 		buffer = GET_RX_BUF_PTR(chInx, rx_desc_data->cur_rx);
 	}
 
+	/* Reset the OWN bit of last descriptor */
+	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
+		RX_NORMAL_DESC = GET_RX_DESC_PTR(chInx, RX_DESC_CNT - 1);
+		RX_CONTEXT_DESC_RDES3_OWN_Mlf_Wr(RX_NORMAL_DESC->RDES3, 0);
+	}
 
 	/* update the total no of Rx descriptors count */
 	DMA_RXCH_DESC_RING_LENGTH_RgWr(chInx, (RX_DESC_CNT - 1));
@@ -3713,8 +3746,7 @@ static INT configure_dma_tx_channel(UINT chInx,
 
 	enable_dma_tx_interrupts(chInx);
 
-	/* set TX PBL = 128 bytes */
-  	DMA_TXCHCTL_TXPBL_UdfWr(chInx, 16);
+	DMA_TXCHCTL_TXPBL_UdfWr(chInx, 32);
 
     /* To get Best Performance */
     DMA_BUSCFG_BLEN16_UdfWr(1);
@@ -3818,10 +3850,6 @@ static int enable_mac_interrupts(void)
   reg_val = reg_val | NTN_INTC_GMAC_INT_MASK;
   NTN_INTC_INTMCUMASK1_RgWr(reg_val);
 
-  /* Mask PCIe controller interrupt */
-  reg_val = (0xF << 9);
-  NTN_INTC_INTMCUMASK2_RgWr(reg_val);
-
   return Y_SUCCESS;
 }
 #endif
@@ -3850,10 +3878,13 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
 		/* Assign priority for TX flow control */
 		MAC_TQPM0R_PSTQ0_UdfWr(qInx);
 
-		if ((pdata->flow_ctrl & DWC_ETH_QOS_FLOW_CTRL_TX) == DWC_ETH_QOS_FLOW_CTRL_TX)
+		if ((pdata->flow_ctrl & DWC_ETH_QOS_FLOW_CTRL_TX) == DWC_ETH_QOS_FLOW_CTRL_TX) {
 			enable_tx_flow_ctrl(qInx);
-		else
+			NMSGPR_INFO("TX flow control for Queue(%d): ENABLED \n",qInx);
+		} else {
 			disable_tx_flow_ctrl(qInx);
+			NMSGPR_INFO("TX flow control for Queue(%d): DISABLED \n",qInx);
+		}
 	}
 
 	/* Set Rx flow control parameters */
@@ -3902,10 +3933,13 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
 
 
 	/* Set Rx flow control parameters */
-	if ((pdata->flow_ctrl & DWC_ETH_QOS_FLOW_CTRL_RX) == DWC_ETH_QOS_FLOW_CTRL_RX)
+	if ((pdata->flow_ctrl & DWC_ETH_QOS_FLOW_CTRL_RX) == DWC_ETH_QOS_FLOW_CTRL_RX) {
 		enable_rx_flow_ctrl();
-	else
+		NMSGPR_INFO("RX flow control ENABLED \n");
+	} else {
 		disable_rx_flow_ctrl();
+		NMSGPR_INFO("RX flow control DISABLED \n");
+	}
 
 	MAC_MCR_JE_UdfWr(0x0);
 	MAC_MCR_WD_UdfWr(0x0);
@@ -4043,6 +4077,30 @@ static INT ntn_wrap_ts_ignore_config(UINT ena_dis)
     }
 }
 
+/*!
+* \brief This function is used to set the Neutrino Wrapper Timestamp Valid Window
+* \param[in] ts_window, the timestamp valid window in units of 2^24 ns.
+* \return Success or Failure
+* \retval  0 Success
+* \retval -1 Failure
+*/
+
+static INT ntn_wrap_ts_valid_window_config(UINT ts_window)
+{
+    UINT rd_val;
+
+    ETH_AVB_WRAPPER_TS_CTRL_TSTMP_WINDOW_Wr(ts_window);
+    ETH_AVB_WRAPPER_TS_CTRL_TSTMP_WINDOW_Rd(rd_val);
+
+    if(rd_val != ts_window)
+    {
+        NMSGPR_ALERT( "ERROR: NTN Wrapper Timestamp Valid Window wr_val:0x%x, rd_val:0x%x \n", ts_window, rd_val);
+        return -Y_FAILURE;
+    }else{
+        DBGPR("NTN Wrapper Timestamp Valid Window : wr_val:0x%x, rd_val:0x%x \n", ts_window, rd_val);
+        return Y_SUCCESS;
+    }
+}
 
 /*!
  * \brief This function is used to enable and configure PCIe TAMAP to access host memory from Neutrino
@@ -4187,6 +4245,74 @@ static INT ntn_set_tx_clk_2_5MHz(void)
 	return Y_SUCCESS;
 }
 
+static UINT ntn_boot_host_initiated(void)
+{
+  UINT rd_val;
+  NTN_NMODESTS_RgRd(rd_val);
+  /* Per datasheet bit0=1 indicates secure boot and overrides boot option
+   * from MODE02 bit. */
+  return !(rd_val & NTN_NMODESTS_SECURE_BOOT_MASK) &&
+          (rd_val & NTN_NMODESTS_HOST_BOOT_MASK);
+}
+
+static UINT ntn_boot_from_flash_done(void)
+{
+  UINT rd_val;
+  NTN_NCTLSTS_RgRd(rd_val);
+  /* Per datasheet bit0=1 indicates that HW sequencer is idle/complete. */
+  return rd_val & NTN_NCTLSTS_HW_SEQ_COMPLETE_MASK;
+}
+
+static int DWC_ETH_QOS_yinit_offload(struct DWC_ETH_QOS_prv_data *pdata)
+{
+	DBGPR("-->DWC_ETH_QOS_yinit_offload\n");
+
+	/*Init offload TX/RX pipes */
+	configure_dma_tx_channel(NTN_TX_DMA_CH_2, pdata);
+	configure_dma_rx_channel(NTN_RX_DMA_CH_0, pdata);
+
+	DBGPR("-->DWC_ETH_QOS_yinit_offload\n");
+	return Y_SUCCESS;
+}
+
+static int DWC_ETH_QOS_yexit_offload(void)
+{
+	DBGPR("-->DWC_ETH_QOS_yexit_offload\n");
+	DBGPR("-->DWC_ETH_QOS_yexit_offload\n");
+	return Y_SUCCESS;
+}
+
+static bool ntn_fw_ipa_supported(void)
+{
+	UINT reg_val = ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
+				  PCIE_SRAM_BAR_NUM);
+	return reg_val & NTN_M3_DBG_IPA_CAPABLE_MASK;
+}
+
+static void enable_offload(void)
+{
+  UINT reg_val;
+
+  reg_val = ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
+                       PCIE_SRAM_BAR_NUM);
+  reg_val = (reg_val | IPA_ENABLE_OFFLOAD_MASK);
+  ntn_reg_wr((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
+             reg_val, PCIE_SRAM_BAR_NUM);
+  NDBGPR_L1("Enabled FW ipa offload, 0x%x\n", reg_val);
+}
+
+static void disable_offload(void)
+{
+  UINT reg_val;
+
+  reg_val = ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
+                       PCIE_SRAM_BAR_NUM);
+  reg_val = reg_val & IPA_DISABLE_OFFLOAD_MASK;
+  ntn_reg_wr((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
+             reg_val, PCIE_SRAM_BAR_NUM);
+  NDBGPR_L1("Disabled FW ipa offload, 0x%x\n", reg_val);
+}
+
 /*!
  * * \brief Initialises device registers.
  * * \details This function initialises device registers.
@@ -4234,11 +4360,19 @@ static INT DWC_ETH_QOS_yinit(struct DWC_ETH_QOS_prv_data *pdata)
                 if(!pdata->tx_dma_ch_for_host[chInx])
                         continue;
 
+                /* DMA CH to be enabled when IPA uC is ready */
+                if (pdata->ipa_enabled && chInx == NTN_TX_DMA_CH_2)
+                        continue;
+
                 configure_dma_tx_channel(chInx, pdata);
         }
         for (chInx = 0; chInx < NTN_RX_DMA_CH_CNT; chInx++) {
 
                 if(!pdata->rx_dma_ch_for_host[chInx])
+                        continue;
+
+                /* DMA CH to be enabled when IPA uC is ready */
+                if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0)
                         continue;
 
                 configure_dma_rx_channel(chInx, pdata);
@@ -4310,6 +4444,11 @@ void DWC_ETH_QOS_init_function_ptrs_dev(struct hw_if_struct *hw_if)
 	hw_if->dev_read = device_read;
 	hw_if->init = DWC_ETH_QOS_yinit;
 	hw_if->exit = DWC_ETH_QOS_yexit;
+	hw_if->init_offload = DWC_ETH_QOS_yinit_offload;
+	hw_if->exit_offload = DWC_ETH_QOS_yexit_offload;
+	hw_if->enable_offload = enable_offload;
+	hw_if->disable_offload = disable_offload;
+	hw_if->ntn_fw_ipa_supported = ntn_fw_ipa_supported;
 	/* Descriptor related Sequences have to be initialized here */
 	hw_if->tx_desc_init = tx_descriptor_init;
 	hw_if->rx_desc_init = rx_descriptor_init;
@@ -4486,11 +4625,16 @@ void DWC_ETH_QOS_init_function_ptrs_dev(struct hw_if_struct *hw_if)
 
 	/* For Neutrino Wrapper Timestamp Feature disable Enbale */
 	hw_if->ntn_wrap_ts_ignore_config = ntn_wrap_ts_ignore_config;
+	hw_if->ntn_wrap_ts_valid_window_config = ntn_wrap_ts_valid_window_config;
 
 	/* Config EMAC Div and Control register */
 	hw_if->ntn_set_tx_clk_125MHz = ntn_set_tx_clk_125MHz;
 	hw_if->ntn_set_tx_clk_25MHz = ntn_set_tx_clk_25MHz;
 	hw_if->ntn_set_tx_clk_2_5MHz = ntn_set_tx_clk_2_5MHz;
+
+	/* Determine if boot mode is host initiated */
+	hw_if->ntn_boot_host_initiated = ntn_boot_host_initiated;
+	hw_if->ntn_boot_from_flash_done = ntn_boot_from_flash_done;
 
 	DBGPR("<--DWC_ETH_QOS_init_function_ptrs_dev\n");
 }

@@ -81,8 +81,19 @@
  * @brief: Driver functions.
  */
 #include <linux/firmware.h>
+#ifdef CONFIG_PCI_MSM
+#include <linux/msm_pcie.h>
+#endif
+#include <linux/of.h>
+#include <linux/platform_device.h>
 #include "DWC_ETH_QOS_yheader.h"
+#include "DWC_ETH_QOS_yregacc.h"
 #include "DWC_ETH_QOS_pci.h"
+#include "DWC_ETH_QOS_ipa.h"
+
+struct DWC_ETH_QOS_prv_data *gDWC_ETH_QOS_prv_data;
+
+extern struct DWC_ETH_QOS_plt_data *plt_data;
 
 static UCHAR dev_addr[6] = { 0xE8, 0xE0, 0xB7, 0xB5, 0x7D, 0xF8};
 typedef struct
@@ -101,6 +112,7 @@ const config_param_list_t config_param_list[] = {
 /* Holds virtual address for BAR0 for register access,
    BAR1 for SRAM memory and BAR2 for Flash memory */
 ULONG dwc_eth_ntn_reg_pci_base_addr;
+ULONG dwc_eth_ntn_reg_pci_base_addr_phy;
 ULONG dwc_eth_ntn_SRAM_pci_base_addr_phy;
 ULONG dwc_eth_ntn_SRAM_pci_base_addr_virt;
 #if !defined(NTN_DECLARE_MEM_FOR_DMAAPI) && !defined(DESC_HOSTMEM_BUF_HOSTMEM)
@@ -115,17 +127,9 @@ dma_addr_t dwc_eth_ntn_hostmem_pci_base_addr_phy;
 ULONG dwc_eth_ntn_hostmem_pci_base_addr_virt;
 
 CHARP fw_filename = "";
-BOOL disable_platform_init = 0;
-BOOL enable_phy = 1;
-
-module_param(disable_platform_init, ushort, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-MODULE_PARM_DESC(disable_platform_init, "Disable device tree initialization");
 
 module_param(fw_filename, charp, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 MODULE_PARM_DESC(fw_filename, "Firmware filename");
-
-module_param(enable_phy, ushort, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
-MODULE_PARM_DESC(enable_phy, "Enable Ethernet PHY support");
 
 void DWC_ETH_QOS_init_all_fptrs(struct DWC_ETH_QOS_prv_data *pdata)
 {
@@ -321,18 +325,20 @@ static void parse_config_file(void)
 */
 static int DWC_ETH_QOS_load_fw(struct pci_dev *pdev)
 {
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
 	const struct firmware *fw_entry = NULL;
 	unsigned int reg_val;
 
         if (fw_filename[0] == '\0') {
-                NMSGPR_INFO("Firmware filename not given. Skipping firmware loading.\n");
+                NMSGPR_ALERT("Firmware filename not given.\n");
                 return -EINVAL;
         }
 
 	if (request_firmware(&fw_entry, fw_filename, &pdev->dev) != 0 ||
 	    fw_entry == NULL)
 	{
-		NMSGPR_ALERT("Failed to get %s. The firmware is loaded from flash.\n",
+		NMSGPR_ALERT("Failed to get %s.\n",
 			fw_filename);
 		return -EINVAL;
 	}
@@ -354,12 +360,259 @@ static int DWC_ETH_QOS_load_fw(struct pci_dev *pdev)
 	release_firmware(fw_entry);
 
 	/* Wait a moment for the Neutrino to boot */
-	msleep(200);
+	msleep(pdata->fw_load_delay);
 
-	NMSGPR_ALERT("Firmware loaded");
+	NMSGPR_INFO("Firmware loaded\n");
 
 	return 0;
 }
+
+static int DWC_ETH_QOS_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	if (gDWC_ETH_QOS_prv_data) {
+		DBGPR("DWC_ETH_QOS: 0x%pK\n", gDWC_ETH_QOS_prv_data);
+		update_dma_stats(gDWC_ETH_QOS_prv_data);
+	}
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block DWC_ETH_QOS_panic_blk = {
+	.notifier_call  = DWC_ETH_QOS_panic_notifier,
+};
+
+#ifdef CONFIG_PCI_MSM
+
+/*!
+* \brief Handle the PCI link down event
+*
+* \details Worker function that stops the phy and brings down the
+* ethernet interface to avoid system. Dynamic recovery of the PCI link
+* is not supported yet. Call using schedule_work() API.
+*
+* \param[in] recovert - work_struct. Must be a child of DWC_ETH_QOS_prv_data
+*
+* \return None
+*/
+static void DWC_ETH_QOS_pci_recovery_work_handler(struct work_struct *recovery)
+{
+	struct DWC_ETH_QOS_prv_data *pdata =
+		container_of(recovery, struct DWC_ETH_QOS_prv_data, pci_recovery_work);
+	if (!pdata) {
+		NMSGPR_ALERT("%s: pdata is NULL. Failed to recover PCI link\n", __func__);
+		return;
+	}
+
+	/* Stop phy interrutps and bring the ethernet interface down.
+	   This avoids PCI writes which timeout since the link is down
+	   and cause the system to hang */
+	NMSGPR_ALERT("%s: Stopping phy and detaching net device\n", __func__);
+	phy_stop(pdata->phydev);
+	netif_device_detach(pdata->dev);
+}
+
+/*!
+* \brief Callback function for PCI events.
+*
+* \details This callback function receives PCI link status changes registered
+* from msm_pcie_register_event(). During a PCI link down event this fuction
+* stores the error state in the pci_dev which persists in the kernel after a
+* driver unload. The driver will attemtp to re-enumerate the device on the next
+* module load.
+*
+* \param[in] notify - pointer to msm_pcie_notify containing PCI status
+*
+* \return None
+*/
+static void DWC_ETH_QOS_pci_event(struct msm_pcie_notify *notify)
+{
+	struct DWC_ETH_QOS_prv_data *pdata;
+	struct pci_dev *pdev;
+
+	if (!notify || !notify->data) {
+		NMSGPR_ALERT("%s: notify is NULL. Failed to handle PCI event\n",
+					 __func__);
+		return;
+	}
+	pdata = notify->data;
+	pdev = pdata->pdev;
+
+	switch (notify->event) {
+		case MSM_PCIE_EVENT_LINKDOWN:
+			NMSGPR_ALERT("%s: PCI link down\n", __func__);
+			schedule_work(&pdata->pci_recovery_work);
+			break;
+	default:
+		NMSGPR_ALERT("cnss: invalid event from PCIe callback %d\n",
+					 notify->event);
+	}
+}
+
+/*!
+* \brief Resume PCI link on module init
+*
+* \details Recover the PCI link when the module is initialized. PCI link could
+* be in suspend state if module was removed while system was running.
+*
+* \param[in] pdev - the PCIe device
+*
+* \return integer
+*
+* \retval 0 on success & -ve number on failure.
+*/
+static int DWC_ETH_QOS_pci_resume(struct pci_dev *pdev)
+{
+	int ret = 0;
+	int pm_opts = MSM_PCIE_CONFIG_NO_CFG_RESTORE;
+
+	/* Resume PCI device to allow device */
+	ret = msm_pcie_pm_control(
+			MSM_PCIE_RESUME,
+			pdev->bus->number,
+			pdev, NULL, pm_opts);
+
+	if (ret) {
+		NMSGPR_ALERT("%s: Failed to resume PCIe link\n", __func__);
+		goto exit;
+	}
+
+	ret = msm_pcie_recover_config(pdev);
+	if (ret) {
+		NMSGPR_ALERT("%s: Failed to restore PCI config\n", __func__);
+		goto exit;
+	}
+
+
+exit:
+	return ret;
+}
+
+/*!
+* \brief Register for PCI link status change events
+*
+* \details The MSM PCI driver sends link status change events. Register for
+* these events so that the link can be recovered in case it fails or when it
+* has to be resumed.
+*
+* \param[in] pdev - the PCIe device
+*
+* \return None
+*/
+static void DWC_ETH_QOS_pci_event_register(struct pci_dev *pdev)
+{
+	int ret;
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+
+	/* Setup PCI link recovery handler */
+	INIT_WORK(&pdata->pci_recovery_work, DWC_ETH_QOS_pci_recovery_work_handler);
+	pdata->msm_pci_event.events = MSM_PCIE_EVENT_LINKDOWN;
+
+	/* Register PCI status changes.
+	'user' must be of type struct pci_dev */
+	pdata->msm_pci_event.user = pdev;
+	pdata->msm_pci_event.notify.data = pdata;
+	pdata->msm_pci_event.mode = MSM_PCIE_TRIGGER_CALLBACK;
+	pdata->msm_pci_event.callback = DWC_ETH_QOS_pci_event;
+	pdata->msm_pci_event.options = MSM_PCIE_CONFIG_NO_RECOVERY;
+	ret = msm_pcie_register_event(&pdata->msm_pci_event);
+	if (ret) {
+		NMSGPR_ALERT("%s: PCIe event register failed! %d\n", __func__, ret);
+	}
+}
+
+/*!
+* \brief Deregister for PCI link status change events
+*
+* \param[in] pdev - the PCIe device
+*
+* \return None
+*/
+static void DWC_ETH_QOS_pci_event_deregister(struct pci_dev *pdev)
+{
+	int ret;
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+
+	ret = msm_pcie_deregister_event(&pdata->msm_pci_event);
+	if (ret) {
+		NMSGPR_ALERT("%s: PCIe event deregister failed! %d\n", __func__, ret);
+	}
+}
+
+/*!
+* \brief Save the PCI link status and suspend it on module exit
+*
+* \details Save the state of the PCI link so that it can be recovered when the
+* module is loaded again and suspend the bus power.
+*
+* \param[in] pdev - the PCIe device
+*
+* \return None
+*/
+static void DWC_ETH_QOS_pci_suspend(struct pci_dev *pdev)
+{
+	int pm_opts = (MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN);
+
+	/* Suspend PCI device to allow device power off */
+	if (msm_pcie_pm_control(MSM_PCIE_SUSPEND, pdev->bus->number,
+				pdev, NULL, pm_opts)) {
+		NMSGPR_ALERT("%s: Failed to shutdown PCIe link\n", __func__);
+	}
+}
+
+#else /* !CONFIG_PCI_MSM */
+
+static int DWC_ETH_QOS_pci_resume(struct pci_dev *pdev)
+{
+	return 0;
+}
+
+static void DWC_ETH_QOS_pci_event_register(struct pci_dev *pdev)
+{
+	return;
+}
+
+static void DWC_ETH_QOS_pci_event_deregister(struct pci_dev *pdev)
+{
+	return 0;
+}
+
+static void DWC_ETH_QOS_pci_suspend(struct pci_dev *pdev)
+{
+	return;
+}
+
+#endif /* CONFIG_PCI_MSM */
+
+#ifdef NTN_ENABLE_PCIE_MEM_ACCESS
+static void DWC_ETH_QOS_config_tamap(struct pci_dev *pdev)
+{
+	struct net_device *dev = pci_get_drvdata(pdev);
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+	struct hw_if_struct *hw_if = &(pdata->hw_if);
+	ULONG_LONG adrs_to_be_replaced, adrs_for_replacement;
+	UINT tmap_no, no_of_bits;
+
+	/* Configure TMAP 0 to access full range of host memory */
+	tmap_no = 0;
+	adrs_to_be_replaced = ( (unsigned long long)0x00000010 << 32);
+	adrs_for_replacement = ( (unsigned long long)0x00000000 << 32);
+	no_of_bits = 28;
+	hw_if->ntn_config_tamap(tmap_no, adrs_to_be_replaced, adrs_for_replacement, no_of_bits);
+
+	/* Configure TMAP 1 to access IPA uC Register in host memory */
+	tmap_no = 1;
+	adrs_to_be_replaced = NTN_PCIE_REGION_MEM_MAP_BASE;
+	adrs_for_replacement = IPA_UC_REG_BASE;
+	NTN_GET_TAMAP_MASK_BITS(NTN_HOST_TAMAP_MEM_LENGTH, no_of_bits);
+	NDBGPR_L1("TAMAP %d, adrs_to_be_replaced %llx adrs_for_replacement "
+		"%llx no_of_bits %d \n",tmap_no, adrs_to_be_replaced,
+		adrs_for_replacement, no_of_bits);
+	hw_if->ntn_config_tamap(tmap_no, adrs_to_be_replaced,
+				adrs_for_replacement, no_of_bits);
+}
+#endif
 
 /*!
 * \brief API to initialize the device.
@@ -387,23 +640,25 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 
 	struct DWC_ETH_QOS_prv_data *pdata = NULL;
 	struct net_device *dev = NULL;
+	struct platform_device *pldev = plt_data->pldev;
 	int i, ret = 0;
 	struct hw_if_struct *hw_if = NULL;
 	struct desc_if_struct *desc_if = NULL;
 	UCHAR tx_q_count = 0, rx_q_count = 0;
-	unsigned int reg_val;
+	unsigned int reg_val, fw_ver_cap=0;
 #ifdef NTN_DECLARE_MEM_FOR_DMAAPI
 	ULONG phy_mem_adrs;
-#endif
-
-#ifdef NTN_ENABLE_PCIE_MEM_ACCESS
-	ULONG_LONG adrs_to_be_replaced, adrs_for_replacement;
-	UINT tmap_no, no_of_bits;
 #endif
 
 	NDBGPR_L1("Debug version\n");
 
 	DBGPR("--> DWC_ETH_QOS_probe\n");
+
+	/* Resume PCI link and restore the state */
+	ret = DWC_ETH_QOS_pci_resume(pdev);
+	if (ret) {
+		goto err_pci_restore_failed;
+	}
 
 	ret = pci_enable_device(pdev);
 	if (ret) {
@@ -439,11 +694,11 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
     NDBGPR_L1( "BAR2 length = %ld kb\n", dwc_eth_ntn_SRAM_len);
     NDBGPR_L1( "BAR4 length = %ld kb\n", dwc_eth_ntn_FLASH_len);
 
-    dwc_eth_ntn_reg_pci_base_addr = pci_resource_start(pdev, 0);
+    dwc_eth_ntn_reg_pci_base_addr_phy = pci_resource_start(pdev, 0);
     dwc_eth_ntn_SRAM_pci_base_addr_phy = pci_resource_start(pdev, 2);
     dwc_eth_ntn_FLASH_pci_base_addr = pci_resource_start(pdev, 4);
 
-    NDBGPR_L1( "BAR0 iommu address = 0x%lx\n", dwc_eth_ntn_reg_pci_base_addr);
+    NDBGPR_L1( "BAR0 iommu address = 0x%lx\n", dwc_eth_ntn_reg_pci_base_addr_phy);
     NDBGPR_L1( "BAR2 iommu address = 0x%lx\n", dwc_eth_ntn_SRAM_pci_base_addr_phy);
     NDBGPR_L1( "BAR4 iommu address = 0x%lx\n", dwc_eth_ntn_FLASH_pci_base_addr);
 
@@ -517,6 +772,11 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	dev->base_addr = dwc_eth_ntn_reg_pci_base_addr;
 	SET_NETDEV_DEV(dev, &pdev->dev);
 	pdata = netdev_priv(dev);
+	gDWC_ETH_QOS_prv_data = pdata;
+	NDBGPR_L1("gDWC_ETH_QOS_prv_data 0x%pK \n", gDWC_ETH_QOS_prv_data);
+
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&DWC_ETH_QOS_panic_blk);
 	DWC_ETH_QOS_init_all_fptrs(pdata);
 	hw_if = &(pdata->hw_if);
 	desc_if = &(pdata->desc_if);
@@ -530,16 +790,16 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 
 	/* 	Host: TX DMA CH : 0,2,3,4,
 		Host: RX DMA CH : 0,2,3,4,5 */
-	for(i=0; i<pdata->rx_dma_ch_cnt; i++)
+	for(i=0; i<pdata->rx_dma_ch_cnt && i<NTN_DMA_RX_CH_CNT; i++)
 		pdata->rx_dma_ch_for_host[i] = 1;
-	for(i=0; i<pdata->tx_dma_ch_cnt; i++)
+	for(i=0; i<pdata->tx_dma_ch_cnt && i<NTN_DMA_TX_CH_CNT; i++)
 		pdata->tx_dma_ch_for_host[i] = 1;
 
 	/* 	Host: TX Q : 0,1,2
 		Host: RX Q : 0,1,2,3 */
-	for(i=0; i<rx_q_count; i++)
+	for(i=0; i<rx_q_count && i<NTN_RX_Q_CNT; i++)
 		pdata->rx_q_for_host[i] = 1;
-	for(i=0; i<tx_q_count; i++)
+	for(i=0; i<tx_q_count && i<NTN_TX_Q_CNT; i++)
 		pdata->tx_q_for_host[i] = 1;
 
 	/* 	M3: TX DMA CH : 1
@@ -581,13 +841,54 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	}
 #endif
 
+	ret = of_property_read_u32(pldev->dev.of_node, "qcom,ntn-fw-load-delay-msec", &pdata->fw_load_delay);
+	if (ret) {
+		NMSGPR_ALERT("%s: Failed to find fw_load_delay value, hardcoding to 200 msec\n", __func__);
+		pdata->fw_load_delay = 200;
+	} else {
+		NDBGPR_L1("%s: fw_load_delay = %d msec\n", __func__, pdata->fw_load_delay);
+	}
+
+	pdata->pcierst_resx = of_property_read_bool(pldev->dev.of_node, "qcom,ntn-pcierst-resx");
+	NDBGPR_L1("%s: pcierst_resx = %d\n", __func__, pdata->pcierst_resx);
+
+	pdata->enable_phy = !of_property_read_bool(pldev->dev.of_node, "qcom,ntn-disable-phy");
+	NDBGPR_L1("%s: enable_phy = %d\n", __func__, pdata->enable_phy);
+
+	/*
+	 * Set the EAVB timestamp window according to the
+	 * ntn-timestamp-valid-window setting in the device tree.
+	 * If the timestamp in the AVTP packet is between the
+	 * current time and the current time plus the timestamp window,
+	 * Neutrino will hold the packet until the timestamp elapses.
+	 * Otherwise, the packet is sent immediately.
+	 * Each unit is 2^24 ns, or approx 16.8 ms.
+	 * If the setting is not in the device tree, set the value to
+	 * 4 (67 ms). Note: if this register is not set, Neutrino will default to
+	 * 0x80 (2.1 sec). 67 ms is chosen as a reasonable default because
+	 * trying to queue up more than 67 ms worth of packets would cause the
+	 * TX queue to overflow, and according to the AVB spec, Class B packets
+	 * should have no more than 50 ms of latency, and Class A packets should
+	 * have even less latency than that. Thus an application would not try to
+	 * send AVTP packets with timestamps more than 50 ms in the future.
+	 */
+	ret = of_property_read_u32(pldev->dev.of_node,
+							   "qcom,ntn-timestamp-valid-window",
+							   &pdata->ntn_timestamp_valid_window);
+	if (ret) {
+		NMSGPR_ALERT("%s: Failed to read ntn-timestamp-valid-window, hardcoding to 4 (67 msec)\n",
+					 __func__);
+		pdata->ntn_timestamp_valid_window = 4;
+		ret = 0; /* This is not a fatal error. */
+	} else {
+		NDBGPR_L1("%s: ntn-timestamp-valid-window = %d, (%u nsec)\n",
+				  __func__,
+				  pdata->ntn_timestamp_valid_window,
+				  pdata->ntn_timestamp_valid_window << 24);
+	}
+
 #ifdef NTN_ENABLE_PCIE_MEM_ACCESS
-	/* Configure TMAP 0 to access full range of host memory */
-	tmap_no = 0;
-	adrs_to_be_replaced = ( (unsigned long long)0x00000010 << 32);
-	adrs_for_replacement = ( (unsigned long long)0x00000000 << 32);
-	no_of_bits = 28;
-	hw_if->ntn_config_tamap(tmap_no, adrs_to_be_replaced, adrs_for_replacement, no_of_bits);
+	DWC_ETH_QOS_config_tamap(pdev);
 #endif
 
     /* issue clock enable to GMAC device */
@@ -628,7 +929,26 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	dev->irq = pdev->irq;
         NDBGPR_L1( "Allocated IRQ Number = %d\n", dev->irq);
 
-	DWC_ETH_QOS_load_fw(pdev);
+	if (hw_if->ntn_boot_host_initiated()) {
+		ret = DWC_ETH_QOS_load_fw(pdev);
+		if (ret) {
+			NMSGPR_ALERT("ERROR: Unable to load firmware\n");
+			goto err_load_fw_failed;
+		}
+	} else if (!hw_if->ntn_boot_from_flash_done()) {
+		NMSGPR_ALERT("ERROR: Boot from flash failed\n");
+		ret = -EINVAL;
+		goto err_load_fw_failed;
+	} else {
+		NMSGPR_INFO("Boot from flash complete\n");
+	}
+
+	fw_ver_cap =
+	   hw_if->ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
+						 PCIE_SRAM_BAR_NUM);
+	NMSGPR_INFO("DBG Resvd area: 0x%x\n", fw_ver_cap);
+	NMSGPR_INFO("NTN FW Version: %d.%d\n", (fw_ver_cap >> 12),
+				((fw_ver_cap >> 8) & 0xF));
 
 	DWC_ETH_QOS_get_all_hw_features(pdata);
 	DWC_ETH_QOS_print_all_hw_features(pdata);
@@ -643,7 +963,7 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 
 	pdata->interface = DWC_ETH_QOS_get_phy_interface(pdata);
 	/* Bypass PHYLIB for TBI, RTBI and SGMII interface */
-	if (enable_phy && 1 == pdata->hw_feat.sma_sel) {
+	if (pdata->enable_phy && 1 == pdata->hw_feat.sma_sel) {
 		ret = DWC_ETH_QOS_mdio_register(dev);
 		if (ret < 0) {
 			NMSGPR_ALERT( "MDIO bus (id %d) registration failed\n",
@@ -719,8 +1039,10 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 
 	spin_lock_init(&pdata->lock);
 	spin_lock_init(&pdata->tx_lock);
-	spin_lock_init(&pdata->pmt_lock);
+	mutex_init(&pdata->pmt_lock);
 	spin_lock_init(&pdata->fqtss_lock);
+
+	INIT_WORK(&pdata->powerup_work, DWC_ETH_QOS_powerup_handler);
 
 	ret = register_netdev(dev);
 	if (ret) {
@@ -729,11 +1051,36 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 		goto err_out_netdev_failed;
 	}
 
+	/* Initialize PCI link status and register for status changes */
+	DWC_ETH_QOS_pci_event_register(pdev);
+
 	DBGPR("<-- DWC_ETH_QOS_probe\n");
 
 	if (pdata->hw_feat.pcs_sel) {
 		netif_carrier_off(dev);
 		NMSGPR_ALERT( "carrier off till LINK is up\n");
+	}
+
+	/* Verify if IPA is supported in firmware */
+	pdata->ipa_enabled =
+		hw_if->ntn_fw_ipa_supported() && NTN_HOST_IPA_CAPABLE;
+
+	if (pdata->ipa_enabled) {
+		/* Configure IPA Related Stuff */
+		ret = ipa_register_ipa_ready_cb(DWC_ETH_QOS_ipa_ready_cb,
+						(void *)pdata);
+		if (ret < 0) {
+			if (ret == -EEXIST) {
+				NMSGPR_ALERT("IPA is ready %d\n", ret);
+				pdata->prv_ipa.ipa_ready = true;
+			} else {
+				NMSGPR_ERR("IPA ready registration failed %d\n", ret);
+				pdata->prv_ipa.ipa_ready = false;
+			}
+		} else if (ret == 0) {
+			NMSGPR_ALERT("IPA Not ready, cb registered successfully \n");
+			pdata->prv_ipa.ipa_ready = false;
+		}
 	}
 
 	return 0;
@@ -749,6 +1096,7 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
  err_out_mdio_reg:
 	desc_if->free_queue_struct(pdata);
 
+ err_load_fw_failed:
  err_out_q_alloc_failed:
     pci_disable_msi(pdev);
  err_out_msi_failed:
@@ -766,6 +1114,8 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 
  err_coherent_mem_declaration:
 #endif
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					 &DWC_ETH_QOS_panic_blk);
     /* issue clock disable to GMAC device */
     hw_if->ntn_mac_clock_config(0x0);
 
@@ -784,6 +1134,7 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	pci_disable_device(pdev);
 
  err_out_enb_failed:
+ err_pci_restore_failed:
 
 	return ret;
 }
@@ -850,11 +1201,25 @@ static void DWC_ETH_QOS_remove(struct pci_dev *pdev)
 	desc_if->free_queue_struct(pdata);
 
 	free_netdev(dev);
-    pci_disable_msi(pdev);
+
+	/* Deregister from PCI link events */
+	DWC_ETH_QOS_pci_event_deregister(pdev);
+
+	/* Save the PCI link status and suspend it */
+	DWC_ETH_QOS_pci_suspend(pdev);
+
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					 &DWC_ETH_QOS_panic_blk);
+
+	pci_disable_msi(pdev);
 	pci_set_drvdata(pdev, NULL);
 
-    if((void __iomem*)dwc_eth_ntn_reg_pci_base_addr != NULL)
-        pci_iounmap(pdev, (void __iomem *)dwc_eth_ntn_reg_pci_base_addr);
+	if ((void __iomem*)dwc_eth_ntn_reg_pci_base_addr != NULL)
+		pci_iounmap(pdev, (void __iomem *)dwc_eth_ntn_reg_pci_base_addr);
+	if ((void __iomem*)dwc_eth_ntn_SRAM_pci_base_addr_virt != NULL)
+		pci_iounmap(pdev, (void __iomem *)dwc_eth_ntn_SRAM_pci_base_addr_virt);
+	if ((void __iomem*)dwc_eth_ntn_FLASH_pci_base_addr != NULL)
+		pci_iounmap(pdev, (void __iomem *)dwc_eth_ntn_FLASH_pci_base_addr);
 
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
@@ -890,27 +1255,27 @@ static struct pci_driver DWC_ETH_QOS_pci_driver = {
 
 static void DWC_ETH_QOS_shutdown(struct pci_dev *pdev)
 {
-	NMSGPR_ALERT( "-->DWC_ETH_QOS_shutdown\n");
-	NMSGPR_ALERT( "Handle the shutdown\n");
-	NMSGPR_ALERT( ">--DWC_ETH_QOS_shutdown\n");
+	DBGPR( "-->DWC_ETH_QOS_shutdown\n");
+	DBGPR( "Handle the shutdown\n");
+	DBGPR( ">--DWC_ETH_QOS_shutdown\n");
 
 	return;
 }
 
 static INT DWC_ETH_QOS_suspend_late(struct pci_dev *pdev, pm_message_t state)
 {
-	NMSGPR_ALERT( "-->DWC_ETH_QOS_suspend_late\n");
-	NMSGPR_ALERT( "Handle the suspend_late\n");
-	NMSGPR_ALERT( "<--DWC_ETH_QOS_suspend_late\n");
+	DBGPR( "-->DWC_ETH_QOS_suspend_late\n");
+	DBGPR( "Handle the suspend_late\n");
+	DBGPR( "<--DWC_ETH_QOS_suspend_late\n");
 
 	return 0;
 }
 
 static INT DWC_ETH_QOS_resume_early(struct pci_dev *pdev)
 {
-	NMSGPR_ALERT( "-->DWC_ETH_QOS_resume_early\n");
-	NMSGPR_ALERT( "Handle the resume_early\n");
-	NMSGPR_ALERT( "<--DWC_ETH_QOS_resume_early\n");
+	DBGPR( "-->DWC_ETH_QOS_resume_early\n");
+	DBGPR( "Handle the resume_early\n");
+	DBGPR( "<--DWC_ETH_QOS_resume_early\n");
 
 	return 0;
 }
@@ -991,6 +1356,10 @@ static INT DWC_ETH_QOS_suspend(struct pci_dev *pdev, pm_message_t state)
 		pmt_flags |= DWC_ETH_QOS_MAGIC_WAKEUP;
 
 	ret = DWC_ETH_QOS_powerdown(dev, pmt_flags, DWC_ETH_QOS_DRIVER_CONTEXT);
+	pci_disable_msi(pdev);
+#ifdef CONFIG_PCI_MSM
+	msm_pcie_shadow_control(pdev, false);
+#endif
 	pci_save_state(pdev);
 	pci_set_power_state(pdev, pci_choose_state(pdev, state));
 
@@ -1025,6 +1394,8 @@ static INT DWC_ETH_QOS_resume(struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
 	INT ret;
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
+	struct hw_if_struct *hw_if = &(pdata->hw_if);
 
 	DBGPR("-->DWC_ETH_QOS_resume\n");
 
@@ -1035,7 +1406,21 @@ static INT DWC_ETH_QOS_resume(struct pci_dev *pdev)
 
 	pci_set_power_state(pdev, PCI_D0);
 	pci_restore_state(pdev);
+#ifdef CONFIG_PCI_MSM
+	msm_pcie_shadow_control(pdev, true);
+#endif
 
+	/* Recover NTN in case whole chip was in reset */
+	if (pdata->pcierst_resx) {
+		if (hw_if->ntn_boot_host_initiated()) {
+			DWC_ETH_QOS_load_fw(pdev);
+		}
+#ifdef NTN_ENABLE_PCIE_MEM_ACCESS
+		DWC_ETH_QOS_config_tamap(pdev);
+#endif
+	}
+
+	pci_enable_msi(pdev);
 	ret = DWC_ETH_QOS_powerup(dev, DWC_ETH_QOS_DRIVER_CONTEXT);
 
 	DBGPR("<--DWC_ETH_QOS_resume\n");
@@ -1057,8 +1442,7 @@ int DWC_ETH_QOS_init_module(void)
 {
 	INT ret = 0;
 
-	NMSGPR_ALERT( "-->DWC_ETH_QOS_init_module\n");
-	printk( "-->DWC_ETH_QOS_init_module\n");
+	DBGPR( "-->DWC_ETH_QOS_init_module\n");
 
 	ret = pci_register_driver(&DWC_ETH_QOS_pci_driver);
 	if (ret < 0) {
@@ -1066,7 +1450,7 @@ int DWC_ETH_QOS_init_module(void)
 		return ret;
 	}
 
-	NMSGPR_ALERT( "<--DWC_ETH_QOS_init_module\n");
+	DBGPR( "<--DWC_ETH_QOS_init_module\n");
 
 	return ret;
 }
@@ -1081,11 +1465,11 @@ int DWC_ETH_QOS_init_module(void)
 */
 void DWC_ETH_QOS_exit_module(void)
 {
-	NMSGPR_ALERT("-->DWC_ETH_QOS_exit_module\n");
+	DBGPR("-->DWC_ETH_QOS_exit_module\n");
 
 	pci_unregister_driver(&DWC_ETH_QOS_pci_driver);
 
-	NMSGPR_ALERT( "<--DWC_ETH_QOS_exit_module\n");
+	DBGPR( "<--DWC_ETH_QOS_exit_module\n");
 }
 
 /*!

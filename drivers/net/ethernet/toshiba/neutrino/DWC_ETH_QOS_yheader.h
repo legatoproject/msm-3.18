@@ -84,6 +84,9 @@
 #define __DWC_ETH_QOS__YHEADER__
 /****************************** Includes ******************************/
 #include <linux/device.h>
+#ifdef CONFIG_PCI_MSM
+#include <linux/msm_pcie.h>
+#endif
 #ifdef DESC_SRAM_BUF_SRAM
 #include <linux/dmapool.h>
 #endif
@@ -102,7 +105,7 @@
 #define NTN_MAX_MSI         (1)
 
 //Neutrino Debugging
-#define NTN_DEBUG_L1
+//#define NTN_DEBUG_L1
 //#define NTN_DEBUG_L2
 //#define NTN_DEBUG_TS1
 //#define NTN_DEBUG_TS2
@@ -132,10 +135,13 @@
 #define NTN_RX_DMA_CH_4			(4)
 #define NTN_RX_DMA_CH_5			(5)
 
-#define NTN_TX_PKT_GPTP			    (NTN_TX_DMA_CH_0)
+#define NTN_TX_PKT_GPTP			(NTN_TX_DMA_CH_0)
 #define NTN_TX_PKT_VLAN_NOT_AVB		(NTN_TX_DMA_CH_0)
-#define NTN_TX_PKT_M3			    (NTN_TX_DMA_CH_1)
-#define NTN_TX_PKT_HOST			    (NTN_TX_DMA_CH_2)
+#define NTN_TX_PKT_M3			(NTN_TX_DMA_CH_1)
+/* Use TX DMA Channel 0 for Embedded TX traffic
+ * and avoid TX CHannel 2 which is used for IPA only */
+#define NTN_TX_PKT_HOST_IPA		(NTN_TX_DMA_CH_0)
+#define NTN_TX_PKT_HOST			(NTN_TX_DMA_CH_2)
 #define NTN_TX_PKT_AVB_CLASS_A		(NTN_TX_DMA_CH_3)
 #define NTN_TX_PKT_AVB_CLASS_B		(NTN_TX_DMA_CH_4)
 
@@ -198,6 +204,20 @@
 #define NTN_RX_MEM_POOL_ALLOC  (0)
 #endif
 
+/* use TAMAP 1 region for M3 to access memory mapped IPA doorbell registers*/
+#if defined(NTN_ENABLE_PCIE_MEM_ACCESS)
+#define NTN_HOST_TAMAP_MEM_LENGTH	(1<<12)
+#define NTN_PCIE_REGION_MEM_MAP_BASE	0x60000000
+#define NTN_GET_TAMAP_MASK_BITS(length, no_of_bits)	do {\
+	int len = length;\
+	no_of_bits = 64;\
+	while(!(len&0x1)){\
+		len>>=1;\
+		no_of_bits--;\
+	};\
+} while(0)
+#define IPA_UC_REG_BASE	0x7962000 /* IPA uC base register address*/
+#endif
 
 #ifdef NTN_POLLING_METHOD
 #define NTN_POLL_DELAY_US	    (1000) //Any value less then 1000 will be considered as 1000us
@@ -370,8 +390,13 @@
 	0x13c7ULL << 32)
 #define MAC_MASK (0x10ULL << 0)
 
-#define TX_DESC_CNT 16
-#define RX_DESC_CNT 16
+#ifdef DWC_ETH_QOS_ENABLE_IPA
+#define TX_DESC_CNT	128 /*Increase the TX desc count to 128 for IPA offload*/
+#define RX_DESC_CNT	128 /*Increase the RX desc count to 128 for IPA offload*/
+#else
+#define TX_DESC_CNT	16
+#define RX_DESC_CNT	16
+#endif
 #define MIN_RX_DESC_CNT 4
 
 #define TX_BUF_SIZE 1536
@@ -380,6 +405,8 @@
 #define DWC_ETH_QOS_MAX_LRO_AGGR 32
 
 #define MIN_PACKET_SIZE 60
+#define IPA_ENABLE_OFFLOAD_MASK 0x1
+#define IPA_DISABLE_OFFLOAD_MASK 0xFFFFFFFE
 
 /*
 #ifdef DWC_ETH_QOS_ENABLE_VLAN_TAG
@@ -431,6 +458,8 @@
 #define DWC_ETH_QOS_MAC_ADDR_LEN 6
 #define DWC_ETH_QOS_ETH_FRAME_LEN (ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
 
+#define DWC_ETH_QOS_ETH_FRAME_LEN_IPA	(1<<11) /*IPA can support 2KB max pkt length*/
+
 #define FIFO_SIZE_B(x) (x)
 #define FIFO_SIZE_KB(x) (x*1024)
 
@@ -469,6 +498,11 @@
 #define GET_TX_DESC_PTR(chInx, dInx) (pdata->tx_dma_ch[(chInx)].tx_desc_data.tx_desc_ptrs[(dInx)])
 
 #define GET_TX_DESC_DMA_ADDR(chInx, dInx) (pdata->tx_dma_ch[(chInx)].tx_desc_data.tx_desc_dma_addrs[(dInx)])
+
+/* Add IPA specific Macros to access the DMA and virtual address to be provided to IPA uC*/
+#define GET_TX_BUFF_DMA_ADDR(chInx, dInx) (pdata->tx_dma_ch[(chInx)].tx_desc_data.tx_ipa_dma_buff_addrs[(dInx)])
+#define GET_TX_BUFF_LOGICAL_ADDR(chInx, dInx) (pdata->tx_dma_ch[(chInx)].tx_desc_data.tx_ipa_buff_addrs[(dInx)])
+#define GET_TX_BUFF_DMA_POOL_BASE_ADRR(chInx) (pdata->tx_dma_ch[(chInx)].tx_desc_data.tx_ipa_dma_buff_addrs)
 
 #define GET_TX_WRAPPER_DESC(chInx) (&(pdata->tx_dma_ch[(chInx)].tx_desc_data))
 
@@ -512,6 +546,10 @@
 #define GET_RX_DESC_PTR(chInx, dInx) (pdata->rx_dma_ch[(chInx)].rx_desc_data.rx_desc_ptrs[(dInx)])
 
 #define GET_RX_DESC_DMA_ADDR(chInx, dInx) (pdata->rx_dma_ch[(chInx)].rx_desc_data.rx_desc_dma_addrs[(dInx)])
+
+/* Add IPA specific Macros to access the DMA address to be provided to IPA uC*/
+#define GET_RX_BUFF_DMA_ADDR(chInx, dInx) (pdata->rx_dma_ch[(chInx)].rx_desc_data.ipa_rx_buff_addrs[(dInx)])
+#define GET_RX_BUFF_POOL_BASE_ADRR(chInx) (pdata->rx_dma_ch[(chInx)].rx_desc_data.ipa_rx_buff_addrs)
 
 #define GET_RX_WRAPPER_DESC(chInx) (&(pdata->rx_dma_ch[(chInx)].rx_desc_data))
 
@@ -791,6 +829,13 @@ struct hw_if_struct {
 
 	INT(*init) (struct DWC_ETH_QOS_prv_data *);
 	INT(*exit) (void);
+
+	INT(*init_offload) (struct DWC_ETH_QOS_prv_data *);
+	INT(*exit_offload) (void);
+	void (*enable_offload) (void);
+	void (*disable_offload) (void);
+	bool(*ntn_fw_ipa_supported) (void);
+
 	INT(*enable_int) (e_DWC_ETH_QOS_int_id);
 	INT(*disable_int) (e_DWC_ETH_QOS_int_id);
 	void (*pre_xmit) (struct DWC_ETH_QOS_prv_data *, UINT chInx);
@@ -974,10 +1019,15 @@ struct hw_if_struct {
 	    void (*ntn_reg_wr)(UINT, UINT, INT);
 	/* Neutrino Wrapper Timestamp Ignore logic enable disable*/
 	INT(*ntn_wrap_ts_ignore_config)(UINT);
+	INT(*ntn_wrap_ts_valid_window_config)(UINT);
 	/* Set TX CLK for EMAC based on negotiated speed */
 	INT(*ntn_set_tx_clk_125MHz)(void);
 	INT(*ntn_set_tx_clk_25MHz)(void);
 	INT(*ntn_set_tx_clk_2_5MHz)(void);
+
+	/* Read host initiated boot option */
+	UINT(*ntn_boot_host_initiated)(void);
+	UINT(*ntn_boot_from_flash_done)(void);
 };
 
 /* wrapper buffer structure to hold transmit pkt details */
@@ -1007,6 +1057,9 @@ struct DWC_ETH_QOS_tx_wrapper_descriptor {
 	dma_addr_t tx_desc_dma_addrs[TX_DESC_CNT];
 
 	struct DWC_ETH_QOS_tx_buffer *tx_buf_ptrs[TX_DESC_CNT];
+
+	dma_addr_t *tx_ipa_dma_buff_addrs;
+	struct sk_buff *tx_ipa_buff_addrs[TX_DESC_CNT];
 
 	unsigned char contigous_mem;
 
@@ -1073,6 +1126,8 @@ struct DWC_ETH_QOS_rx_wrapper_descriptor {
 
 	void *rx_desc_ptrs[RX_DESC_CNT];
 	dma_addr_t rx_desc_dma_addrs[RX_DESC_CNT];
+
+	dma_addr_t *ipa_rx_buff_addrs;
 
 	struct DWC_ETH_QOS_rx_buffer *rx_buf_ptrs[RX_DESC_CNT];
 
@@ -1368,13 +1423,78 @@ struct DWC_ETH_QOS_extra_stats {
 	unsigned long m3_msi_rxch[NTN_DMA_RX_CH_CNT];
 };
 
+struct DWC_ETH_QOS_ipa_dma_stats {
+	UINT RX0_Desc_Ring_Base;
+	INT RX0_Desc_Ring_Size;
+	UINT RX0_Buff_Ring_Base;
+	INT RX0_Buff_Ring_Size;
+	UINT RX0_Db_Int_Raised;
+	UINT RX0_Cur_Desc_Ptr_Indx;
+	UINT RX0_Tail_Ptr_Indx;
+
+	UINT RX0_DMA_Status;
+	UINT RX0_DMA_Ch_Status;
+	UINT RX0_DMA_Ch_underflow;
+	UINT RX0_DMA_Ch_stopped;
+	UINT RX0_DMA_Ch_complete;
+
+	UINT RX0_Int_Mask;
+	ULONG RX0_Transfer_Complete_irq;
+	ULONG RX0_Transfer_Stopped_irq;
+	ULONG RX0_Underflow_irq;
+	ULONG RX0_Early_Transmit_Complete_irq;
+
+	UINT TX2_Desc_Ring_Base;
+	INT TX2_Desc_Ring_Size;
+	UINT TX2_Buff_Ring_Base;
+	INT TX2_Buff_Ring_Size;
+	UINT TX2_Db_Int_Raised;
+	ULONG TX2_Curr_Desc_Ptr_Indx;
+	ULONG TX2_Tail_Ptr_Indx;
+
+	UINT TX2_DMA_Status;
+	UINT TX2_DMA_Ch_Status;
+	UINT TX2_DMA_Ch_underflow;
+	UINT TX2_DMA_Transfer_stopped;
+	UINT TX2_DMA_Transfer_complete;
+
+	UINT TX2_Int_Mask;
+	ULONG TX2_Transfer_Complete_irq;
+	ULONG TX2_Transfer_Stopped_irq;
+	ULONG TX2_Underflow_irq;
+	ULONG TX2_Early_Trans_Cmp_irq;
+	ULONG TX2_Fatal_err_irq;
+	ULONG TX2_Desc_Err_irq;
+};
+
+struct DWC_ETH_QOS_prv_ipa_data {
+	phys_addr_t uc_db_rx_addr;
+	phys_addr_t uc_db_tx_addr;
+	u32 ipa_client_hndl;
+	struct dentry *debugfs_dir;
+
+	/* IPA state variables */
+	bool ipa_ready;
+	bool ipa_offload_init;
+	bool ipa_offload_ready;
+
+	/* Dev state */
+	bool is_dev_ready;
+
+	/* IPA Stats */
+	unsigned long long ipa_ul_exception;
+	struct DWC_ETH_QOS_ipa_dma_stats dma_stats;
+};
+
 struct DWC_ETH_QOS_prv_data {
 	struct net_device *dev;
 	struct pci_dev *pdev;
+	struct DWC_ETH_QOS_prv_ipa_data prv_ipa;
+	bool ipa_enabled;
 
 	spinlock_t lock;
 	spinlock_t tx_lock;
-	spinlock_t pmt_lock;
+	struct mutex pmt_lock;
 	spinlock_t fqtss_lock;
 	UINT mem_start_addr;
 	UINT mem_size;
@@ -1549,6 +1669,41 @@ struct DWC_ETH_QOS_prv_data {
 
 	struct DWC_ETH_QOS_avb_algorithm_params cbsSpeed100Cfg[2];
 	struct DWC_ETH_QOS_avb_algorithm_params cbsSpeed1000Cfg[2];
+
+#ifdef CONFIG_PCI_MSM
+	/* PCIe link recovery */
+	struct msm_pcie_register_event msm_pci_event;
+	struct work_struct pci_recovery_work;
+#endif
+
+	/* Delay before de-asserting M3 reset after FW load */
+	unsigned int fw_load_delay;
+
+	/* Used for hardware where the PCIe reset and RESX lines are merged */
+	bool pcierst_resx;
+
+	/* Decide if PHY is enabled or not */
+	bool enable_phy;
+
+	/* Timestamp valid window. AVTP packets are held
+	 * if the timestamp is within the window */
+	unsigned int ntn_timestamp_valid_window;
+
+	/* Workqueue used in PMT interrupt handler */
+	struct work_struct powerup_work;
+};
+
+struct DWC_ETH_QOS_plt_data {
+	struct platform_device *pldev;
+	int resx_gpio_num;
+	int supply_gpio_num;
+	struct regulator *ntn_reg_hsic;
+	struct regulator *ntn_reg_pci;
+	struct regulator *ntn_reg_io;
+	struct regulator *ntn_reg_core;
+	struct regulator *ntn_reg_phy;
+	unsigned int ntn_rst_delay;
+	unsigned int rc_num;
 };
 
 typedef enum {
@@ -1585,6 +1740,7 @@ void DWC_ETH_QOS_get_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata);
 void DWC_ETH_QOS_print_all_hw_features(struct DWC_ETH_QOS_prv_data *pdata);
 void DWC_ETH_QOS_configure_flow_ctrl(struct DWC_ETH_QOS_prv_data *pdata);
 INT DWC_ETH_QOS_powerup(struct net_device *, UINT);
+void DWC_ETH_QOS_powerup_handler(struct work_struct *work);
 INT DWC_ETH_QOS_powerdown(struct net_device *, UINT, UINT);
 u32 DWC_ETH_QOS_usec2riwt(u32 usec, struct DWC_ETH_QOS_prv_data *pdata);
 void DWC_ETH_QOS_init_rx_coalesce(struct DWC_ETH_QOS_prv_data *pdata);
