@@ -709,7 +709,7 @@
 		qcom,invert = <0>; /* no inversion */
 		qcom,vin-sel = <2>; /* VIN 2 */
 		qcom,src-sel = <2>; /* Special Function 1 */
-		qcom,out-strength = <2>; /* Medium */
+		qcom,out-strength = <1>; /* Low */
 		qcom,master-en = <1>; /* Enable GPIO */
 		status = "ok";
 	};

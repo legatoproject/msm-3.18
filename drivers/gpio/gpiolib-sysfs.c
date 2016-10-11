@@ -919,7 +919,7 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	else
 	{
 		tmpGpio = desc_to_gpio(desc);
-		if((tmpGpio >= MFT_PMGPIO_NUM_MIN) && (tmpGpio< MFT_PMGPIO_NUM_MAX))
+		if((tmpGpio >= MFT_PMGPIO_NUM_MIN) && (tmpGpio <= MFT_PMGPIO_NUM_MAX))
 		{
 			ext_gpio = ext_gpio_mft;
 			gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
