@@ -537,7 +537,8 @@ struct smack_known *smk_import_entry(const char *string, int len)
 
 	smack = smk_parse_smack(string, len);
 	if (IS_ERR(smack))
-		return ERR_CAST(smack);
+		return NULL;
+
 
 	mutex_lock(&smack_known_lock);
 
