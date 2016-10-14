@@ -104,6 +104,7 @@
 #define BS_SMEM_SECB_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 #define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
 #define BS_SMEM_PR_SW_SIZE                 0x0010   /* 16 bytes for interlock between program refresh and normal SW update */
+#define BS_SMEM_LKC_SIZE                   0x1000   /* 4KB bytes for linux kernel crash msg */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -119,6 +120,18 @@
 #define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_COWORK_OFFSET                (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_PR_SW_OFFSET                 (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_LKC_OFFSET                   (BSMEM_PR_SW_OFFSET + BS_SMEM_PR_SW_SIZE + BS_SMEM_CRC_SIZE )
+
+/* the buffer len to hold the linux  kmsg when kernel crash
+ * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
+ */
+#define LKC_KMSG_LEN (1 << CONFIG_LOG_BUF_SHIFT)
+
+/* get more info from the start of kernel panic */
+#define LKC_STR_EXTR_LEN (256)
+
+/* specify the kernel crash kmsg string*/
+#define LKC_PANIC_STR "Internal error:"
 
 /* 32-bit random magic numbers - written to indicate that message
  * structure in the shared memory region was initialized
@@ -600,6 +613,7 @@ void sierra_smem_errdump_save_timestamp(uint32_t time_stamp);
 void sierra_smem_errdump_save_errstr(char *errstrp);
 void sierra_smem_errdump_save_auxstr(char *errstrp);
 void sierra_smem_errdump_save_frame(void *taskp, void *framep);
+void sierra_smem_errdump_save_regs(void *registers, void *taskp);
 int  sierra_smem_get_download_mode(void);
 int sierra_smem_boothold_mode_set(void);
 int sierra_smem_im_recovery_mode_set(void);

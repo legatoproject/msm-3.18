@@ -23,7 +23,9 @@
 
 #include <mach/sierra_smem.h>
 
-
+#include <linux/kmsg_dump.h>
+#include <linux/slab.h>
+struct kmsg_dumper kmsg_dumper;
 static unsigned char * smem_base = NULL;
 
 unsigned char * sierra_smem_base_addr_get(void)
@@ -131,9 +133,103 @@ static struct miscdevice sierra_smem_misc = {
         .fops = &sierra_smem_fops,
 };
 
+static void sierra_kmsg_dump_cb(struct kmsg_dumper *dumper,
+                             enum kmsg_dump_reason reason)
+{
+        char *buf,*str,*tmp,*er_base,*kmsgp;
+        char error_string[ERROR_STRING_LEN];
+        unsigned int len,stack_pre,stack_pos;
+        struct sER_DATA *errdatap = (struct sER_DATA *)(smem_base +
+                        BSMEM_ERR_OFFSET + BS_SMEM_ERR_DUMP_SIZE);
+
+        if ((!errdatap) || (errdatap->start_marker == ERROR_START_MARKER)) {
+                pr_err("%s:sierra smem already set kerne crash info\n",__func__);
+                return;
+        }
+
+        er_base = smem_base + BSMEM_LKC_OFFSET;
+
+        kmsgp = kzalloc(LKC_KMSG_LEN, GFP_KERNEL);
+        if (kmsgp == NULL) {
+                pr_err("%s: malloc buffer failed!\n", __func__);
+                return;
+        }
+        buf = kmsgp;
+
+        /* get kmsg from log_buf,no need to get all of it, just fetch 16K*/
+        kmsg_dump_get_buffer(dumper, true, buf, LKC_KMSG_LEN, &len);
+
+        memset(error_string, 0, ERROR_STRING_LEN);
+
+        /* find out the key word of kernel panic*/
+        str = strstr(buf, LKC_PANIC_STR);
+        if (str != NULL) {
+                if ((str - LKC_STR_EXTR_LEN) > buf)
+                        buf = str - LKC_STR_EXTR_LEN;
+        }
+        else {
+                pr_err("%s:can't find the start point str(%s),len=%d,%x\n",
+                        LKC_PANIC_STR, len, buf, __func__);
+                strcpy(error_string, LKC_PANIC_STR);
+                /*if kmsg is bigger the smem buffer, get the last  kmsg*/
+                if (len > BS_SMEM_LKC_SIZE) {
+                        buf = buf + len - BS_SMEM_LKC_SIZE;
+                        len = BS_SMEM_LKC_SIZE;
+                }
+                goto Exit;
+        }
+
+        /*format the error string,remove useless string*/
+        tmp = strstr(str, "\n");
+        if (tmp == NULL)
+                goto Exit;
+        if ((tmp - str) > ERROR_STRING_LEN)
+                memcpy(error_string, str, ERROR_STRING_LEN -1);
+        else
+                memcpy(error_string, str, tmp - str);
+
+        /*get rid of Stack info, already have in sER_DATA*/
+        str = strstr(buf, "Stack:");
+        if (str)
+        {
+                tmp = strstr(str, "[<");
+                if (tmp == NULL)
+                        tmp = strstr(str, "Code:");
+                if (tmp)
+                {
+                        stack_pre = str - buf -15;
+                        stack_pos = buf + len - tmp +15 -1;
+                        memcpy(er_base, buf,stack_pre);
+                        memcpy(er_base+stack_pre, tmp - 15, stack_pos);
+                        
+                        /* add err string , most importantly set the marker;
+                        * prevent other err info writting.
+                        */
+                        sierra_smem_errdump_save_errstr(error_string);
+                        kfree(kmsgp);
+                        return;
+                }
+        }
+Exit:
+        sierra_smem_errdump_save_errstr(error_string);
+
+        memset(er_base, 0, BS_SMEM_LKC_SIZE);
+        /*check the length of kmsg,and write to SMEM */
+        if (len > BS_SMEM_LKC_SIZE)
+                len = BS_SMEM_LKC_SIZE;
+        memcpy(er_base,buf,len - 1);
+        kfree(kmsgp);
+}
+
 static int __init sierra_smem_init(void)
 {
         (void)sierra_smem_base_addr_get();
+
+        kmsg_dumper.max_reason = KMSG_DUMP_OOPS;
+        kmsg_dumper.dump = sierra_kmsg_dump_cb;
+        if (kmsg_dump_register(&kmsg_dumper))
+                pr_err( "%s:kmsg_dumper register failed\n",__func__);
+
         return misc_register(&sierra_smem_misc);
 }
 
