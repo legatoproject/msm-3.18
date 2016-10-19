@@ -20,7 +20,8 @@
  * 
  * WARNING:  These definitions must be kept in sync
  *
- * modem_proc/config/9655/cust_config.xml
+ * boot_images/core/boot/secboot3/hw/mdm/boot_mmu_table.h
+ * modem_proc/config/9655.gen.prod/cust_config.xml
  * sierra/bs/api/bsaddress.h
  * apps_proc/kernel/arch/arm/boot/dts/qcom/mdmcalifornium-sierra.dtsi
  */
