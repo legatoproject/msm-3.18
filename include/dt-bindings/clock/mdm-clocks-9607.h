@@ -47,6 +47,10 @@
 #define clk_xo_pil_mss_clk					 0xe97a8354
 #define clk_bb_clk1						 0xf5304268
 #define clk_bb_clk1_pin						 0x6dd0a779
+/* SWISTART */
+#define clk_rf_clk2						 0x24a30992
+#define clk_rf_clk2_a						 0x944d8bbd
+/* SWISTOP */
 
 /* SRCs */
 #define clk_apss_ahb_clk_src					 0x36f8495f
@@ -150,7 +154,6 @@
 #define clk_apc2_m_clk						 0x252cd4ae
 #define clk_apc3_m_clk						 0x78c64486
 #define clk_l2_m_clk						 0x4bedf4d0
-
 #define clk_wcnss_m_clk						 0x709f430b
 
 #endif
