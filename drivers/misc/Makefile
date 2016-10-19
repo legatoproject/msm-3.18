@@ -69,4 +69,5 @@ obj-$(CONFIG_USB_EXT_TYPE_C_PERICOM)	+= type-c-pericom.o
 obj-$(CONFIG_USB_EXT_TYPE_C_TI)		+= type-c-ti.o
 #SWISTART
 obj-$(CONFIG_SIERRA_TZDEV) 	+= sierra_tzdev.o
+obj-$(CONFIG_SIERRA)	+= sierra_tcxo_clk.o
 #SWISTOP

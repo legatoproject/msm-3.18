@@ -56,7 +56,9 @@ DEFINE_CLK_RPM_SMD(qpic_clk, qpic_a_clk, RPM_QPIC_CLK_TYPE, QPIC_ID, NULL);
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
-
+/* SWISTART */
+DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk2, rf_clk2_a, RF_CLK2_ID);
+/* SWISTOP */
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
 
 static DEFINE_CLK_VOTER(bimc_msmbus_clk, &bimc_clk.c, LONG_MAX);
@@ -1653,7 +1655,10 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gpll2_clk_src),
 	 CLK_LIST(gpll1_clk_src),
 	 CLK_LIST(a7sspll),
-
+/* SWISTART */
+     CLK_LIST(rf_clk2),
+     CLK_LIST(rf_clk2_a),
+/* SWISTOP */
 	 CLK_LIST(pcnoc_clk),
 	 CLK_LIST(pcnoc_a_clk),
 	 CLK_LIST(pcnoc_msmbus_clk),
