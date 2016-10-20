@@ -259,6 +259,8 @@
 		interrupt-map = <0x0 0 &intc 0 202 0
 				 0x0 1 &intc 0 203 0
 				 0x0 2 &intc 0 180 0>;
+		sierra,otg-id-pin = <43>;
+		sierra,vbus-en-pin = <28>;
 	};
 
 	sd_slot_vreg: regulator-isl80101 {
