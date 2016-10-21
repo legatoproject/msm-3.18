@@ -142,6 +142,17 @@
 #define BS_SMEM_SECBOOT_MAGIC_BEG      0x5342494DU
 #define BS_SMEM_SECBOOT_MAGIC_END      0x5342494DU
 
+/*qfuse definition used by LK and kernel, see qfprom_hwioreg_9x45_sec_ctrl_v2.h*/
+#define HWIO_QFPROM_CORR_OEM_SEC_BOOT_ROW0_LSB_V2_ADDR    0x000A41d0
+#define HWIO_SECURE_BOOTn_V2_AUTH_EN_BMSK                 0x20
+#define HWIO_QFPROM_RAW_SERIAL_NUM_V2_ADDR                0x000A4128
+#define HWIO_JTAG_ID_V2_ADDR                              0x000A607c
+
+#define HWIO_QFPROM_CORR_PK_HASH_ROWn_LSB_ADDR(n)         ( 0x000A41e0 + 0x8 * (n))
+#define HWIO_QFPROM_CORR_PK_HASH_ROWn_MSB_ADDR(n)         ( 0x000A41e4 + 0x8 * (n))
+#define OEM_PK_HASH_ROW_MAX                               5
+#define HWIO_QFPROM_CORR_PK_HASH_BYTES_MAX                8 * OEM_PK_HASH_ROW_MAX
+#define SHA256_HASH_LEN 32
 
 /* Version of the shared memory structure which is used by this 
  * module.  Module is compatible with earlier versions 
