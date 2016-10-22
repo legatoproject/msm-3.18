@@ -2616,7 +2616,7 @@ static void smk_ipv6_port_label(struct socket *sock, struct sockaddr *address)
 	 * This is an indication that a port is getting reused.
 	 */
 	list_for_each_entry(spp, &smk_ipv6_port_list, list) {
-		if (spp->smk_port != port)
+		if (spp->smk_port != port || spp->sock_type != sock->type)
 			continue;
 		spp->smk_port = port;
 		spp->smk_sock = sk;
@@ -2636,6 +2636,7 @@ static void smk_ipv6_port_label(struct socket *sock, struct sockaddr *address)
 	spp->smk_sock = sk;
 	spp->smk_in = ssp->smk_in;
 	spp->smk_out = ssp->smk_out;
+	spp->sock_type = sock->type;
 
 	list_add(&spp->list, &smk_ipv6_port_list);
 	return;
@@ -2689,7 +2690,7 @@ static int smk_ipv6_port_check(struct sock *sk, struct sockaddr_in6 *address,
 
 	port = ntohs(address->sin6_port);
 	list_for_each_entry(spp, &smk_ipv6_port_list, list) {
-		if (spp->smk_port != port)
+		if (spp->smk_port != port || spp->sock_type != sk->sk_type)
 			continue;
 		object = spp->smk_in;
 		if (act == SMK_CONNECTING)
