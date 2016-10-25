@@ -595,6 +595,15 @@ config MEMORY_STATE_TIME
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
 
+#SWISTART
+config SIERRA_TZDEV
+	bool "Activates/Deactivates TZDEV driver"
+	default y
+	help
+	  This driver provides TrustZone Crypto Engine secure storage
+	  service to generate keyblob, seal data and unseal data.
+#SWISTOP
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
