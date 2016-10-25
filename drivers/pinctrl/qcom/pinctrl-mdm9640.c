@@ -33,7 +33,7 @@
 		.pins = gpio##id##_pins,		\
 		.npins = (unsigned)ARRAY_SIZE(gpio##id##_pins),	\
 		.funcs = (int[]){			\
-			msm_mux_NA, /* gpio mode */	\
+			msm_mux_gpio, /* gpio mode */	\
 			msm_mux_##f1,			\
 			msm_mux_##f2,			\
 			msm_mux_##f3,			\
@@ -323,7 +323,7 @@ static const unsigned int qdsd_data3_pins[] = { 111 };
 
 enum mdm9640_functions {
 	msm_mux_uim2_data,
-	msm_mux_,
+	msm_mux_gpio,
 	msm_mux_blsp_uart_tx_a1,
 	msm_mux_qdss_stm31,
 	msm_mux_ebi0_wrcdc,
@@ -523,7 +523,7 @@ enum mdm9640_functions {
 static const char * const uim2_data_groups[] = {
 	"gpio0",
 };
-static const char * const _groups[] = {
+static const char * const gpio_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
 	"gpio8", "gpio9", "gpio10", "gpio11", "gpio12", "gpio13", "gpio14",
 	"gpio15", "gpio16", "gpio17", "gpio18", "gpio19", "gpio20", "gpio21",
@@ -1124,7 +1124,7 @@ static const char * const blsp_i2c_scl_b1_groups[] = {
 
 static const struct msm_function mdm9640_functions[] = {
 	FUNCTION(uim2_data),
-	FUNCTION(),
+	FUNCTION(gpio),
 	FUNCTION(blsp_uart_tx_a1),
 	FUNCTION(qdss_stm31),
 	FUNCTION(ebi0_wrcdc),
