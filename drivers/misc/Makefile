@@ -67,3 +67,6 @@ obj-y				+= qcom/
 obj-$(CONFIG_TI_DRV2667) += ti_drv2667.o
 obj-$(CONFIG_USB_EXT_TYPE_C_PERICOM)	+= type-c-pericom.o
 obj-$(CONFIG_USB_EXT_TYPE_C_TI)		+= type-c-ti.o
+#SWISTART
+obj-$(CONFIG_SIERRA_TZDEV) 	+= sierra_tzdev.o
+#SWISTOP
