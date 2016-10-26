@@ -27,11 +27,10 @@
  * 
  * WARNING:  These definitions must be kept in sync
  *
- * boot_images/build/ms/9x45.target.builds
  * modem_proc/config/9645.legen/cust_config.xml
  * modem_proc/sierra/bs/api/bsaddress.h
  * apps_proc/kernel/arch/arm/mach-msm/include/mach/sierra_smem.h
- * apps_proc/kernel/arch/arm/boot/dts/qcom/mdm9640.dtsi
+ * apps_proc/kernel/arch/arm/boot/dts/qcom/swi-mdm9640.dtsi
  */
 
 #ifndef DDR_MEM_BASE
