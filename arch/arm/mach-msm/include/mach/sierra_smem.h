@@ -105,6 +105,7 @@
 #define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
 #define BS_SMEM_PR_SW_SIZE                 0x0010   /* 16 bytes for interlock between program refresh and normal SW update */
 #define BS_SMEM_LKC_SIZE                   0x1000   /* 4KB bytes for linux kernel crash msg */
+#define BS_SMEM_CR_SKU_SIZE                0x004C   /* 76 bytes for Cross SKU update */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -121,6 +122,7 @@
 #define BSMEM_COWORK_OFFSET                (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_PR_SW_OFFSET                 (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_LKC_OFFSET                   (BSMEM_PR_SW_OFFSET + BS_SMEM_PR_SW_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_CR_SKU_OFFSET                (BSMEM_LKC_OFFSET + BS_SMEM_LKC_SIZE + BS_SMEM_CRC_SIZE )
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
@@ -303,6 +305,13 @@
 #define PR_SW_UPDATE_CLEAR_FLAG  0x0         /* Set it if program refresh or normal SW update finished */
 #define PR_IS_IN_PROGRESS        0x70720000  /* "pr" */
 #define SW_UPDATE_IN_PROGRESS    0x73777570  /* "swup" */
+
+/* Cross SKU region constant */
+#define CROSS_SKU_SMEM_MAGIC_BEG            0x43524F42U  /* "CROB" in ASCII */
+#define CROSS_SKU_SMEM_MAGIC_END            0x43524F45U  /* "CROE" in ASCII */
+
+#define NV_SWI_PRODUCT_SKU_SIZE  32
+
 
 /************
  *
@@ -617,6 +626,26 @@ struct __attribute__((packed)) pr_sw_smem_message_s
   uint32_t  pr_or_sw_update;           /* pr or sw update flag */
   uint32_t  magic_end;                 /* Magic ending flag */
   uint32_t  crc32;                     /* CRC32 of above fields */
+};
+
+/************
+ *
+ * Name:     cross_sku_smem_s
+ *
+ * Purpose:  Cross SKU structure
+ *
+ * Notes:    Structure store Parent SKU and Product SKU. 
+ *           
+ *           It should be initialized in SBL, then LK will refer it for Cross SKU update.
+ *
+ ************/
+struct __attribute__((packed)) cross_sku_smem_s
+{
+  uint32_t magic_beg;                            /* Beginning marker */
+  char     ParentSKU[NV_SWI_PRODUCT_SKU_SIZE];   /* Parent SKU */
+  char     ProductSKU[NV_SWI_PRODUCT_SKU_SIZE];  /* Product SKU */
+  uint32_t magic_end;                            /* End Marker */
+  uint32_t crc32;                                /* CRC32 of above fields */
 };
 
 void sierra_smem_errdump_save_start(void);
