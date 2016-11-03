@@ -1249,8 +1249,6 @@ static void DWC_ETH_QOS_remove(struct pci_dev *pdev)
 
 	desc_if->free_queue_struct(pdata);
 
-	free_netdev(dev);
-
 	/* Deregister from PCI link events */
 	DWC_ETH_QOS_pci_event_deregister(pdev);
 
@@ -1269,6 +1267,7 @@ static void DWC_ETH_QOS_remove(struct pci_dev *pdev)
 	if ((void __iomem*)pdata->dwc_eth_ntn_FLASH_pci_base_addr != NULL)
 		pci_iounmap(pdev, (void __iomem *)pdata->dwc_eth_ntn_FLASH_pci_base_addr);
 
+	free_netdev(dev);
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
 
