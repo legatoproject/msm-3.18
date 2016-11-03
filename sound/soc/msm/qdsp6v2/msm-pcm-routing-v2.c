@@ -3379,6 +3379,13 @@ static const struct snd_kcontrol_new mmul1_mixer_controls[] = {
 	SOC_SINGLE_EXT("QUAT_TDM_TX_3", MSM_BACKEND_DAI_QUAT_TDM_TX_3,
 		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
 		msm_routing_put_audio_mixer),
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	SOC_SINGLE_EXT("SEC_AUX_PCM_TX",MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+		MSM_FRONTEND_DAI_MULTIMEDIA1, 1, 0, msm_routing_get_audio_mixer,
+		msm_routing_put_audio_mixer),
+#endif
+/* SWISTOP */
 };
 
 static const struct snd_kcontrol_new mmul2_mixer_controls[] = {
@@ -3427,6 +3434,22 @@ static const struct snd_kcontrol_new mmul2_mixer_controls[] = {
 	SOC_SINGLE_EXT("QUAT_TDM_TX_3", MSM_BACKEND_DAI_QUAT_TDM_TX_3,
 	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
 	msm_routing_put_audio_mixer),
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	SOC_SINGLE_EXT("SEC_MI2S_TX",   MSM_BACKEND_DAI_SECONDARY_MI2S_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("SEC_AUX_PCM_TX", MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("AFE_PCM_TX", MSM_BACKEND_DAI_AFE_PCM_TX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+	SOC_SINGLE_EXT("VOC_REC_DL", MSM_BACKEND_DAI_INCALL_RECORD_RX,
+	MSM_FRONTEND_DAI_MULTIMEDIA2, 1, 0, msm_routing_get_audio_mixer,
+	msm_routing_put_audio_mixer),
+#endif
+/* SWISTOP */
 };
 
 static const struct snd_kcontrol_new mmul4_mixer_controls[] = {
@@ -6998,6 +7021,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia4 Mixer", "VOC_REC_UL", "INCALL_RECORD_TX"},
 	{"MultiMedia8 Mixer", "VOC_REC_UL", "INCALL_RECORD_TX"},
 	{"MultiMedia1 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{"MultiMedia2 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
+#endif
+/* SWISTOP */
 	{"MultiMedia4 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
 	{"MultiMedia8 Mixer", "VOC_REC_DL", "INCALL_RECORD_RX"},
 	{"MultiMedia1 Mixer", "SLIM_4_TX", "SLIMBUS_4_TX"},
@@ -7281,7 +7309,13 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia6 Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
 	{"MultiMedia6 Mixer", "AUX_PCM_UL_TX", "AUX_PCM_TX"},
 	{"MultiMedia6 Mixer", "SEC_AUX_PCM_UL_TX", "SEC_AUX_PCM_TX"},
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{"MultiMedia2 Mixer", "SEC_MI2S_TX",    "SEC_MI2S_TX"},
+	{"MultiMedia1 Mixer", "SEC_AUX_PCM_TX", "SEC_AUX_PCM_TX"},
+	{"MultiMedia2 Mixer", "SEC_AUX_PCM_TX", "SEC_AUX_PCM_TX"},
+#endif
+/* SWISTOP */
 	{"MultiMedia1 Mixer", "TERT_TDM_TX_0", "TERT_TDM_TX_0"},
 	{"MultiMedia1 Mixer", "TERT_TDM_TX_1", "TERT_TDM_TX_1"},
 	{"MultiMedia1 Mixer", "TERT_TDM_TX_2", "TERT_TDM_TX_2"},
@@ -7402,6 +7436,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MultiMedia8 Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
 
 	{"MultiMedia1 Mixer", "AFE_PCM_TX", "PCM_TX"},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{"MultiMedia2 Mixer", "AFE_PCM_TX",	"PCM_TX"},
+#endif
+/* SWISTOP */
 	{"MultiMedia4 Mixer", "AFE_PCM_TX", "PCM_TX"},
 	{"MultiMedia5 Mixer", "AFE_PCM_TX", "PCM_TX"},
 	{"MultiMedia8 Mixer", "AFE_PCM_TX", "PCM_TX"},
