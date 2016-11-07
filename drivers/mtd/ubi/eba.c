@@ -1281,6 +1281,11 @@ out_unlock_leb:
 static void print_rsvd_warning(struct ubi_device *ubi,
 			       struct ubi_attach_info *ai)
 {
+#ifdef CONFIG_SIERRA
+	int limit, device_pebs;
+	uint64_t device_size;
+#endif
+
 	/*
 	 * The 1 << 18 (256KiB) number is picked randomly, just a reasonably
 	 * large number to distinguish between newly flashed and used images.
@@ -1294,8 +1299,34 @@ static void print_rsvd_warning(struct ubi_device *ubi,
 			return;
 	}
 
+#ifdef CONFIG_SIERRA
+	device_size = ubi->flash_size;
+	device_pebs = mtd_div_by_eb(device_size, ubi->mtd);
+	limit = mult_frac(device_pebs, max_beb_per1024_warn, 1024);
+
+	/* Round it up */
+	if (mult_frac(limit, 1024, max_beb_per1024_warn) < device_pebs)
+		limit += 1;
+
+	/* Only reserve 2% PEBs for a partion warning MSG may not good,
+	 * the maximum number of bad eraseblocks is a percentage of the
+	 * whole device and bad eraseblocks are not fairly distributed
+	 * over the flash chip. So here reserve 4 more for warning MSG.
+	 */
+	if (limit + 4 < device_pebs)
+		limit += 4;
+
+	if(limit < ubi->beb_rsvd_pebs){
+		return;
+	}
+	else{
+		ubi_warn(ubi, "cannot reserve enough PEBs for bad PEB handling, reserved %d, need %d",
+			ubi->beb_rsvd_pebs, limit);
+	}
+#else
 	ubi_warn(ubi, "cannot reserve enough PEBs for bad PEB handling, reserved %d, need %d",
 		 ubi->beb_rsvd_pebs, ubi->beb_rsvd_level);
+#endif
 	if (ubi->corr_peb_count)
 		ubi_warn(ubi, "%d PEBs are corrupted and not used",
 			 ubi->corr_peb_count);
