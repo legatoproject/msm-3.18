@@ -322,6 +322,124 @@ enum bcmsg_mailbox_e
   BCMSG_MBOX_NUM,
 };
 
+/************
+ *
+ * Name:     bs_prod_family_e
+ *
+ * Purpose:  To enumerate product family types
+ *
+ * Members:  See below
+ *
+ * Notes:    need to sync with modem /sierra/bs/api/bsudef.h
+ *
+ ************/
+enum bs_prod_family_e
+{
+  BS_PROD_FAMILY_QCTMTP,           /* Qualcomm MTP 9x30                       */
+  BS_PROD_FAMILY_NONE,             /* product family type NONE                */
+  BS_PROD_FAMILY_EM,               /* product family Embedded Module          */
+  BS_PROD_FAMILY_MC,               /* product family MiniCard                 */
+  BS_PROD_FAMILY_AR,               /* product family Automotive               */
+  BS_PROD_FAMILY_WP,               /* product family WP                       */
+  BS_PROD_FAMILY_UNKNOWN,          /* product family Unknown                  */
+  BS_PROD_FAMILY_INVALID = 0xFF    /* product family Invalid                  */
+};
+
+/************
+ *
+ * Name:     bshwtype
+ *
+ * Purpose:  To enumerate hardware types
+ *
+ * Members:  See below
+ *
+ * Notes:    need to sync with modem /sierra/bs/api/bsudef.h
+ *
+ ************/
+enum bshwtype
+{
+  BSQCTMTP,                     /* Qualcomm MTP 9x30                       */
+  BSHWNONE,                     /* HW type NONE (Fuse has not been blown yet) */
+  BSAR7582,                     /* 0x02 - Automotive 7582                     */
+  BSAR7584,                     /* 0x03 - Automotive 7584                     */
+  BSAR7586,                     /* 0x04 - Automotive 7586                     */
+  BSAR7588,                     /* 0x05 - Automotive 7588                     */
+  BSAR8582,                     /* 0x06 - Automotive 8582                     */
+  BSAR7582_NC,                  /* 0x07 - Automotive 7582 without codec */
+  BSAR7584_NC,                  /* 0x08 - Automotive 7584 without codec */
+  BSAR7586_NC,                  /* 0x09 - Automotive 7586 without codec */
+  BSAR7588_NC,                  /* 0x0A - Automotive 7588 without codec */
+  BSAR8582_NC,                  /* 0x0B - Automotive 8582 without codec */
+  BSWP7601,                     /* 0x0C - WP7601                              */
+  BSWP7603,                     /* 0x0D - WP7603                              */
+
+  /* Note: Add these marcos is just for AV module compiling.
+     Need to re-write according to MDM9x40 hwtype later */
+#ifdef STUB_APPS
+  BSAC770S,                 /* 0x02 - AirCard 770S (HANSEL) */
+  BSMC7355,                 /* 0x03 - MiniCard 7355 */
+  BSAR7550,                 /* 0x04 - Automotive 7550 */
+  BSAR7552,                 /* 0x05 - Automotive 7552 */
+  BSAR7554,                 /* 0x06 - Automotive 7554 */
+  BSEM7355,                 /* 0x07 - Embedded Module 7355 */
+  BSAC340U,                 /* 0x08 - AirCard 340U (GRADY) */
+  BSWP7100,                 /* 0x09 - WP7100 (for Verizon) */
+  BSWP7102,                 /* 0x0A - WP7102 (for AT&T) */
+  BSWP7104,                 /* 0x0B - WP7104 (for EU&APAC) */
+  BSMC7305,                 /* 0x0C - MiniCard 7305 */
+  BSEM7305,                 /* 0x0D - Embedded Module 7305 */
+  BSAC342U,                 /* 0x0E - AirCard 342U (OSSO) */
+  BSAC341U,                 /* 0x0F - AirCard 341U */
+  BSEM7655,                 /* 0x10 - EM7655 (TFF version of EM7355) */
+  BSMC8805,                 /* 0x11 - MiniCard 8805 */
+  BSEM8805,                 /* 0x12 - Embeddded Module 8805 */
+  BSAC771S,                 /* 0x13 - AirCard 771S */
+  BSYW7X55,                 /* 0x14 - LGA module - experimental */
+  BSWP7100_INSIM,           /* 0x15 - WP7100 (with In-SIM) */
+  BSWP7102_INSIM,           /* 0x16 - WP7102 (with In-SIM) */
+  BSWP7104_INSIM,           /* 0x17 - WP7104 (with In-SIM) */
+  BSMC7350,                 /* 0x18 - MiniCard 7350 (for Verizon & Sprint) */
+  BSMC7350L,                /* 0x19 - MiniCard 7350-L (for Verizon)*/
+  BSMC7802,                 /* 0x1A - MiniCard 7802 (for AT&T) */
+  BSMC7304,                 /* 0x1B - MiniCard 7304 (for EU) */
+  BSWP7100_LARGER_MEMORY,   /* 0x1C - WP7100 (with Larger Memory Design) */
+  BSWP7102_LARGER_MEMORY,   /* 0x1D - WP7102 (with Larger Memory Design) */
+  BSWP7104_LARGER_MEMORY,   /* 0x1E - WP7104 (with Larger Memory Design) */
+  BSEM7330,                 /* 0x1F - Embedded Module 7330 */
+  BSMC7330,                 /* 0x20 - MiniCard 7330 */
+  BSAC343U,                 /* 0x21 - AirCard 343U */
+  BSMC7371,                 /* 0x22 - MiniCard 7371 */
+  BSAC778S,                 /* 0x23 - AirCard 778S */
+  BSAR7550_LARGER_MEMORY,   /* 0x24 - Automotive 7550  (with Larger Memory Design) */
+  BSAR7552_LARGER_MEMORY,   /* 0x25 - Automotive 7552  (with Larger Memory Design) */
+  BSAR7554_LARGER_MEMORY,   /* 0x26 - Automotive 7554  (with Larger Memory Design) */
+  BSWP7100_NEW,             /* 0x27 - WP7100 with large memory based on AR PCB */
+  BSWP7102_NEW,             /* 0x28 - WP7102 with large memory based on AR PCB */
+  BSWP7104_NEW,             /* 0x29 - WP7104 with large memory based on AR PCB */
+  BSMC7354,                 /* 0x2A - MiniCard 7354 */
+  BSAR7558_LARGER_MEMORY,   /* 0x2B - Automotive 7558  (with Larger Memory Design) */
+  BSAR7556,                 /* 0x2C - Automotive 7556 */
+  BSWP75XX,                 /* 0x2D - WP75xx - WP75 family, RF board unknown */
+  BSWP85XX,                 /* 0x2E - WP85xx - WP85 family, RF board unknown */
+  BSWP8548,                 /* 0x2F - WP8548 */
+  BSWP8548G,                /* 0x30 - WP8548-G */
+  BSAR8652,                 /* 0x31 - Automotive 8652 */
+  BSAR7556_LARGER_MEMORY,   /* 0x32 - Automotive 7556 (with Larger Memory Design) */
+  BSAR7554RD,               /* 0x33 - Automotive 7554 RD */
+  BSAR7552RD,               /* 0x34 - Automotive 7552 RD */
+  BSWP7500,                 /* 0x35 - WP7500 */
+  BSWP7500G,                /* 0x36 - WP7500-G*/
+  BSWP7501,                 /* 0x37 - WP7501 */
+  BSWP7501G,                /* 0x38 - WP7501-G */
+  BSWP7502,                 /* 0x39 - WP7502 */
+  BSWP7502G,                /* 0x3A - WP7502-G */
+  BSWP7504,                 /* 0x3B - WP7504 */
+  BSWP7504G,                /* 0x3C - WP7504-G */
+#endif
+  BSHWUNKNOWN,                  /* Unknown HW                                 */
+  BSHWINVALID = 0xFF            /* Invalid HW                                 */
+};
+
 /* Structures */
 
 /*************
@@ -619,6 +737,7 @@ void sierra_smem_errdump_save_timestamp(uint32_t time_stamp);
 void sierra_smem_errdump_save_errstr(char *errstrp);
 void sierra_smem_errdump_save_auxstr(char *errstrp);
 void sierra_smem_errdump_save_frame(void *taskp, void *framep);
+uint32_t sierra_smem_get_hwconfig(void);
 int  sierra_smem_get_download_mode(void);
 int sierra_smem_boothold_mode_set(void);
 int sierra_smem_im_recovery_mode_set(void);

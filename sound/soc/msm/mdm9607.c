@@ -29,6 +29,11 @@
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9330.h"
 #include "../codecs/wcd9306.h"
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif /* SIERRA */
+/* SWISTOP */
 
 /* Spk control */
 #define MDM_SPK_ON 1
@@ -169,6 +174,38 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.enable_anc_mic_detect = false,
 	.hw_jack_type = FOUR_POLE_JACK,
 };
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static bool mdm_support_inter_codec(void)
+{
+	bool ret = true;
+	uint32_t hwconfig;
+	uint8_t prod_family, prod_instance;
+
+	hwconfig = sierra_smem_get_hwconfig();
+	if (hwconfig == BC_MSG_HWCONFIG_INVALID)
+	{
+		pr_debug("sierra_smem_get_hwconfig invalid\n");
+		return ret;
+	}
+	prod_family  =  hwconfig & 0xff;
+	prod_instance  =  (hwconfig >> 8) & 0xff;
+
+	/* if not a AR family ,assume it uses a internal codec*/
+	if (prod_family == BS_PROD_FAMILY_AR)
+	{
+		if ((prod_instance >= BSAR7582_NC) &&
+			(prod_instance <= BSAR8582_NC))
+		ret = false;
+	}
+
+	pr_debug("hwconfig=%x,prod_family=%d,prod_instance=%d\n",
+		hwconfig,prod_family,prod_instance);
+	return ret;
+}
+#endif /* SIERRA */
+/* SWISTOP */
 
 static void mdm_gpio_set_mux_ctl(struct mdm_machine_data *dt)
 {
@@ -376,7 +413,17 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 err:
 	afe_enable_lpass_core_shared_clock(MI2S_RX, CLOCK_OFF);
 done:
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (mdm_support_inter_codec() == false)
+		return 0;
+	else
+		return ret;
+#else
 	return ret;
+#endif /* SIERRA */
+/* SWISTOP */
 }
 
 static int mdm_sec_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
@@ -1972,6 +2019,44 @@ static const struct of_device_id mdm_asoc_machine_of_match[]  = {
 	{},
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static void mdm_fill_dummy_codec(const void * codec)
+{
+	char *codec_name = "snd-soc-dummy";
+	char *codec_dai_name = "snd-soc-dummy-dai";
+	int i, arrlen_9330, arrlen_9306;
+
+	pr_info("%s, %d\n", __func__, __LINE__);
+	if (!strcmp(codec, "tomtom_codec"))
+	{
+		arrlen_9330 = ARRAY_SIZE(mdm_9330_dai);
+		for(i = 0; i < arrlen_9330; i++)
+		{
+			mdm_9330_dai[i].codec_name = codec_name;
+			mdm_9330_dai[i].codec_dai_name = codec_dai_name;
+			mdm_9330_dai[i].init = NULL;
+		}
+	}
+	else if (!strcmp(codec, "tapan_codec"))
+	{
+		arrlen_9306 = ARRAY_SIZE(mdm_9306_dai);
+		for(i = 0; i < arrlen_9306; i++)
+		{
+			mdm_9306_dai[i].codec_name = codec_name;
+			mdm_9306_dai[i].codec_dai_name = codec_dai_name;
+			mdm_9306_dai[i].init = NULL;
+		}
+	}
+	else
+	{
+		pr_info("%s, can't identify codec type\n", __func__);
+	}
+}
+#endif /* SIERRA */
+/* SWISTOP */
+
+
 static int mdm_populate_dai_link_component_of_node(
 					struct snd_soc_card *card)
 {
@@ -2158,6 +2243,14 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 				__func__);
 		return NULL;
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* if there is no internal codec connect to board, fill a dummy codec*/
+	if (mdm_support_inter_codec() == false)
+		mdm_fill_dummy_codec(match->data);
+#endif
+/* SWISTOP */
 
 	if (!strcmp(match->data, "tomtom_codec")) {
 		card = &snd_soc_card_mdm_9330;
