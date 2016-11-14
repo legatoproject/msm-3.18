@@ -523,6 +523,12 @@ static struct clk_freq_tbl ftbl_blsp_uart_apps_clk_src[] = {
 	F(  56000000,          gpll0,    1,    7,   100),
 	F(  58982400,          gpll0,    1, 1152, 15625),
 	F(  60000000,          gpll0,    1,    3,    40),
+/* SWISTART */
+/* Add this clk to support 4M baudrate */
+#ifdef CONFIG_SIERRA
+	F(  63160000,          gpll0,    1, 1579, 20000),
+#endif
+/* SWISTOP */
 	F_END
 };
 
