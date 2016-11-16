@@ -357,13 +357,14 @@
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
-		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
 		<90 512 0 0>, <90 585 0 0>,         /* No vote */
 		<90 512 80000 640000>, <90 585 80000 640000>,    /* SVS */
-		<90 512 206000 960000>, <90 585 206000 960000>;    /* PERF */
-		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
+		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
+		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
 	};
 
 	qcom,rmnet-ipa {
@@ -858,6 +859,7 @@
 
 	qcom,cnss {
 		compatible = "qcom,cnss";
+		wlan-en-gpio = <&tlmm_pinmux 95 0>;
 		vdd-wlan-supply = <&wlan_vreg>;
 		vdd-wlan-io-supply = <&pmd9635_l6>;
 		vdd-wlan-sp2t-supply = <&pmd9635_l12>;
@@ -870,12 +872,15 @@
 
 		qcom,msm-bus,name = "msm-cnss";
 		qcom,msm-bus,num-cases = <4>;
-		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,num-paths = <2>;
 		qcom,msm-bus,vectors-KBps =
-			<45 512 0 0>,			/* No vote */
-			<45 512 42252 655360>,		/* Upto 200 Mbps */
-			<45 512 98572 655360>,		/* Upto 400 Mbps */
-			<45 512 211212 1146880>;	/* Upto 800 Mbps */
+			<45 512 0 0>, <1 512 0 0>,
+			/* Upto 200 Mbps */
+			<45 512 41421 655360>, <1 512 41421 655360>,
+			/* Upto 400 Mbps */
+			<45 512 98572 655360>, <1 512 98572 1600000>,
+			/* Upto 800 Mbps */
+			<45 512 207108 1146880>, <1 512 207108 3124992>;
 	};
 
 	qcom,msm-thermal {

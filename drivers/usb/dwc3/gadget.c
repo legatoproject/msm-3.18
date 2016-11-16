@@ -212,7 +212,8 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 		 * use mult as 3 for GSI IN endpoint always irrespective
 		 * USB speed.
 		 */
-		if (dep->endpoint.ep_type == EP_TYPE_GSI)
+		if (dep->endpoint.ep_type == EP_TYPE_GSI ||
+				dep->endpoint.endless)
 			mult = 3;
 
 		if (!(dep->flags & DWC3_EP_ENABLED)) {
@@ -344,7 +345,7 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		unsigned cmd, struct dwc3_gadget_ep_cmd_params *params)
 {
 	struct dwc3_ep		*dep = dwc->eps[ep];
-	u32			timeout = 1500;
+	u32			timeout = 3000;
 	u32			reg;
 
 	trace_dwc3_gadget_ep_cmd(dep, cmd, params);
@@ -381,6 +382,11 @@ int dwc3_send_gadget_ep_cmd(struct dwc3 *dwc, unsigned ep,
 		if (!timeout) {
 			dev_err(dwc->dev, "%s command timeout for %s\n",
 				dwc3_gadget_ep_cmd_string(cmd), dep->name);
+			if (!(cmd & DWC3_DEPCMD_ENDTRANSFER)) {
+				dwc->ep_cmd_timeout_cnt++;
+				dwc3_notify_event(dwc,
+					DWC3_CONTROLLER_RESTART_USB_SESSION, 0);
+			}
 			return -ETIMEDOUT;
 		}
 
@@ -420,7 +426,16 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 	if (dep->endpoint.ep_type == EP_TYPE_GSI)
 		return;
 
-	if (dep->trb_pool && dep->trb_pool_dma) {
+	/*
+	 * Clean up ep ring to avoid getting xferInProgress due to stale trbs
+	 * with HWO bit set from previous composition when update transfer cmd
+	 * is issued.
+	 */
+	if (dep->number > 1 && dep->trb_pool && dep->trb_pool_dma) {
+		memset(&dep->trb_pool[0], 0,
+			sizeof(struct dwc3_trb) * dep->num_trbs);
+		dbg_event(dep->number, "Clr_TRB", 0);
+
 		dma_free_coherent(dwc->dev,
 			sizeof(struct dwc3_trb) * DWC3_TRB_NUM, dep->trb_pool,
 			dep->trb_pool_dma);
@@ -660,17 +675,6 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	dep->comp_desc = NULL;
 	dep->type = 0;
 	dep->flags = 0;
-
-	/*
-	 * Clean up ep ring to avoid getting xferInProgress due to stale trbs
-	 * with HWO bit set from previous composition when update transfer cmd
-	 * is issued.
-	 */
-	if (dep->number > 1 && dep->trb_pool) {
-		memset(&dep->trb_pool[0], 0,
-			sizeof(struct dwc3_trb) * dep->num_trbs);
-		dbg_event(dep->number, "Clr_TRB", 0);
-	}
 
 	return 0;
 }
@@ -1847,19 +1851,21 @@ static int dwc_gadget_func_wakeup(struct usb_gadget *g, int interface_id)
 		return -EAGAIN;
 	}
 
-	if (dwc->revision < DWC3_REVISION_220A) {
-		ret = dwc3_send_gadget_generic_command(dwc,
-			DWC3_DGCMD_XMIT_FUNCTION, interface_id);
-	} else {
-		ret = dwc3_send_gadget_generic_command(dwc,
-			DWC3_DGCMD_XMIT_DEV, 0x1 | (interface_id << 4));
+	/*
+	 * Return -EAGAIN on sending function wakeup command successfully
+	 * as function driver needs to wait for bus resume before queueing
+	 * any USB request. USB function driver which supports function
+	 * wakeup functionality should check return value and handle it.
+	 */
+	ret = dwc3_send_gadget_generic_command(dwc, DWC3_DGCMD_XMIT_DEV,
+			0x1 | (interface_id << 4));
+	if (!ret) {
+		pr_debug("Function wakeup HW command succeeded.\n");
+		ret = -EAGAIN;
+		return ret;
 	}
 
-	if (ret)
-		pr_err("Function wakeup HW command failed.\n");
-	else
-		pr_debug("Function wakeup HW command succeeded.\n");
-
+	pr_err("Function wakeup HW command failed.\n");
 	return ret;
 }
 

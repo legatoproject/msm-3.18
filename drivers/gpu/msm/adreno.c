@@ -579,7 +579,6 @@ void adreno_cp_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 
-	kgsl_schedule_work(&device->event_work);
 	adreno_dispatcher_schedule(device);
 }
 
@@ -2054,7 +2053,7 @@ static int adreno_setproperty(struct kgsl_device_private *dev_priv,
 							KGSL_STATE_ACTIVE);
 				device->pwrctrl.ctrl_flags = KGSL_PWR_ON;
 				adreno_fault_detect_stop(adreno_dev);
-				kgsl_pwrscale_disable(device);
+				kgsl_pwrscale_disable(device, true);
 			}
 
 			mutex_unlock(&device->mutex);

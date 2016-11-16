@@ -28,7 +28,9 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996-v3-dtp.dtb \
 	msm8996-v3-pm8004-mmxf-adp.dtb \
 	msm8996-v3-pm8004-agave-adp.dtb \
+	msm8996-v3-pm8004-agave-adp-lite.dtb \
 	msm8996pro-auto-adp.dtb \
+	msm8996pro-auto-adp-lite.dtb \
 	msm8996pro-auto-cdp.dtb \
 	msm8996pro-pmi8994-cdp.dtb \
 	msm8996pro-pmi8994-mtp.dtb \
@@ -56,6 +58,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996pro-v1.1-pmi8996-pmk8001-cdp.dtb \
 	msm8996pro-v1.1-pmi8996-pmk8001-mtp.dtb \
 	apq8096pro-auto-cdp.dtb \
+	apq8096pro-v1.1-auto-adp.dtb \
 	apq8096pro-liquid.dtb \
 	apq8096pro-v1.1-auto-cdp.dtb \
 	apq8096pro-v1.1-pmi8994-cdp.dtb \
@@ -103,6 +106,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096-v3-auto-dragonboard.dtb \
 	apq8096-v3-auto-adp.dtb \
 	apq8096-v3-auto-cdp.dtb \
+	apq8096-v3-drone.dtb \
 	apq8096-v3.0-pmi8994-cdp.dtb \
 	apq8096-v3.0-pmi8994-mtp.dtb \
 	apq8096-v3.0-pmi8994-pm8004-cdp.dtb \
@@ -240,8 +244,11 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009w-wtp.dtb \
 	apq8009w-cdp.dtb \
 	msm8909w-swoctp.dtb \
+	msm8909w-swoctp-circpanel.dtb \
 	apq8009w-swoctp.dtb \
+	apq8009w-swoctp-circpanel.dtb \
 	apq8009w-nowgr-swoctp.dtb \
+	apq8009w-nowgr-swoctp-circpanel.dtb \
 	msm8909-pm8916-cdp.dtb \
 	msm8909w-cdp.dtb \
 	msm8909w-1gb-wtp.dtb \
@@ -249,8 +256,11 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	msm8909w-1gb-cdp.dtb \
 	apq8009w-1gb-cdp.dtb \
 	msm8909w-1gb-swoctp.dtb \
+	msm8909w-1gb-swoctp-circpanel.dtb \
 	apq8009w-1gb-swoctp.dtb \
+	apq8009w-1gb-swoctp-circpanel.dtb \
 	apq8009w-1gb-nowgr-swoctp.dtb \
+	apq8009w-1gb-nowgr-swoctp-circpanel.dtb \
 	apq8009-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326.dtb \
 	msm8909-mtp-wcd9326-refboard.dtb \

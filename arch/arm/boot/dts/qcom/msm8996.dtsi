@@ -40,6 +40,8 @@
 		i2c8 = &i2c_8;
 		i2c12 = &i2c_12;
 		spi0 = &spi_0;
+		mhi_rmnet0 = &mhi_rmnet_0;
+		mhi_rmnet1 = &mhi_rmnet_1;
 	};
 
 	psci {
@@ -1647,6 +1649,7 @@
 		qcom,ep-wakeirq;
 
 		qcom,ep-latency = <10>;
+		qcom,wr-halt-size = <0xa>;
 
 		linux,pci-domain = <2>;
 
@@ -1688,6 +1691,21 @@
 
 	mhi: qcom,mhi {
 		compatible = "qcom,mhi";
+	};
+
+	mhi_rmnet_0: qcom,mhi-rmnet@0 {
+		compatible = "qcom,mhi-rmnet";
+		qcom,mhi-rx-channel = <101>;
+		qcom,mhi-tx-channel = <100>;
+		qcom,mhi-mru = <8000>;
+		status = "disabled";
+	};
+
+	mhi_rmnet_1: qcom,mhi-rmnet@1 {
+		compatible = "qcom,mhi-rmnet";
+		qcom,mhi-rx-channel = <102>;
+		qcom,mhi-mru = <0x4000>;
+		status = "disabled";
 	};
 
         qcom,ipc-spinlock@740000 {
@@ -2226,6 +2244,7 @@
 
 	qcom,cnss {
 		compatible = "qcom,cnss";
+		wlan-bootstrap-gpio = <&tlmm 46 0>;
 		vdd-wlan-en-supply = <&wlan_en_vreg>;
 		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-io-supply = <&pm8994_s4>;
@@ -2453,6 +2472,8 @@
 		qcom,use-sw-aes-xts-algo;
 		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
+		qcom,use-sw-hmac-algo;
+		qcom,use-sw-aead-algo;
 	};
 
 	qcom_cedev: qcedev@660000 {
@@ -3757,6 +3778,14 @@
 		compatible = "qcom,msm-power";
 		clock-names = "gpu_clk";
 		clocks = <&clock_gpu clk_gpu_gx_gfx3d_clk>;
+	};
+
+	pps {
+		compatible = "pps-gpio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pps>;
+		gpios = <&tlmm 128 0>;
+		status = "okay";
 	};
 };
 

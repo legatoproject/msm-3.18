@@ -28,6 +28,8 @@
 #define MB_SIZE_IN_PIXEL (16 * 16)
 #define MAX_OPERATING_FRAME_RATE (300 << 16)
 #define OPERATING_FRAME_RATE_STEP (1 << 16)
+#define SLAVE_SIDE_CP_ALIGNMENT 0x100000
+#define MASTER_SIDE_CP_ALIGNMENT 0x1000
 
 static const char *const mpeg_video_vidc_divx_format[] = {
 	"DIVX Format 3",
@@ -620,6 +622,11 @@ static u32 get_frame_size_compressed(int plane,
 	return (max_mbs_per_frame * size_per_mb * 3/2)/2;
 }
 
+static u32 get_frame_size_nv12_ubwc_10bit(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_BPP10_UBWC, width, height);
+}
+
 static u32 get_frame_size(struct msm_vidc_inst *inst,
 					const struct msm_vidc_format *fmt,
 					int fmt_type, int plane)
@@ -646,6 +653,20 @@ static u32 get_frame_size(struct msm_vidc_inst *inst,
 			frame_size);
 	} else {
 		dprintk(VIDC_WARN, "Wrong format type\n");
+	}
+	return frame_size;
+}
+
+static u32 get_output_frame_size(struct msm_vidc_inst *inst,
+					const struct msm_vidc_format *fmt,
+					u32 height, u32 width, int plane)
+{
+	u32 frame_size = fmt->get_frame_size(plane,
+					height, width);
+	if (inst->flags & VIDC_SECURE) {
+		u32 alignment = inst->core->resources.slave_side_cp ?
+			SLAVE_SIDE_CP_ALIGNMENT : MASTER_SIDE_CP_ALIGNMENT;
+		frame_size = MSM_MEDIA_ALIGN(frame_size, alignment);
 	}
 	return frame_size;
 }
@@ -703,6 +724,14 @@ struct msm_vidc_format vdec_formats[] = {
 		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
 		.num_planes = 2,
 		.get_frame_size = get_frame_size_nv12_ubwc,
+		.type = CAPTURE_PORT,
+	},
+	{
+		.name = "UBWC YCbCr Semiplanar 4:2:0 10bit",
+		.description = "UBWC Y/CbCr 4:2:0 10bit",
+		.fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC,
+		.num_planes = 2,
+		.get_frame_size = get_frame_size_nv12_ubwc_10bit,
 		.type = CAPTURE_PORT,
 	},
 	{
@@ -1071,7 +1100,6 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	struct hfi_device *hdev;
 	int rc = 0, i = 0, stride = 0, scanlines = 0, color_format = 0;
 	unsigned int *plane_sizes = NULL, extra_idx = 0;
-	struct hal_buffer_requirements *bufreq;
 
 	if (!inst || !f || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
@@ -1090,23 +1118,8 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	f->fmt.pix_mp.pixelformat = fmt->fourcc;
 	f->fmt.pix_mp.num_planes = fmt->num_planes;
 	if (inst->in_reconfig) {
-		bool ds_enabled = msm_comm_g_ctrl_for_id(inst,
-			V4L2_CID_MPEG_VIDC_VIDEO_KEEP_ASPECT_RATIO);
-
-		/*
-		 * Do not update height and width on capture port, if
-		 * downscalar is explicitly enabled from v4l2 client.
-		 */
-		if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY && ds_enabled) {
-			inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
-			inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
-		} else {
-			inst->prop.height[CAPTURE_PORT] = inst->reconfig_height;
-			inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
-			inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
-			inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
-		}
+		inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
+		inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 
 		rc = msm_vidc_check_session_supported(inst);
 		if (rc) {
@@ -1133,6 +1146,12 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				f->fmt.pix_mp.plane_fmt[i].sizeimage =
 					plane_sizes[i];
 		}
+		f->fmt.pix_mp.height = inst->prop.height[OUTPUT_PORT];
+		f->fmt.pix_mp.width = inst->prop.width[OUTPUT_PORT];
+		f->fmt.pix_mp.plane_fmt[0].bytesperline =
+			(__u16)inst->prop.width[OUTPUT_PORT];
+		f->fmt.pix_mp.plane_fmt[0].reserved[0] =
+			(__u16)inst->prop.height[OUTPUT_PORT];
 	} else {
 		switch (fmt->fourcc) {
 		case V4L2_PIX_FMT_NV12:
@@ -1156,48 +1175,29 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 				inst->prop.height[CAPTURE_PORT]);
 
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			fmt->get_frame_size(0,
-			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+			get_output_frame_size(inst, fmt,
+			f->fmt.pix_mp.height, f->fmt.pix_mp.width, 0);
 
 		extra_idx = EXTRADATA_IDX(fmt->num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
-			bufreq = get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_OUTPUT);
 			f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
-				bufreq ? bufreq->buffer_size : 0;
+				VENUS_EXTRADATA_SIZE(
+					inst->prop.height[CAPTURE_PORT],
+					inst->prop.width[CAPTURE_PORT]);
 		}
 
 		for (i = 0; i < fmt->num_planes; ++i)
 			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
-	}
 
-	if (stride && scanlines) {
+		f->fmt.pix_mp.height = inst->prop.height[CAPTURE_PORT];
+		f->fmt.pix_mp.width = inst->prop.width[CAPTURE_PORT];
 		f->fmt.pix_mp.plane_fmt[0].bytesperline =
 			(__u16)stride;
 		f->fmt.pix_mp.plane_fmt[0].reserved[0] =
 			(__u16)scanlines;
-	} else {
-		f->fmt.pix_mp.plane_fmt[0].bytesperline =
-			(__u16)inst->prop.width[CAPTURE_PORT];
-		f->fmt.pix_mp.plane_fmt[0].reserved[0] =
-			(__u16)inst->prop.height[CAPTURE_PORT];
 	}
 
-	if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY) {
-		if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-			f->fmt.pix_mp.height = inst->prop.height[CAPTURE_PORT];
-			f->fmt.pix_mp.width = inst->prop.width[CAPTURE_PORT];
-		} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			f->fmt.pix_mp.height = inst->prop.height[OUTPUT_PORT];
-			f->fmt.pix_mp.width = inst->prop.width[OUTPUT_PORT];
-			f->fmt.pix_mp.plane_fmt[0].bytesperline =
-				(__u16)inst->prop.width[OUTPUT_PORT];
-			f->fmt.pix_mp.plane_fmt[0].reserved[0] =
-				(__u16)inst->prop.height[OUTPUT_PORT];
-		}
-	}
 exit:
 	return rc;
 }
@@ -1242,9 +1242,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int ret = 0;
 	int i;
 	int max_input_size = 0;
-	struct hal_buffer_requirements *bufreq;
 
-	if (!inst || !f) {
+	if (!inst || !inst->core || !f) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
@@ -1263,13 +1262,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 
 		inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
-		if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_PRIMARY) {
-			inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
-			inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
-			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT,
-				f->fmt.pix_mp.pixelformat);
-		}
+		msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT,
+			f->fmt.pix_mp.pixelformat);
 
 		inst->fmts[fmt->type] = fmt;
 		if (msm_comm_get_stream_output_mode(inst) ==
@@ -1288,20 +1282,16 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		}
 
 		f->fmt.pix_mp.plane_fmt[0].sizeimage =
-			fmt->get_frame_size(0,
-			f->fmt.pix_mp.height, f->fmt.pix_mp.width);
+			get_output_frame_size(inst, fmt,
+			f->fmt.pix_mp.height, f->fmt.pix_mp.width, 0);
 
 		extra_idx = EXTRADATA_IDX(fmt->num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
-			bufreq = get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_OUTPUT);
 			f->fmt.pix_mp.plane_fmt[extra_idx].sizeimage =
-				bufreq ? bufreq->buffer_size : 0;
+				VENUS_EXTRADATA_SIZE(
+					inst->prop.height[CAPTURE_PORT],
+					inst->prop.width[CAPTURE_PORT]);
 		}
-
-		for (i = 0; i < fmt->num_planes; ++i)
-			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
-				f->fmt.pix_mp.plane_fmt[i].sizeimage;
 
 		f->fmt.pix_mp.num_planes = fmt->num_planes;
 		for (i = 0; i < fmt->num_planes; ++i) {
@@ -1311,11 +1301,6 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
-		if (msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_PRIMARY) {
-			inst->prop.width[CAPTURE_PORT] = f->fmt.pix_mp.width;
-			inst->prop.height[CAPTURE_PORT] = f->fmt.pix_mp.height;
-		}
 
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
 				ARRAY_SIZE(vdec_formats),
@@ -1590,12 +1575,10 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
-			bufreq = get_buff_req_buffer(inst,
-					HAL_BUFFER_EXTRADATA_OUTPUT);
-			if (bufreq)
-				sizes[extra_idx] = bufreq->buffer_size;
-			else
-				sizes[extra_idx] = 0;
+			sizes[extra_idx] =
+				VENUS_EXTRADATA_SIZE(
+					inst->prop.height[CAPTURE_PORT],
+					inst->prop.width[CAPTURE_PORT]);
 		}
 		break;
 	default:
@@ -1692,9 +1675,9 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct msm_vidc_format *fmt = NULL;
 
 	fmt = inst->fmts[CAPTURE_PORT];
-	buffer_size = fmt->get_frame_size(0,
+	buffer_size = get_output_frame_size(inst, fmt,
 		inst->prop.height[CAPTURE_PORT],
-		inst->prop.width[CAPTURE_PORT]);
+		inst->prop.width[CAPTURE_PORT], 0);
 	hdev = inst->core->device;
 
 	if (msm_comm_get_stream_output_mode(inst) ==

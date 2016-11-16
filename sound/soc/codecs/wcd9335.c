@@ -3233,6 +3233,11 @@ static int tasha_codec_get_mad_port_id(struct snd_soc_codec *codec,
 	if (!tasha_p)
 		return -EINVAL;
 
+	if (tasha_p->intf_type == WCD9XXX_INTERFACE_TYPE_I2C) {
+		*port_id = WCD_CPE_AFE_OUT_PORT_4;
+		return 0;
+	}
+
 	dai = &tasha_p->dai[AIF4_MAD_TX];
 	list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
 		if (ch->port == TASHA_TX12)
@@ -4342,9 +4347,11 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 		if (!ret) {
 			wcd_clsh_imped_config(codec, impedl, false);
 			set_bit(CLASSH_CONFIG, &tasha->status_mask);
-		} else
+		} else {
 			dev_dbg(codec->dev, "%s: Failed to get mbhc impedance %d\n",
 						__func__, ret);
+			ret = 0;
+		}
 
 
 		break;
@@ -10758,7 +10765,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF4_PB:
 	case AIF_MIX1_PB:
 		if (!rx_slot || !rx_num) {
-			pr_err("%s: Invalid rx_slot %p or rx_num %p\n",
+			pr_err("%s: Invalid rx_slot %pK or rx_num %pK\n",
 				 __func__, rx_slot, rx_num);
 			return -EINVAL;
 		}
@@ -10777,7 +10784,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF4_MAD_TX:
 	case AIF4_VIFEED:
 		if (!tx_slot || !tx_num) {
-			pr_err("%s: Invalid tx_slot %p or tx_num %p\n",
+			pr_err("%s: Invalid tx_slot %pK or tx_num %pK\n",
 				 __func__, tx_slot, tx_num);
 			return -EINVAL;
 		}
@@ -10815,7 +10822,7 @@ static int tasha_set_channel_map(struct snd_soc_dai *dai,
 	core = dev_get_drvdata(dai->codec->dev->parent);
 
 	if (!tx_slot || !rx_slot) {
-		pr_err("%s: Invalid tx_slot=%p, rx_slot=%p\n",
+		pr_err("%s: Invalid tx_slot=%pK, rx_slot=%pK\n",
 			__func__, tx_slot, rx_slot);
 		return -EINVAL;
 	}
@@ -11532,6 +11539,21 @@ static struct snd_soc_dai_driver tasha_i2s_dai[] = {
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 4,
+		},
+		.ops = &tasha_dai_ops,
+	},
+	{
+		.name = "tasha_mad1",
+		.id = AIF4_MAD_TX,
+		.capture = {
+			.stream_name = "AIF4 MAD TX",
+			.rates = SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000 |
+				SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
+			.formats = TASHA_FORMATS_S16_S24_S32_LE,
+			.rate_min = 16000,
+			.rate_max = 384000,
+			.channels_min = 1,
+			.channels_max = 1,
 		},
 		.ops = &tasha_dai_ops,
 	},

@@ -227,7 +227,7 @@ struct audio_client *q6asm_get_audio_client(int session_id);
 int q6asm_audio_client_buf_alloc(unsigned int dir/* 1:Out,0:In */,
 				struct audio_client *ac,
 				unsigned int bufsz,
-				unsigned int bufcnt);
+				uint32_t bufcnt);
 int q6asm_audio_client_buf_alloc_contiguous(unsigned int dir
 				/* 1:Out,0:In */,
 				struct audio_client *ac,
@@ -470,6 +470,9 @@ int q6asm_stream_media_format_block_flac(struct audio_client *ac,
 
 int q6asm_media_format_block_alac(struct audio_client *ac,
 			struct asm_alac_cfg *cfg, int stream_id);
+
+int q6asm_media_format_block_g711(struct audio_client *ac,
+			struct asm_g711_dec_cfg *cfg, int stream_id);
 
 int q6asm_stream_media_format_block_vorbis(struct audio_client *ac,
 			struct asm_vorbis_cfg *cfg, int stream_id);
