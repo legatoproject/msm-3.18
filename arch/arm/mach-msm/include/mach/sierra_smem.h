@@ -330,7 +330,8 @@ enum ds_swap_reason_e
   DS_SWAP_REASON_SW_UPDATE,                            /* Normal SW update */
   DS_SWAP_REASON_AT_COMMAND,                           /* AT command trigger */
   DS_SWAP_REASON_APPS,                                 /* Legato API trigger */
-  DS_SWAP_REASON_MAX = DS_SWAP_REASON_APPS,            /* End */
+  DS_SWAP_REASON_6_ABNORMAL_RESET,                     /* 6 abnormal reset trigger */
+  DS_SWAP_REASON_MAX = DS_SWAP_REASON_6_ABNORMAL_RESET,/* End */
 };
 
 /************
