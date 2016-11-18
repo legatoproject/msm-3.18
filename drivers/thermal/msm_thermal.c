@@ -1310,7 +1310,13 @@ static int get_kernel_cluster_info(int *cluster_id, cpumask_t *cluster_cpus)
 
 	for (_cpu = 0, cluster_cnt = 0; _cpu < num_possible_cpus(); _cpu++) {
 		if (topology_physical_package_id(_cpu) < 0) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 			pr_err("CPU%d topology not initialized.\n", _cpu);
+#else
+			pr_debug("CPU%d topology not initialized.\n", _cpu);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 			return -ENODEV;
 		}
 		/* Do not use the sibling cpumask from topology module.
@@ -1422,8 +1428,15 @@ static int get_cpu_freq_plan_len(int cpu)
 	rcu_read_lock();
 	table_len = dev_pm_opp_get_opp_count(cpu_dev);
 	if (table_len <= 0) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		pr_err("Error reading CPU%d freq table len. error:%d\n",
 			cpu, table_len);
+#else
+		pr_debug("Error reading CPU%d freq table len. error:%d\n",
+			cpu, table_len);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		table_len = 0;
 		goto unlock_and_exit;
 	}
@@ -4304,7 +4317,13 @@ static int vdd_rstr_apss_freq_dev_init(void)
 		}
 	}
 	if (!r) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		pr_err("APSS rail not initialized\n");
+#else
+		pr_debug("APSS rail not initialized\n");
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		return -ENODEV;
 	}
 
@@ -4414,7 +4433,13 @@ static void thermal_monitor_init(void)
 
 	if (vdd_rstr_enabled) {
 		if (vdd_rstr_apss_freq_dev_init())
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 			pr_err("vdd APSS mitigation device init failed\n");
+#else
+			pr_debug("vdd APSS mitigation device init failed\n");
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		else if (!(convert_to_zone_id(&thresh[MSM_VDD_RESTRICTION])))
 			therm_set_threshold(&thresh[MSM_VDD_RESTRICTION]);
 	}
@@ -4716,7 +4741,13 @@ static int __ref set_enabled(const char *val, const struct kernel_param *kp)
 		pr_info("no action for enabled = %d\n",
 			enabled);
 
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 	pr_info("enabled = %d\n", enabled);
+#else
+	pr_debug("enabled = %d\n", enabled);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 
 	return ret;
 }
@@ -5837,9 +5868,17 @@ read_node_done:
 		mit_config[MSM_VDD_MX_RESTRICTION].disable_config
 			= thermal_mx_mit_disable;
 	} else if (ret != -EPROBE_DEFER) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 			"%s:Failed reading node=%s, key=%s. KTM continues\n",
 			__func__, node->full_name, key);
+#else
+		dev_dbg(&pdev->dev,
+			"%s:Failed reading node=%s, key=%s. KTM continues\n",
+			__func__, node->full_name, key);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 	}
 
 	return ret;
@@ -5941,8 +5980,15 @@ static int probe_vdd_rstr(struct device_node *node,
 	if (rails_cnt) {
 		ret = vdd_restriction_reg_init(pdev);
 		if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 			pr_err("Err regulator init. err:%d. KTM continues.\n",
 					ret);
+#else
+			pr_debug("Err regulator init. err:%d. KTM continues.\n",
+					ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 			goto read_node_fail;
 		}
 		ret = sensor_mgr_init_threshold(&thresh[MSM_VDD_RESTRICTION],
@@ -5963,9 +6009,17 @@ static int probe_vdd_rstr(struct device_node *node,
 read_node_fail:
 	vdd_rstr_probed = true;
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			__func__, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		kfree(rails);
 		rails_cnt = 0;
 	}
@@ -6125,9 +6179,17 @@ static void probe_sensor_info(struct device_node *node,
 
 	np = of_find_compatible_node(NULL, NULL, "qcom,sensor-information");
 	if (!np) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:unable to find DT for sensor-information.KTM continues\n",
 		__func__);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:unable to find DT for sensor-information.KTM continues\n",
+		__func__);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		sensor_info_probed = true;
 		return;
 	}
@@ -6187,9 +6249,17 @@ static void probe_sensor_info(struct device_node *node,
 read_node_fail:
 	sensor_info_probed = true;
 	if (err) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			__func__, np->full_name, key, err);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			__func__, np->full_name, key, err);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		devm_kfree(&pdev->dev, sensors);
 	}
 }
@@ -6262,9 +6332,17 @@ static int probe_ocr(struct device_node *node, struct msm_thermal_data *data,
 			ocr_reg_init_defer = true;
 			pr_info("ocr reg init is defered\n");
 		} else {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 			pr_err(
 			"Failed to get regulators. KTM continues. err:%d\n",
 			ret);
+#else
+			pr_debug(
+			"Failed to get regulators. KTM continues. err:%d\n",
+			ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 			goto read_ocr_fail;
 		}
 	}
@@ -6299,10 +6377,19 @@ read_ocr_fail:
 			ret = 0;
 			goto read_ocr_exit;
 		}
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_err(
 		&pdev->dev,
 		"%s:Failed reading node=%s, key=%s err:%d. KTM continues\n",
 		__func__, node->full_name, key, ret);
+#else
+		dev_dbg(
+		&pdev->dev,
+		"%s:Failed reading node=%s, key=%s err:%d. KTM continues\n",
+		__func__, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		kfree(ocr_rails);
 		ocr_rails = NULL;
 		ocr_rail_cnt = 0;
@@ -6363,8 +6450,15 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 	if (psm_rails_cnt) {
 		ret = psm_reg_init(pdev);
 		if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 			pr_err("Err regulator init. err:%d. KTM continues.\n",
 					ret);
+#else
+			pr_debug("Err regulator init. err:%d. KTM continues.\n",
+					ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 			goto read_node_fail;
 		}
 		psm_enabled = true;
@@ -6373,9 +6467,17 @@ static int probe_psm(struct device_node *node, struct msm_thermal_data *data,
 read_node_fail:
 	psm_probed = true;
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			__func__, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		kfree(psm_rails);
 		psm_rails_cnt = 0;
 	}
@@ -6418,9 +6520,17 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 
 read_node_fail:
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			KBUILD_MODNAME, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			KBUILD_MODNAME, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		core_control_enabled = 0;
 	} else {
 		snprintf(mit_config[MSM_LIST_MAX_NR + HOTPLUG_CONFIG]
@@ -6434,9 +6544,17 @@ read_node_fail:
 
 hotplug_node_fail:
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			KBUILD_MODNAME, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			KBUILD_MODNAME, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		hotplug_enabled = 0;
 	}
 
@@ -6475,9 +6593,17 @@ static int probe_gfx_phase_ctrl(struct device_node *node,
 	ret = of_property_read_u32(node, key,
 		&data->gfx_phase_warm_temp_degC);
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			KBUILD_MODNAME, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			KBUILD_MODNAME, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		data->gfx_phase_warm_temp_degC = INT_MIN;
 		goto probe_gfx_crit;
 	}
@@ -6486,9 +6612,17 @@ static int probe_gfx_phase_ctrl(struct device_node *node,
 	ret = of_property_read_u32(node, key,
 		&data->gfx_phase_warm_temp_hyst_degC);
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			KBUILD_MODNAME, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			KBUILD_MODNAME, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		goto probe_gfx_crit;
 	}
 
@@ -6540,9 +6674,17 @@ probe_gfx_crit:
 
 probe_gfx_exit:
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			KBUILD_MODNAME, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			KBUILD_MODNAME, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 	}
 	return ret;
 }
@@ -6611,9 +6753,17 @@ static int probe_cx_phase_ctrl(struct device_node *node,
 
 probe_cx_exit:
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s err=%d. KTM continues\n",
 			KBUILD_MODNAME, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s err=%d. KTM continues\n",
+			KBUILD_MODNAME, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		cx_phase_ctrl_enabled = false;
 	}
 	return ret;
@@ -6648,9 +6798,17 @@ static int probe_therm_reset(struct device_node *node,
 
 PROBE_RESET_EXIT:
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s err=%d. KTM continues\n",
 			__func__, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		therm_reset_enabled = false;
 	}
 	return ret;
@@ -6687,9 +6845,17 @@ static int probe_freq_mitigation(struct device_node *node,
 
 PROBE_FREQ_EXIT:
 	if (ret) {
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		dev_info(&pdev->dev,
 		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
 			__func__, node->full_name, key, ret);
+#else
+		dev_dbg(&pdev->dev,
+		"%s:Failed reading node=%s, key=%s. err=%d. KTM continues\n",
+			__func__, node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 		freq_mitigation_enabled = 0;
 	}
 	return ret;
@@ -7115,8 +7281,15 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	return ret;
 fail:
 	if (ret)
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 		pr_err("Failed reading node=%s, key=%s. err:%d\n",
 			node->full_name, key, ret);
+#else
+		pr_debug("Failed reading node=%s, key=%s. err:%d\n",
+			node->full_name, key, ret);
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 probe_exit:
 	return ret;
 }
