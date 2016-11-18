@@ -699,6 +699,12 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
+/* SWISTART */
+/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
+#ifdef CONFIG_SIERRA
+	snd->card = NULL;
+#endif
+/* SWISTOP */
 
 	/* Close PCM playback device and setup substream */
 	snd = &gau->playback;
@@ -706,6 +712,12 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
+/* SWISTART */
+/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
+#ifdef CONFIG_SIERRA
+	snd->card = NULL;
+#endif
+/* SWISTOP */
 
 	/* Close PCM capture device and setup substream */
 	snd = &gau->capture;
@@ -713,6 +725,12 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
+/* SWISTART */
+/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
+#ifdef CONFIG_SIERRA
+	snd->card = NULL;
+#endif
+/* SWISTOP */
 
 	return 0;
 }
