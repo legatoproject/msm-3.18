@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1170,7 +1170,7 @@ err:
 int q6asm_audio_client_buf_alloc(unsigned int dir,
 			struct audio_client *ac,
 			unsigned int bufsz,
-			unsigned int bufcnt)
+			uint32_t bufcnt)
 {
 	int cnt = 0;
 	int rc = 0;
@@ -1197,7 +1197,7 @@ int q6asm_audio_client_buf_alloc(unsigned int dir,
 			return 0;
 		}
 		mutex_lock(&ac->cmd_lock);
-		if (bufcnt > (LONG_MAX/sizeof(struct audio_buffer))) {
+		if (bufcnt > (U32_MAX/sizeof(struct audio_buffer))) {
 			pr_err("%s: Buffer size overflows", __func__);
 			mutex_unlock(&ac->cmd_lock);
 			goto fail;
@@ -2253,6 +2253,10 @@ static int __q6asm_open_read(struct audio_client *ac,
 	case FORMAT_AMRWB:
 		open.mode_flags |= BUFFER_META_ENABLE ;
 		open.enc_cfg_id = ASM_MEDIA_FMT_AMRWB_FS;
+		break;
+	case FORMAT_DTMF_DETECTION:
+		open.mode_flags |= STREAM_PRIORITY_HIGH;
+		open.enc_cfg_id = ASM_MEDIA_FMT_DTMF;
 		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n",
