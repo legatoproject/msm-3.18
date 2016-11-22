@@ -830,12 +830,17 @@ static irqreturn_t qpnp_kpdpwr_bark_irq(int irq, void *_pon)
 
 static irqreturn_t qpnp_resin_irq(int irq, void *_pon)
 {
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+	/* when we received a reset key, we ignore it */
 	int rc;
 	struct qpnp_pon *pon = _pon;
 
 	rc = qpnp_pon_input_dispatch(pon, PON_RESIN);
 	if (rc)
 		dev_err(&pon->spmi->dev, "Unable to send input event\n");
+#endif
+/* SWISTOP */
 	return IRQ_HANDLED;
 }
 
@@ -989,6 +994,16 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 	/* report the key event */
 	input_report_key(pon->pon_input, cfg->key_code, 1);
 	input_sync(pon->pon_input);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* No reset key value, so use KEY_VOLUMEDOWN(114) like other device use in dtsi, we set
+	   linux,code = <114>; if we press 32ms(s1) reset key(in actual test it's 48.5ms), it will
+	   produce a bark reset irq, then we reporte KEY_VOLUMEDOWN key(114) to input system */
+	rc = qpnp_pon_input_dispatch(pon, PON_RESIN);
+	if (rc)
+		dev_err(&pon->spmi->dev, "Unable to send input event\n");
+#endif
+/* SWISTOP */
 	/* schedule work to check the bark status for key-release */
 	schedule_delayed_work(&pon->bark_work, QPNP_KEY_STATUS_DELAY);
 err_exit:
