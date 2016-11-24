@@ -90,6 +90,10 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include "ubi.h"
+/* SWISTART */
+#include <linux/reboot.h>
+#include <mach/sierra_smem.h>
+/* SWISTOP */
 
 static int self_check_not_bad(const struct ubi_device *ubi, int pnum);
 static int self_check_peb_ec_hdr(const struct ubi_device *ubi, int pnum);
@@ -129,6 +133,11 @@ int ubi_io_read(const struct ubi_device *ubi, void *buf, int pnum, int offset,
 	int err, retries = 0;
 	size_t read;
 	loff_t addr;
+/* SWISTART */
+	char ubi_name[UBI_MAX_VOLUME_NAME]={0};
+	static uint8_t linux_index = 0;
+	uint64_t bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+/* SWISTOP */
 
 	dbg_io("read %d bytes from PEB %d:%d", len, pnum, offset);
 
@@ -193,6 +202,37 @@ retry:
 		ubi_err(ubi, "error %d%s while reading %d bytes from PEB %d:%d, read %zd bytes",
 			err, errstr, len, pnum, offset, read);
 		dump_stack();
+/* SWISTART */
+		if(sierra_support_ar_dualsystem())
+		{
+			memcpy(ubi_name, ubi->vtbl->name, __be16_to_cpu(ubi->vtbl->name_len));
+			ubi_msg(ubi, "ubi name:%s", ubi_name);
+
+			if ((0 == linux_index) && (0 == sierra_smem_ds_get_ssid(NULL, NULL, &linux_index))) {
+				if (0 == strcmp(ubi_name, "rootfs")) {
+					if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+						bad_image_mask = DS_IMAGE_SYSTEM_2;
+					}
+					else {
+						bad_image_mask = DS_IMAGE_SYSTEM_1;
+					}
+				}
+				else if (0 == strcmp(ubi_name, "legato")) {
+					if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+						bad_image_mask = DS_IMAGE_USERDATA_2;
+					}
+					else {
+						bad_image_mask = DS_IMAGE_USERDATA_1;
+					}
+				}
+
+				if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
+					sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
+					kernel_restart("UBI IO reading failure");
+				}
+			}
+		}
+/* SWISTOP */
 
 		/*
 		 * The driver should never return -EBADMSG if it failed to read

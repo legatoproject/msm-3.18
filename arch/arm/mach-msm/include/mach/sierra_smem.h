@@ -15,6 +15,7 @@
 
 #ifndef SIERRA_SMEM_H
 #define SIERRA_SMEM_H
+#include <linux/types.h>
 
 /* NOTE: this file is also used by LK so please keep this file generic */
 
@@ -772,5 +773,8 @@ int  sierra_smem_get_download_mode(void);
 int sierra_smem_boothold_mode_set(void);
 int sierra_smem_im_recovery_mode_set(void);
 unsigned char * sierra_smem_base_addr_get(void);
+int sierra_smem_ds_get_ssid(uint8_t *modem_idx, uint8_t *lk_idx, uint8_t *linux_idx);
+int sierra_smem_ds_write_bad_image_and_swap(uint64_t bad_image_mask);
+int sierra_support_ar_dualsystem(void);
 
 #endif /* SIERRA_SMEM_H */
