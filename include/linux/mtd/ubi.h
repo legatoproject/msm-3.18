@@ -245,6 +245,9 @@ struct ubi_volume_desc *ubi_open_volume_path(const char *pathname, int mode);
 int ubi_register_volume_notifier(struct notifier_block *nb,
 				 int ignore_existing);
 int ubi_unregister_volume_notifier(struct notifier_block *nb);
+/* SWISTART */
+int get_ubi_name(int ubi_num,char *ubi_name);
+/* SWISTOP */
 
 void ubi_close_volume(struct ubi_volume_desc *desc);
 int ubi_leb_read(struct ubi_volume_desc *desc, int lnum, char *buf, int offset,

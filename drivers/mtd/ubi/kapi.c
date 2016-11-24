@@ -862,3 +862,27 @@ int ubi_unregister_volume_notifier(struct notifier_block *nb)
 	return blocking_notifier_chain_unregister(&ubi_notifiers, nb);
 }
 EXPORT_SYMBOL_GPL(ubi_unregister_volume_notifier);
+
+/* SWISTART */
+/**
+ * get_ubi_name - Get UBI name in first volume.
+ * @ubi_num: UBI device
+ * @ubi_name: volume name in the first UBI volume
+ *
+ * This function use the known ubi_num to get the
+ * corresponding volume name in the first volume
+ */
+int get_ubi_name(int ubi_num,char *ubi_name)
+{
+	struct ubi_device *ubi = NULL;
+
+	ubi = ubi_get_device(ubi_num);
+	if (NULL != ubi) {
+		memcpy(ubi_name,ubi->vtbl->name,__be16_to_cpu(ubi->vtbl->name_len));
+		return 0;
+	}
+	return -1;
+}
+EXPORT_SYMBOL_GPL(get_ubi_name);
+/* SWISTOP */
+

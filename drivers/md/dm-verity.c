@@ -20,6 +20,10 @@
 #include <linux/device-mapper.h>
 #include <linux/reboot.h>
 #include <crypto/hash.h>
+/* SWISTART */
+#include <linux/mtd/ubi.h>
+#include <mach/sierra_smem.h>
+/* SWISTOP */
 
 #define DM_MSG_PREFIX			"verity"
 
@@ -202,6 +206,12 @@ static int verity_handle_err(struct dm_verity *v, enum verity_block_type type,
 	char *envp[] = { verity_env, NULL };
 	const char *type_str = "";
 	struct mapped_device *md = dm_table_get_md(v->ti->table);
+/* SWISTART */
+	int ubi_num = -1, ret = -1;
+	char ubi_name[UBI_MAX_VOLUME_NAME]={0};
+	static uint8_t linux_index = 0;
+	uint64_t bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+/* SWISTOP */
 
 	if (v->corrupted_errs >= DM_VERITY_MAX_CORRUPTED_ERRS)
 		goto out;
@@ -231,6 +241,53 @@ static int verity_handle_err(struct dm_verity *v, enum verity_block_type type,
 	kobject_uevent_env(&disk_to_dev(dm_disk(md))->kobj, KOBJ_CHANGE, envp);
 
 out:
+/* SWISTART */
+	if ((0 == linux_index) && (0 == sierra_smem_ds_get_ssid(NULL, NULL, &linux_index))) {
+		sscanf(v->data_dev->bdev->bd_disk->disk_name,"ubiblock%d_", &ubi_num);
+		ret = get_ubi_name(ubi_num,ubi_name);
+		DMERR("Got ubi name:%s, ubi_num:%d, ret:%d", ubi_name, ubi_num, ret);
+
+		if (0 == ret) {
+			if (0 == strcmp(ubi_name, "rootfs")) {
+				if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+					bad_image_mask = DS_IMAGE_SYSTEM_2;
+				}
+				else {
+					bad_image_mask = DS_IMAGE_SYSTEM_1;
+				}
+			}
+			else if (0 == strcmp(ubi_name, "legato")) {
+				if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+					bad_image_mask = DS_IMAGE_USERDATA_2;
+				}
+				else {
+					bad_image_mask = DS_IMAGE_USERDATA_1;
+				}
+			}
+			else {
+				DMERR("wrong ubi name %s", ubi_name);
+			}
+		}
+		else {
+			DMERR("can't get ubi name");
+		}
+
+		/* Mark all images which are authenticated by DM verity as bad image if can't locate exact image */
+		if (DS_IMAGE_FLAG_NOT_SET == bad_image_mask) {
+			if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+				bad_image_mask = DS_IMAGE_SYSTEM_2 | DS_IMAGE_USERDATA_2;
+			}
+			else {
+				bad_image_mask = DS_IMAGE_SYSTEM_1 | DS_IMAGE_USERDATA_1;
+			}
+		}
+
+		sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
+	}
+
+	kernel_restart("dm-verity device corrupted");
+/* SWISTOP */
+
 	if (v->mode == DM_VERITY_MODE_LOGGING)
 		return 0;
 
