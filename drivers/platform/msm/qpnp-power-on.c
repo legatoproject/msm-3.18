@@ -952,6 +952,9 @@ static void bark_work_func(struct work_struct *work)
 		input_sync(pon->pon_input);
 		enable_irq(cfg->bark_irq);
 	} else {
+/* SWISTART */
+/* We use s2 timer for resin bark reset, so not disable s2 reset */
+#ifndef CONFIG_SIERRA
 		/* disable reset */
 		rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 				QPNP_PON_S2_CNTL_EN, 0);
@@ -960,6 +963,8 @@ static void bark_work_func(struct work_struct *work)
 				"Unable to configure S2 enable\n");
 			goto err_return;
 		}
+#endif
+/* SWISTOP */
 		/* re-arm the work */
 		schedule_delayed_work(&pon->bark_work, QPNP_KEY_STATUS_DELAY);
 	}
@@ -983,6 +988,9 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 		goto err_exit;
 	}
 
+/* SWISTART */
+/* We use s2 timer for resin bark reset, so not disable s2 reset */
+#ifndef CONFIG_SIERRA
 	/* disable reset */
 	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 					QPNP_PON_S2_CNTL_EN, 0);
@@ -990,6 +998,8 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
 		goto err_exit;
 	}
+#endif
+/* SWISTOP */
 
 	/* report the key event */
 	input_report_key(pon->pon_input, cfg->key_code, 1);
