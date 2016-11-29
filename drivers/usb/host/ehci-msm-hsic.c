@@ -898,7 +898,13 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 		pm_qos_update_request(&mehci->pm_qos_req_dma,
 			PM_QOS_DEFAULT_VALUE);
 
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_unlock(&mehci->wlock);
+#endif
+/* SWISTOP */
 
 	dev_info(mehci->dev, "HSIC-USB in low power mode\n");
 
@@ -944,7 +950,13 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 		spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
 	}
 
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_lock(&mehci->wlock);
+#endif
+/* SWISTOP */
 
 	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
 		mehci->bus_vote = true;
@@ -1162,6 +1174,19 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 
 	/* Disable streaming mode and select host mode */
 	writel_relaxed(0x13, USB_USBMODE);
+
+/* SWISTART */
+/* Fix the bug that device can't sleep if HSIC is enable but the not connect the HSIC chipset
+ * Get the status of PORT_CONNECT bit after HSIC reset, if PORT_CONNECT bit is set[0],it means' that
+ * there is no device connect to HSIC port,So return error and don't need register HSIC host driver any more
+ */
+#ifdef CONFIG_SIERRA
+	if (!(readl_relaxed(USB_PORTSC)&PORT_CONNECT))
+	{
+		dev_err(mehci->dev, "%s:No device is present on any HSIC port\n",__func__);
+		return -ENXIO;
+	}
+#endif
 
 	return 0;
 }
@@ -1707,7 +1732,15 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt %d cnt: %u, %u\n",
 		    __func__, irq, mehci->wakeup_int_cnt, mehci->async_int_cnt);
 
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_lock(&mehci->wlock);
+#else
+	pm_wakeup_event(mehci->dev, 200);
+#endif
+/* SWISTOP */
 
 	if (mehci->wakeup_irq) {
 		spin_lock(&mehci->wakeup_lock);
@@ -2034,7 +2067,14 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 		goto put_parent;
 	}
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	hcd_to_bus(hcd)->skip_resume = true;
+#else
+	/* Use kernel general PM suspend flow in sierra as LAN9730 not support remote wakeup properly*/
+	hcd_to_bus(hcd)->skip_resume = false;
+#endif
+/* SWISTOP */
 
 	hcd->irq = platform_get_irq(pdev, 0);
 	if (hcd->irq < 0) {
@@ -2191,8 +2231,14 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_lock_init(&mehci->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
 	wake_lock(&mehci->wlock);
+#endif
+/* SWISTOP */
 
 	if (mehci->peripheral_status_irq) {
 		ret = request_threaded_irq(mehci->peripheral_status_irq,
@@ -2415,6 +2461,16 @@ static int msm_hsic_pm_suspend(struct device *dev)
 	dev_dbg(dev, "ehci-msm-hsic PM suspend\n");
 
 	dbg_log_event(NULL, "PM Suspend", 0);
+
+/* SWISTART */
+/* As HSIC child device LAN9730 don't support remote wakeup properly HSIC runtime suspend would
+ * not work well so we just involke this function there to do the suspend work by PM suspend
+ * instead using HSIC runtime suspend flow in sierra code
+ */
+#ifdef CONFIG_SIERRA
+	msm_hsic_suspend(mehci);
+#endif
+/* SWISTOP */
 
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_info(dev, "abort suspend\n");
