@@ -145,3 +145,22 @@
 &blsp1_uart5 {
 	status = "disabled";
 };
+
+/* Disable the the codec dts */
+&i2c_4 {
+	wcd9xxx_codec@0d {
+		status = "disabled";
+	};
+
+	wcd9xxx_codec@77{
+		status = "disabled";
+	};
+
+	wcd9xxx_codec@66{
+		status = "disabled";
+	};
+
+	wcd9xxx_codec@55{
+		status = "disabled";
+	};
+};
