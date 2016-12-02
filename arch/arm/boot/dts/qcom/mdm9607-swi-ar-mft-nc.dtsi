@@ -127,7 +127,7 @@
 
 				config {
 					pins = "gpio0", "gpio1", "gpio3";
-					drive-strength = <12>; /* 12 MA */
+					drive-strength = <6>; /* 6 MA */
 					bias-disable = <0>; /* No PULL */
 				};
 			};
@@ -156,7 +156,7 @@
 
 				config {
 					pins = "gpio2";
-					drive-strength = <2>;
+					drive-strength = <6>;
 					bias-disable = <0>;
 				};
 			};
@@ -188,7 +188,7 @@
 
 				config {
 					pins = "gpio20", "gpio21", "gpio23";
-					drive-strength = <12>; /* 12 MA */
+					drive-strength = <6>; /* 6 MA */
 					bias-disable = <0>; /* No PULL */
 				};
 			};
@@ -218,7 +218,7 @@
 
 				config {
 					pins = "gpio22";
-					drive-strength = <2>;
+					drive-strength = <6>;
 					bias-disable = <0>;
 				};
 			};
