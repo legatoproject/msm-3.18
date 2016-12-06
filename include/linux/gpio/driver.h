@@ -87,10 +87,12 @@ struct gpio_chip {
 						unsigned offset, int value);
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-		int 		(*pull_up)(struct gpio_chip *chip,
-								unsigned offset);
-		int 		(*pull_down)(struct gpio_chip *chip,
-							unsigned offset);
+	int			(*pull_up)(struct gpio_chip *chip,
+						unsigned offset);
+	int			(*pull_down)(struct gpio_chip *chip,
+						unsigned offset);
+	int			(*set_pull)(struct gpio_chip *chip,
+						unsigned offset, int pull_type);
 #endif
 /* SWISTOP */
 	int			(*get)(struct gpio_chip *chip,

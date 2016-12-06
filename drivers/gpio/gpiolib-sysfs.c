@@ -12,6 +12,7 @@
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_gpio.h>
 #include <linux/sierra_bsudefs.h>
+#include <../pinctrl/qcom/pinctrl-msm.h>
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
@@ -311,6 +312,16 @@ static /* const */ DEVICE_ATTR(direction, 0644,
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
+static const struct {
+	const char *name;
+	unsigned long flags;
+} pull_types[] = {
+	{ "down",  0 },
+	{ "up",       BIT(FLAG_PULL_FUNC_SEL1) },
+	{ "nopull",   BIT(FLAG_PULL_FUNC_SEL2) },
+	{ "keeper",   BIT(FLAG_PULL_FUNC_SEL1) | BIT(FLAG_PULL_FUNC_SEL2) },
+};
+
 static ssize_t gpio_pull_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -321,10 +332,18 @@ static ssize_t gpio_pull_show(struct device *dev,
 
 	if (!test_bit(FLAG_EXPORT, &desc->flags))
 		status = -EIO;
-	else
-		status = sprintf(buf, "%s\n",
-			test_bit(FLAG_IS_UP, &desc->flags)
-				? "up" : "down");
+	else {
+		int i;
+
+		status = 0;
+		for (i = 0; i < ARRAY_SIZE(pull_types); i++)
+			if ((desc->flags & GPIO_PULL_MASK)
+					== pull_types[i].flags) {
+				status = sprintf(buf, "%s\n",
+							pull_types[i].name);
+				break;
+			}
+	}
 
 	mutex_unlock(&sysfs_lock);
 	return status;
@@ -333,17 +352,21 @@ static ssize_t gpio_pull_show(struct device *dev,
 static ssize_t gpio_pull_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
-	const struct gpio_desc	*desc = dev_get_drvdata(dev);
+	struct gpio_desc	*desc = dev_get_drvdata(dev);
 	ssize_t			status;
 
 	mutex_lock(&sysfs_lock);
 
 	if (!test_bit(FLAG_EXPORT, &desc->flags))
 		status = -EIO;
-	else if (sysfs_streq(buf, "up"))
-		status = gpio_pull_up(desc);
+	else if (sysfs_streq(buf, "nopull"))
+		status = gpio_set_pull(desc, MSM_GPIO_NO_PULL);
 	else if (sysfs_streq(buf, "down"))
-		status = gpio_pull_down(desc);
+		status = gpio_set_pull(desc, MSM_GPIO_PULL_DOWN);
+	else if (sysfs_streq(buf, "keeper"))
+		status = gpio_set_pull(desc, MSM_GPIO_PULL_KEEPER);
+	else if (sysfs_streq(buf, "up"))
+		status = gpio_set_pull(desc, MSM_GPIO_PULL_UP);
 	else
 		status = -EINVAL;
 
