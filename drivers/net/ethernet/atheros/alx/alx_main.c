@@ -3779,11 +3779,18 @@ static void alx_ipa_send_routine(struct work_struct *work)
 		spin_unlock_bh(&adpt->flow_ctrl_lock);
 		return;
 	}
-        if (adpt->pendq_cnt > 0 && alx_ipa_rm_request(adpt) != 0 ) {
-               pr_info("%s IPA RM resource not granted,return \n", __func__);
-               spin_unlock_bh(&adpt->flow_ctrl_lock);
-               return;
+
+        spin_lock_bh(&alx_ipa->ipa_rm_state_lock);
+	if (alx_ipa->ipa_prod_rm_state != ALX_IPA_RM_GRANTED) {
+          spin_unlock_bh(&alx_ipa->ipa_rm_state_lock);
+          if (adpt->pendq_cnt > 0 && alx_ipa_rm_request(adpt) != 0 ) {
+	    pr_info("%s IPA RM resource not granted,return \n", __func__);
+            spin_unlock_bh(&adpt->flow_ctrl_lock);
+            return;
+          }
         }
+        else
+          spin_unlock_bh(&alx_ipa->ipa_rm_state_lock);
 
 	while (adpt->ipa_free_desc_cnt && adpt->pendq_cnt) {
 		node = list_first_entry(&adpt->pend_queue_head,
@@ -4267,7 +4274,7 @@ static void alx_ipa_tx_dp_cb(void *priv, enum ipa_dp_evt_type evt,
 			schedule_ipa_work = true;
 		}
                 spin_lock_bh(&alx_ipa->rm_ipa_lock);
-                if (alx_ipa->ipa_rx_completion == 0) {
+                if (alx_ipa->ipa_rx_completion == 0 && adpt->pendq_cnt == 0) {
                   spin_unlock_bh(&alx_ipa->rm_ipa_lock);
                   alx_ipa_rm_try_release(adpt);
                 }
@@ -4788,9 +4795,8 @@ static int alx_ipa_rm_request(struct alx_adapter *adpt)
 	int ret = 0;
 	struct alx_ipa_ctx *alx_ipa = adpt->palx_ipa;
         spin_lock_bh(&alx_ipa->ipa_rm_state_lock);
-	pr_info("%s - IPA RM PROD State state %s\n",__func__,
+	pr_debug("%s - IPA RM PROD State state %s\n",__func__,
 			alx_ipa_rm_state_to_str(alx_ipa->ipa_prod_rm_state));
-
 	switch (alx_ipa->ipa_prod_rm_state) {
 	case ALX_IPA_RM_GRANTED:
 		spin_unlock_bh(&alx_ipa->ipa_rm_state_lock);
@@ -4842,7 +4848,8 @@ static int alx_ipa_rm_try_release(struct alx_adapter *adpt)
 {
         int ret = -1;
         struct alx_ipa_ctx *alx_ipa = adpt->palx_ipa;
-	pr_info("%s:%d \n",__func__,__LINE__);
+
+	pr_debug("%s:%d \n",__func__,__LINE__);
         spin_lock_bh(&alx_ipa->rm_ipa_lock);
         if (alx_ipa->ipa_prod_rm_state == ALX_IPA_RM_RELEASED)
         {
@@ -4850,9 +4857,9 @@ static int alx_ipa_rm_try_release(struct alx_adapter *adpt)
           pr_info("%s:RM state released; return \n",__func__);
           return 0;
         }
+
         spin_unlock_bh(&alx_ipa->rm_ipa_lock);
 		ret = ipa_rm_release_resource(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
-
         if (ret == 0){
           spin_lock_bh(&alx_ipa->rm_ipa_lock);
           alx_ipa->ipa_prod_rm_state = ALX_IPA_RM_RELEASED;
