@@ -347,7 +347,7 @@ static ssize_t firmware_load(struct device *dev,
 
     if (!strncasecmp(buf, "1", count) &&
         (subsystem_get(to_subsys(dev)->desc->fw_name) != NULL))
-        return 0;
+        return orig_count;
 
     return -EPERM;
 }
