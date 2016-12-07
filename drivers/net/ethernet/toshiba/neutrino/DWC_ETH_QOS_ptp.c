@@ -124,7 +124,7 @@ static int DWC_ETH_QOS_adjust_freq(struct ptp_clock_info *ptp, s32 ppb)
 
 	spin_lock_irqsave(&pdata->ptp_lock, flags);
 
-	hw_if->config_addend(addend);
+	hw_if->config_addend(addend, pdata);
 
 	spin_unlock_irqrestore(&pdata->ptp_lock, flags);
 
@@ -171,7 +171,7 @@ static int DWC_ETH_QOS_adjust_time(struct ptp_clock_info *ptp, s64 delta)
 
 	spin_lock_irqsave(&pdata->ptp_lock, flags);
 
-	hw_if->adjust_systime(sec, nsec, neg_adj, pdata->one_nsec_accuracy);
+	hw_if->adjust_systime(sec, nsec, neg_adj, pdata->one_nsec_accuracy, pdata);
 
 	spin_unlock_irqrestore(&pdata->ptp_lock, flags);
 
@@ -209,7 +209,7 @@ static int DWC_ETH_QOS_get_time(struct ptp_clock_info *ptp,
 
 	spin_lock_irqsave(&pdata->ptp_lock, flags);
 
-	ns = hw_if->get_systime();
+	ns = hw_if->get_systime(pdata);
 
 	spin_unlock_irqrestore(&pdata->ptp_lock, flags);
 
@@ -250,7 +250,7 @@ static int DWC_ETH_QOS_set_time(struct ptp_clock_info *ptp,
 
 	spin_lock_irqsave(&pdata->ptp_lock, flags);
 
-	hw_if->init_systime(ts->tv_sec, ts->tv_nsec);
+	hw_if->init_systime(ts->tv_sec, ts->tv_nsec, pdata);
 
 	spin_unlock_irqrestore(&pdata->ptp_lock, flags);
 

@@ -81,12 +81,64 @@
  */
 #include "DWC_ETH_QOS_yheader.h"
 #include "DWC_ETH_QOS_ethtool.h"
+#include "DWC_ETH_QOS_ipa.h"
 
 struct DWC_ETH_QOS_stats {
 	char stat_string[ETH_GSTRING_LEN];
 	int sizeof_stat;
 	int stat_offset;
 };
+
+#define DWC_ETH_QOS_IPA(m) \
+	{#m, FIELD_SIZEOF(struct DWC_ETH_QOS_ipa_stats, m), \
+	offsetof(struct DWC_ETH_QOS_prv_data, ipa_stats.m)}
+
+static const struct DWC_ETH_QOS_stats DWC_ETH_QOS_ipa_gstrings_stats[] = {
+	DWC_ETH_QOS_IPA(ipa_rx_Desc_Ring_Base),
+	DWC_ETH_QOS_IPA(ipa_rx_Desc_Ring_Size),
+	DWC_ETH_QOS_IPA(ipa_rx_Buff_Ring_Base),
+	DWC_ETH_QOS_IPA(ipa_rx_Buff_Ring_Size),
+	DWC_ETH_QOS_IPA(ipa_rx_Db_Int_Raised),
+	DWC_ETH_QOS_IPA(ipa_rx_Cur_Desc_Ptr_Indx),
+	DWC_ETH_QOS_IPA(ipa_rx_Tail_Ptr_Indx),
+
+	DWC_ETH_QOS_IPA(ipa_rx_DMA_Status),
+	DWC_ETH_QOS_IPA(ipa_rx_DMA_Ch_Status),
+	DWC_ETH_QOS_IPA(ipa_rx_DMA_Ch_underflow),
+	DWC_ETH_QOS_IPA(ipa_rx_DMA_Ch_stopped),
+	DWC_ETH_QOS_IPA(ipa_rx_DMA_Ch_complete),
+
+	DWC_ETH_QOS_IPA(ipa_rx_Int_Mask),
+	DWC_ETH_QOS_IPA(ipa_rx_Transfer_Complete_irq),
+	DWC_ETH_QOS_IPA(ipa_rx_Transfer_Stopped_irq),
+	DWC_ETH_QOS_IPA(ipa_rx_Underflow_irq),
+	DWC_ETH_QOS_IPA(ipa_rx_Early_Trans_Comp_irq),
+
+	DWC_ETH_QOS_IPA(ipa_tx_Desc_Ring_Base),
+	DWC_ETH_QOS_IPA(ipa_tx_Desc_Ring_Size),
+	DWC_ETH_QOS_IPA(ipa_tx_Buff_Ring_Base),
+	DWC_ETH_QOS_IPA(ipa_tx_Buff_Ring_Size),
+	DWC_ETH_QOS_IPA(ipa_tx_Db_Int_Raised),
+	DWC_ETH_QOS_IPA(ipa_tx_Curr_Desc_Ptr_Indx),
+	DWC_ETH_QOS_IPA(ipa_tx_Tail_Ptr_Indx),
+
+	DWC_ETH_QOS_IPA(ipa_tx_DMA_Status),
+	DWC_ETH_QOS_IPA(ipa_tx_DMA_Ch_Status),
+	DWC_ETH_QOS_IPA(ipa_tx_DMA_Ch_underflow),
+	DWC_ETH_QOS_IPA(ipa_tx_DMA_Transfer_stopped),
+	DWC_ETH_QOS_IPA(ipa_tx_DMA_Transfer_complete),
+
+	DWC_ETH_QOS_IPA(ipa_tx_Int_Mask),
+	DWC_ETH_QOS_IPA(ipa_tx_Transfer_Complete_irq),
+	DWC_ETH_QOS_IPA(ipa_tx_Transfer_Stopped_irq),
+	DWC_ETH_QOS_IPA(ipa_tx_Underflow_irq),
+	DWC_ETH_QOS_IPA(ipa_tx_Early_Trans_Cmp_irq),
+	DWC_ETH_QOS_IPA(ipa_tx_Fatal_err_irq),
+	DWC_ETH_QOS_IPA(ipa_tx_Desc_Err_irq),
+
+	DWC_ETH_QOS_IPA(ipa_ul_exception),
+};
+#define DWC_ETH_QOS_IPA_STAT_LEN ARRAY_SIZE(DWC_ETH_QOS_ipa_gstrings_stats)
 
 /* HW extra status */
 #define DWC_ETH_QOS_EXTRA_STAT(m) \
@@ -482,7 +534,7 @@ static void DWC_ETH_QOS_get_pauseparam(struct net_device *dev,
 
 	if (pdata->hw_feat.pcs_sel) {
 		pause->autoneg = 1;
-		data = hw_if->get_an_adv_pause_param();
+		data = hw_if->get_an_adv_pause_param(pdata);
 		if (!(data == 1) || !(data == 2))
 			return;
 	} else {
@@ -538,7 +590,7 @@ static int DWC_ETH_QOS_set_pauseparam(struct net_device *dev,
 
 	/* return if PHY doesn't support FLOW ctrl */
 	if (pdata->hw_feat.pcs_sel) {
-		data = hw_if->get_an_adv_pause_param();
+		data = hw_if->get_an_adv_pause_param(pdata);
 		if (!(data == 1) || !(data == 2))
 			return -EINVAL;
 	} else {
@@ -583,9 +635,9 @@ void DWC_ETH_QOS_configure_flow_ctrl(struct DWC_ETH_QOS_prv_data *pdata)
 
 	if ((pdata->flow_ctrl & DWC_ETH_QOS_FLOW_CTRL_RX) ==
 	    DWC_ETH_QOS_FLOW_CTRL_RX) {
-		hw_if->enable_rx_flow_ctrl();
+		hw_if->enable_rx_flow_ctrl(pdata);
 	} else {
-		hw_if->disable_rx_flow_ctrl();
+		hw_if->disable_rx_flow_ctrl(pdata);
 	}
 
 	/* As ethtool does not provide queue level configuration
@@ -595,13 +647,13 @@ void DWC_ETH_QOS_configure_flow_ctrl(struct DWC_ETH_QOS_prv_data *pdata)
 		for (qInx = 0; qInx < NTN_TX_QUEUE_CNT; qInx++){
 			if(!pdata->tx_q_for_host[qInx])
 				continue;
-			hw_if->enable_tx_flow_ctrl(qInx);
+			hw_if->enable_tx_flow_ctrl(qInx, pdata);
 		}
 	} else {
 		for (qInx = 0; qInx < NTN_TX_QUEUE_CNT; qInx++){
 			if(!pdata->tx_q_for_host[qInx])
 				continue;
-			hw_if->disable_tx_flow_ctrl(qInx);
+			hw_if->disable_tx_flow_ctrl(qInx, pdata);
 		}
 	}
 
@@ -645,10 +697,10 @@ static int DWC_ETH_QOS_getsettings(struct net_device *dev,
 		ethtool_cmd_speed_set(cmd, pdata->pcs_speed);
 		cmd->duplex = pdata->pcs_duplex;
 
-		pause = hw_if->get_an_adv_pause_param();
-		duplex = hw_if->get_an_adv_duplex_param();
-		lp_pause = hw_if->get_lp_an_adv_pause_param();
-		lp_duplex = hw_if->get_lp_an_adv_duplex_param();
+		pause = hw_if->get_an_adv_pause_param(pdata);
+		duplex = hw_if->get_an_adv_duplex_param(pdata);
+		lp_pause = hw_if->get_lp_an_adv_pause_param(pdata);
+		lp_duplex = hw_if->get_lp_an_adv_duplex_param(pdata);
 
 		if (pause == 1)
 			cmd->advertising |= ADVERTISED_Pause;
@@ -763,9 +815,9 @@ static int DWC_ETH_QOS_setsettings(struct net_device *dev,
 */
 		spin_lock_irq(&pdata->lock);
 		if (cmd->autoneg == AUTONEG_ENABLE)
-			hw_if->control_an(1, 1);
+			hw_if->control_an(1, 1, pdata);
 		else
-			hw_if->control_an(0, 0);
+			hw_if->control_an(0, 0, pdata);
 		spin_unlock_irq(&pdata->lock);
 	} else {
 	        if (pdata->enable_phy) {
@@ -999,17 +1051,7 @@ static int DWC_ETH_QOS_set_coalesce(struct net_device *dev,
 		       rx_usec);
 		return -EINVAL;
 	}
-	if (ec->rx_max_coalesced_frames > RX_DESC_CNT) {
-		NMSGPR_ALERT( "RX Coalesing is limited to %d frames\n",
-		       DWC_ETH_QOS_RX_MAX_FRAMES);
-		return -EINVAL;
-	}
-	if (rx_desc_data->rx_coal_frames != ec->rx_max_coalesced_frames
-	    && netif_running(dev)) {
-		NMSGPR_ALERT(
-		 "Coalesce frame parameter can be changed only if interface is down\n");
-		return -EINVAL;
-	}
+
 	/* The selected parameters are applied to all the
 	 * receive queues equally, so all the queue configurations
 	 * are in sync */
@@ -1018,11 +1060,23 @@ static int DWC_ETH_QOS_set_coalesce(struct net_device *dev,
 		if(!pdata->rx_dma_ch_for_host[chInx])
 			continue;
 
+		if (ec->rx_max_coalesced_frames > pdata->rx_dma_ch[chInx].desc_cnt) {
+			NMSGPR_ALERT("RX Coalescing is limited to %d frames for ch %d\n",
+						 DWC_ETH_QOS_RX_MAX_FRAMES, chInx);
+			return -EINVAL;
+		}
+		if (rx_desc_data->rx_coal_frames != ec->rx_max_coalesced_frames
+			&& netif_running(dev)) {
+			NMSGPR_ALERT(
+			   "Coalesce frame parameter can be changed only if interface is down\n");
+			return -EINVAL;
+		}
+
 		rx_desc_data = GET_RX_WRAPPER_DESC(chInx);
 		rx_desc_data->use_riwt = local_use_riwt;
 		rx_desc_data->rx_riwt = rx_riwt;
 		rx_desc_data->rx_coal_frames = ec->rx_max_coalesced_frames;
-		hw_if->config_rx_watchdog(chInx, rx_desc_data->rx_riwt);
+		hw_if->config_rx_watchdog(chInx, rx_desc_data->rx_riwt, pdata);
 	}
 
 	DBGPR("<--DWC_ETH_QOS_set_coalesce\n");
@@ -1051,7 +1105,7 @@ static void DWC_ETH_QOS_get_ethtool_stats(struct net_device *dev,
 	DBGPR("-->DWC_ETH_QOS_get_ethtool_stats\n");
 
 	if (pdata->hw_feat.mmc_sel) {
-		DWC_ETH_QOS_mmc_read(&pdata->mmc);
+		DWC_ETH_QOS_mmc_read(&pdata->mmc, pdata);
 
 		for (i = 0; i < DWC_ETH_QOS_MMC_STATS_LEN; i++) {
 			char *p = (char *)pdata +
@@ -1071,6 +1125,18 @@ static void DWC_ETH_QOS_get_ethtool_stats(struct net_device *dev,
 				DWC_ETH_QOS_gstrings_stats[i].stat_offset;
 		data[j++] = (DWC_ETH_QOS_gstrings_stats[i].sizeof_stat ==
 				sizeof(u64)) ? (*(u64 *)p) : (*(u32 *)p);
+	}
+
+	/* Update IPA stats */
+	if (pdata->ipa_enabled) {
+		NMSGPR_INFO("Add IPA stats\n");
+		DWC_ETH_QOS_ipa_stats_read(pdata);
+		for (i = 0; i < DWC_ETH_QOS_IPA_STAT_LEN; i++) {
+			char *p = (char *)pdata +
+					DWC_ETH_QOS_ipa_gstrings_stats[i].stat_offset;
+			data[j++] = (DWC_ETH_QOS_ipa_gstrings_stats[i].sizeof_stat ==
+					sizeof(u64)) ? (*(u64 *)p) : (*(u32 *)p);
+		}
 	}
 
 	DBGPR("<--DWC_ETH_QOS_get_ethtool_stats\n");
@@ -1110,6 +1176,14 @@ static void DWC_ETH_QOS_get_strings(struct net_device *dev, u32 stringset, u8 *d
 				ETH_GSTRING_LEN);
 			p += ETH_GSTRING_LEN;
 		}
+
+		if (pdata->ipa_enabled) {
+			for (i = 0; i < DWC_ETH_QOS_IPA_STAT_LEN; i++) {
+				memcpy(p, DWC_ETH_QOS_ipa_gstrings_stats[i].stat_string,
+					ETH_GSTRING_LEN);
+				p += ETH_GSTRING_LEN;
+			}
+		}
 		break;
 	default:
 		WARN_ON(1);
@@ -1143,6 +1217,8 @@ static int DWC_ETH_QOS_get_sset_count(struct net_device *dev, int sset)
 		if (pdata->hw_feat.mmc_sel)
 			len = DWC_ETH_QOS_MMC_STATS_LEN;
 		len += DWC_ETH_QOS_EXTRA_STAT_LEN;
+		if (pdata->ipa_enabled)
+			len += DWC_ETH_QOS_IPA_STAT_LEN;
 		break;
 	default:
 		len = -EOPNOTSUPP;

@@ -108,9 +108,11 @@
 #define  MAC_OFFSET         (0xA000)
 #define  INTC_OFFSET        (0x8000)
 
-#define  NTN_REG_BASE_ADRS      (dwc_eth_ntn_reg_pci_base_addr)
-#define  NTN_REG_PHY_BASE_ADRS  (dwc_eth_ntn_reg_pci_base_addr_phy)
-#define  NTN_SRAM_BASE_ADRS (dwc_eth_ntn_SRAM_pci_base_addr_virt)
+#define  NTN_REG_BASE_ADRS  (pdata->dev->base_addr)
+
+#define  NTN_REG_PHY_BASE_ADRS  (pdata->dwc_eth_ntn_reg_pci_base_addr_phy)
+#define  NTN_SRAM_BASE_ADRS (pdata->dwc_eth_ntn_SRAM_pci_base_addr_virt)
+
 #define  BASE_ADDRESS       (NTN_REG_BASE_ADRS + MAC_OFFSET)
 #define  MAC_BASE_ADDRESS   (NTN_REG_BASE_ADRS + MAC_OFFSET)
 #define  INTC_BASE_ADDRESS  (NTN_REG_BASE_ADRS + INTC_OFFSET)
@@ -18647,6 +18649,14 @@
 #define MAC_GMIIAR_GB_UdfRd(data) do {\
 		MAC_GMIIAR_RgRd(data);\
 		data = ((data >> 0) & MAC_GMIIAR_GB_Mask);\
+} while(0)
+
+
+
+#define MAC_HFR2_NOPRV_RgOffAddr ((volatile ULONG *)(dwc_eth_ntn_reg_pci_base_addr + MAC_OFFSET + 0x124))
+
+#define MAC_HFR2_NOPRV_RgRd(data) do {\
+		(data) = ioread32((void *)MAC_HFR2_NOPRV_RgOffAddr);\
 } while(0)
 
 

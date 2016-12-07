@@ -57,7 +57,7 @@
 extern int DWC_ETH_QOS_init_module(void);
 extern void DWC_ETH_QOS_exit_module(void);
 
-struct DWC_ETH_QOS_plt_data *plt_data;
+struct list_head ntn_plt_data_list;
 
 static int setup_regulator_common(struct device *dev, const char *name_supply,
 				  const char *name, struct regulator **vreg,
@@ -141,7 +141,7 @@ static int setup_gpio_common(struct device *dev, const char *name, int *gpio,
 *
 * \return 0 on success. Negative error code on failure
 */
-static int DWC_ETH_QOS_init_regulators(struct device *dev)
+static int DWC_ETH_QOS_init_regulators(struct device *dev, struct DWC_ETH_QOS_plt_data *plt_data)
 {
 	int ret = 0;
 
@@ -201,7 +201,7 @@ exit_error:
 *
 * \return 0 on success. Negative error code on failure
 */
-static int DWC_ETH_QOS_init_gpios(struct device *dev)
+static int DWC_ETH_QOS_init_gpios(struct device *dev, struct DWC_ETH_QOS_plt_data *plt_data)
 {
 	int ret = 0;
 
@@ -217,10 +217,15 @@ static int DWC_ETH_QOS_init_gpios(struct device *dev)
 		goto exit_error;
 
 	/* Configure GPIOs required for the Neutrino reset */
-	ret = setup_gpio_common(dev, NTN_RESET_GPIO_NAME, &plt_data->resx_gpio_num, 0x1, 0x1);
-	if (ret)
+	ret = setup_gpio_common(dev, NTN_RESET_GPIO_NAME, &plt_data->resx_gpio_num, 0x1, 0x0);
+	if (ret) {
+		NMSGPR_ALERT("%s: Failed to toggle OFF %s\n", __func__,NTN_PWR_GPIO_NAME);
 		goto exit_error;
-
+	}
+	if (gpio_is_valid(plt_data->resx_gpio_num)) {
+		msleep(10);
+		gpio_set_value(plt_data->resx_gpio_num, 0x1);
+	}
 	return ret;
 
 exit_error:
@@ -233,7 +238,7 @@ exit_error:
 	return ret;
 }
 
-static void DWC_ETH_QOS_free_regs_and_gpios(void)
+static void DWC_ETH_QOS_free_regs_and_gpios(struct DWC_ETH_QOS_plt_data *plt_data)
 {
 	if (gpio_is_valid(plt_data->resx_gpio_num))
 		gpio_free(plt_data->resx_gpio_num);
@@ -264,11 +269,9 @@ static int DWC_ETH_QOS_pcie_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct device *dev = &pdev->dev;
+	struct DWC_ETH_QOS_plt_data *plt_data;
 
 	DBGPR("Entry: %s\n", __func__);
-
-	if (plt_data)
-		return -ENODEV;
 
 	plt_data = devm_kzalloc(&pdev->dev, sizeof(*plt_data), GFP_KERNEL);
 	if (!plt_data)
@@ -277,13 +280,13 @@ static int DWC_ETH_QOS_pcie_probe(struct platform_device *pdev)
 	plt_data->pldev = pdev;
 
 	/* Neutrino board init */
-	ret = DWC_ETH_QOS_init_regulators(dev);
+	ret = DWC_ETH_QOS_init_regulators(dev, plt_data);
 	if (ret) {
 		NMSGPR_ALERT("%s: Failed to init regulators\n", __func__);
 		goto DWC_ETH_QOS_err_pcie_probe;
 	}
 
-	ret = DWC_ETH_QOS_init_gpios(dev);
+	ret = DWC_ETH_QOS_init_gpios(dev, plt_data);
 	if (ret) {
 		NMSGPR_ALERT("%s: Failed to init GPIOs\n", __func__);
 		goto DWC_ETH_QOS_err_pcie_probe;
@@ -298,6 +301,15 @@ static int DWC_ETH_QOS_pcie_probe(struct platform_device *pdev)
 		NDBGPR_L1("%s: ntn_rst_delay = %d msec\n", __func__, plt_data->ntn_rst_delay);
 	}
 	msleep(plt_data->ntn_rst_delay);
+
+	/* read bus number */
+	ret = of_property_read_u32(dev->of_node, "qcom,ntn-bus-num", &plt_data->bus_num);
+	if (ret) {
+		plt_data->bus_num = -1;
+		NMSGPR_ALERT( "%s: Failed to find PCIe bus number from device tree!\n", __func__);
+	} else {
+		NDBGPR_L1( "%s: Found PCIe bus number! %d\n", __func__, plt_data->bus_num);
+	}
 
 	/* issue PCIe enumeration */
 	ret = of_property_read_u32(dev->of_node, "qcom,ntn-rc-num", &plt_data->rc_num);
@@ -315,16 +327,13 @@ static int DWC_ETH_QOS_pcie_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* register Ethernet modules */
-	ret = DWC_ETH_QOS_init_module();
-	if (ret)
-		goto DWC_ETH_QOS_err_pcie_probe;
+	list_add_tail(&plt_data->node, &ntn_plt_data_list);
 
 	dev_info(dev, "probe success");
 	return ret;
 
 DWC_ETH_QOS_err_pcie_probe:
-	DWC_ETH_QOS_free_regs_and_gpios();
+	DWC_ETH_QOS_free_regs_and_gpios(plt_data);
 	dev_info(dev, "probe failed");
 	return ret;
 }
@@ -332,11 +341,15 @@ DWC_ETH_QOS_err_pcie_probe:
 static int DWC_ETH_QOS_pcie_remove(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct DWC_ETH_QOS_plt_data *plt_data;
 	DBGPR( "Entry:%s.\n", __func__);
 
-	DWC_ETH_QOS_exit_module();
-
-	DWC_ETH_QOS_free_regs_and_gpios();
+	list_for_each_entry(plt_data, &ntn_plt_data_list, node) {
+		if (plt_data->pldev == pdev) {
+			DWC_ETH_QOS_free_regs_and_gpios(plt_data);
+			break;
+		}
+	}
 
 	DBGPR( "Exit:%s.\n", __func__);
 	return ret;
@@ -362,8 +375,16 @@ static int __init DWC_ETH_QOS_pcie_init(void)
 {
 	int ret = 0;
 
+	INIT_LIST_HEAD(&ntn_plt_data_list);
 	DBGPR("Entry:%s.\n", __func__);
 	ret = platform_driver_register(&DWC_ETH_QOS_pcie_driver);
+
+	if (ret == 0) {
+		/* register Ethernet modules */
+		ret = DWC_ETH_QOS_init_module();
+	}
+
+
 	DBGPR( "Exit:%s.\n", __func__);
 	return ret;
 }
@@ -372,6 +393,7 @@ static void __exit DWC_ETH_QOS_pcie_exit(void)
 {
 	DBGPR( "Entry:%s.\n", __func__);
 	platform_driver_unregister(&DWC_ETH_QOS_pcie_driver);
+	DWC_ETH_QOS_exit_module();
 	DBGPR( "Exit:%s.\n", __func__);
 }
 

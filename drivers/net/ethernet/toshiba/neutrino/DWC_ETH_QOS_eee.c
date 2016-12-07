@@ -126,7 +126,7 @@ void DWC_ETH_QOS_enable_eee_mode(struct DWC_ETH_QOS_prv_data *pdata)
 	}
 
 	if (tx_idle)
-		hw_if->set_eee_mode();
+		hw_if->set_eee_mode(pdata);
 
 	DBGPR_EEE("<--DWC_ETH_QOS_enable_eee_mode\n");
 }
@@ -137,7 +137,7 @@ void DWC_ETH_QOS_disable_eee_mode(struct DWC_ETH_QOS_prv_data *pdata)
 
 	DBGPR_EEE("-->DWC_ETH_QOS_disable_eee_mode\n");
 
-	hw_if->reset_eee_mode();
+	hw_if->reset_eee_mode(pdata);
 	del_timer_sync(&pdata->eee_ctrl_timer);
 	pdata->tx_path_in_lpi_mode = false;
 
@@ -449,15 +449,15 @@ bool DWC_ETH_QOS_eee_init(struct DWC_ETH_QOS_prv_data *pdata)
 			add_timer(&pdata->eee_ctrl_timer);
 
 			hw_if->set_eee_timer(DWC_ETH_QOS_DEFAULT_LPI_LS_TIMER,
-				DWC_ETH_QOS_DEFAULT_LPI_TWT_TIMER);
+				DWC_ETH_QOS_DEFAULT_LPI_TWT_TIMER, pdata);
 			if (pdata->use_lpi_tx_automate)
-				hw_if->set_lpi_tx_automate();
+				hw_if->set_lpi_tx_automate(pdata);
 		} else {
 			/* When EEE has been already initialized we have to modify
 			 * the PLS bit in MAC_LPI_Control_Status reg according to
 			 * PHY link status.
 			 * */
-			hw_if->set_eee_pls(pdata->phydev->link);
+			hw_if->set_eee_pls(pdata->phydev->link, pdata);
 		}
 
 		DBGPR_EEE("EEE initialized\n");
@@ -485,7 +485,7 @@ void DWC_ETH_QOS_handle_eee_interrupt(struct DWC_ETH_QOS_prv_data *pdata)
 
 	DBGPR_EEE("-->DWC_ETH_QOS_handle_eee_interrupt\n");
 
-	lpi_status = hw_if->get_lpi_status();
+	lpi_status = hw_if->get_lpi_status(pdata);
 	DBGPR_EEE("MAC_LPI_Control_Status = %#x\n", lpi_status);
 
 	if (lpi_status & MAC_LPS_TLPIEN) {

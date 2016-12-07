@@ -115,7 +115,7 @@ INT DWC_ETH_QOS_mdio_read_direct(struct DWC_ETH_QOS_prv_data *pdata,
 
 	if (hw_if->read_phy_regs) {
 		phy_reg_read_status =
-		    hw_if->read_phy_regs(phyaddr, phyreg, phydata);
+		    hw_if->read_phy_regs(phyaddr, phyreg, phydata, pdata);
 	} else {
 		phy_reg_read_status = 1;
 		NMSGPR_ALERT( "%s: hw_if->read_phy_regs not defined",
@@ -163,7 +163,7 @@ INT DWC_ETH_QOS_mdio_write_direct(struct DWC_ETH_QOS_prv_data *pdata,
 
 	if (hw_if->write_phy_regs) {
 		phy_reg_write_status =
-		    hw_if->write_phy_regs(phyaddr, phyreg, phydata);
+		    hw_if->write_phy_regs(phyaddr, phyreg, phydata, pdata);
 	} else {
 		phy_reg_write_status = 1;
 		NMSGPR_ALERT( "%s: hw_if->write_phy_regs not defined",
@@ -206,7 +206,7 @@ static INT DWC_ETH_QOS_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
 	      phyaddr, phyreg);
 
 	if (hw_if->read_phy_regs) {
-		hw_if->read_phy_regs(phyaddr, phyreg, &phydata);
+		hw_if->read_phy_regs(phyaddr, phyreg, &phydata, pdata);
 	} else {
 		NMSGPR_ALERT( "%s: hw_if->read_phy_regs not defined",
 		       DEV_NAME);
@@ -249,7 +249,7 @@ static INT DWC_ETH_QOS_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
         }
 
 	if (hw_if->write_phy_regs) {
-		hw_if->write_phy_regs(phyaddr, phyreg, phydata);
+		hw_if->write_phy_regs(phyaddr, phyreg, phydata, pdata);
 	} else {
 		ret = -1;
 		NMSGPR_ALERT( "%s: hw_if->write_phy_regs not defined",
@@ -287,18 +287,18 @@ static INT DWC_ETH_QOS_mdio_reset(struct mii_bus *bus)
                 return -ENODEV;
         }
 
-	hw_if->read_phy_regs(pdata->phyaddr, MII_BMCR, &phydata);
+	hw_if->read_phy_regs(pdata->phyaddr, MII_BMCR, &phydata, pdata);
 
 	if (phydata < 0)
 		return 0;
 
 	/* issue soft reset to PHY */
 	phydata |= BMCR_RESET;
-	hw_if->write_phy_regs(pdata->phyaddr, MII_BMCR, phydata);
+	hw_if->write_phy_regs(pdata->phyaddr, MII_BMCR, phydata, pdata);
 
 	/* wait until software reset completes */
 	do {
-		hw_if->read_phy_regs(pdata->phyaddr, MII_BMCR, &phydata);
+		hw_if->read_phy_regs(pdata->phyaddr, MII_BMCR, &phydata, pdata);
 	} while ((phydata >= 0) && (phydata & BMCR_RESET));
 
 	DBGPR_MDIO("<--DWC_ETH_QOS_mdio_reset\n");
@@ -401,8 +401,7 @@ void dump_phy_registers(struct DWC_ETH_QOS_prv_data *pdata)
 *
 * \return void
 */
-
-static void DWC_ETH_QOS_adjust_link(struct net_device *dev)
+void DWC_ETH_QOS_adjust_link(struct net_device *dev)
 {
 	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(dev);
 	struct hw_if_struct *hw_if = &(pdata->hw_if);
@@ -436,9 +435,9 @@ static void DWC_ETH_QOS_adjust_link(struct net_device *dev)
 		if (phydev->duplex != pdata->oldduplex) {
 			new_state = 1;
 			if (phydev->duplex)
-				hw_if->set_full_duplex();
+				hw_if->set_full_duplex(pdata);
 			else {
-				hw_if->set_half_duplex();
+				hw_if->set_half_duplex(pdata);
 #ifdef DWC_ETH_QOS_CERTIFICATION_PKTBURSTCNT_HALFDUPLEX
 				/* For Synopsys testing and debugging only */
 				{
@@ -467,16 +466,16 @@ static void DWC_ETH_QOS_adjust_link(struct net_device *dev)
 			new_state = 1;
 			switch (phydev->speed) {
 			case SPEED_1000:
-				hw_if->set_gmii_speed();
-				hw_if->ntn_set_tx_clk_125MHz();
+				hw_if->set_gmii_speed(pdata);
+				hw_if->ntn_set_tx_clk_125MHz(pdata);
 				break;
 			case SPEED_100:
-				hw_if->set_mii_speed_100();
-				hw_if->ntn_set_tx_clk_25MHz();
+				hw_if->set_mii_speed_100(pdata);
+				hw_if->ntn_set_tx_clk_25MHz(pdata);
 				break;
 			case SPEED_10:
-				hw_if->set_mii_speed_10();
-				hw_if->ntn_set_tx_clk_2_5MHz();
+				hw_if->set_mii_speed_10(pdata);
+				hw_if->ntn_set_tx_clk_2_5MHz(pdata);
 				break;
 			}
 			pdata->speed = phydev->speed;
@@ -547,7 +546,7 @@ static int DWC_ETH_QOS_init_phy(struct net_device *dev)
 
 	DBGPR_MDIO("trying to attach to %s\n", phy_id_fmt);
 
-	phydev = phy_connect(dev, phy_id_fmt, &DWC_ETH_QOS_adjust_link,
+	phydev = phy_connect(dev, phy_id_fmt, DWC_ETH_QOS_adjust_link,
 			     pdata->interface);
 
 	if (IS_ERR(phydev)) {
@@ -646,7 +645,7 @@ int DWC_ETH_QOS_mdio_register(struct net_device *dev)
 	}
 
 	pdata->phyaddr = phyaddr;
-	pdata->bus_id = 0x1;
+	pdata->bus_id = pdata->mdio_bus_id;
 
 	DBGPHY_REGS(pdata);
 

@@ -89,11 +89,6 @@
 #include "DWC_ETH_QOS_yregacc.h"
 #include <linux/ktime.h>
 
-extern ULONG dwc_eth_ntn_reg_pci_base_addr;
-extern ULONG dwc_eth_ntn_SRAM_pci_base_addr_virt;
-extern ULONG dwc_eth_ntn_FLASH_pci_base_addr;
-
-
 /*!
 * \brief This sequence is used to enable/disable MAC loopback mode
 * \param[in] enb_dis
@@ -102,7 +97,7 @@ extern ULONG dwc_eth_ntn_FLASH_pci_base_addr;
 * \retval -1 Failure
 */
 
-static INT config_mac_loopback_mode(UINT enb_dis)
+static INT config_mac_loopback_mode(UINT enb_dis, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_MCR_LM_UdfWr(enb_dis);
@@ -112,7 +107,7 @@ static INT config_mac_loopback_mode(UINT enb_dis)
 
 
 /* enable/disable PFC(Priority Based Flow Control) */
-static void config_pfc(int enb_dis)
+static void config_pfc(int enb_dis, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_RFCR_PFCE_UdfWr(enb_dis);
 }
@@ -125,7 +120,7 @@ static void config_pfc(int enb_dis)
 * \retval -1 Failure
 */
 
-static INT config_tx_outer_vlan(UINT op_type, UINT outer_vlt)
+static INT config_tx_outer_vlan(UINT op_type, UINT outer_vlt, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	NMSGPR_ALERT( "--> config_tx_outer_vlan()\n");
 
@@ -144,7 +139,7 @@ static INT config_tx_outer_vlan(UINT op_type, UINT outer_vlt)
 	return Y_SUCCESS;
 }
 
-static INT config_tx_inner_vlan(UINT op_type, UINT inner_vlt)
+static INT config_tx_inner_vlan(UINT op_type, UINT inner_vlt, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	NMSGPR_ALERT( "--> config_tx_inner_vlan()\n");
 
@@ -163,7 +158,7 @@ static INT config_tx_inner_vlan(UINT op_type, UINT inner_vlt)
 	return Y_SUCCESS;
 }
 
-static INT config_svlan(UINT flags)
+static INT config_svlan(UINT flags, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	INT ret = Y_SUCCESS;
 
@@ -191,7 +186,7 @@ static INT config_svlan(UINT flags)
 	return ret;
 }
 
-static VOID config_dvlan(bool enb_dis)
+static VOID config_dvlan(bool enb_dis, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_VLANTR_EDVLP_UdfWr(enb_dis);
 }
@@ -205,7 +200,7 @@ static VOID config_dvlan(bool enb_dis)
 * \retval -1 Failure
 */
 
-static int config_arp_offload(int enb_dis)
+static int config_arp_offload(int enb_dis, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_MCR_ARPEN_UdfWr(enb_dis);
@@ -225,7 +220,7 @@ static int config_arp_offload(int enb_dis)
 * \retval -1 Failure
 */
 
-static int update_arp_offload_ip_addr(UCHAR addr[])
+static int update_arp_offload_ip_addr(UCHAR addr[], struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_ARPA_RgWr((addr[3] | (addr[2] << 8) | (addr[1] << 16) | addr[0] << 24));
@@ -243,7 +238,7 @@ static int update_arp_offload_ip_addr(UCHAR addr[])
 * \retval -1 Failure
 */
 
-static u32 get_lpi_status(void)
+static u32 get_lpi_status(struct DWC_ETH_QOS_prv_data *pdata)
 {
   u32 varmac_lps;
 
@@ -262,7 +257,7 @@ static u32 get_lpi_status(void)
 * \retval -1 Failure
 */
 
-static int set_eee_mode(void)
+static int set_eee_mode(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_LPS_LPIEN_UdfWr(0x1);
@@ -280,7 +275,7 @@ static int set_eee_mode(void)
 * \retval -1 Failure
 */
 
-static int reset_eee_mode(void)
+static int reset_eee_mode(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_LPS_LPITXA_UdfWr(0);
@@ -300,7 +295,7 @@ static int reset_eee_mode(void)
 * \retval -1 Failure
 */
 
-static int set_eee_pls(int phy_link)
+static int set_eee_pls(int phy_link, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   if (phy_link == 1) {
@@ -326,7 +321,7 @@ static int set_eee_pls(int phy_link)
 */
 
 static int set_eee_timer(int lpi_lst,
-                         int lpi_twt)
+                         int lpi_twt, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   /* mim time(us) for which the MAC waits after it stops transmitting */
@@ -342,7 +337,7 @@ static int set_eee_timer(int lpi_lst,
 
 
 
-static int set_lpi_tx_automate(void)
+static int set_lpi_tx_automate(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_LPS_LPITXA_UdfWr(0x1);
 
@@ -360,7 +355,7 @@ static int set_lpi_tx_automate(void)
 * \retval -1 Failure
 */
 
-static int control_an(bool enable, bool restart)
+static int control_an(bool enable, bool restart, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_ANC_ANE_UdfWr(enable);
@@ -380,7 +375,7 @@ static int control_an(bool enable, bool restart)
 * \retval -1 Failure
 */
 
-static int get_an_adv_pause_param(void)
+static int get_an_adv_pause_param(struct DWC_ETH_QOS_prv_data *pdata)
 {
   unsigned long varmac_aad;
 
@@ -401,7 +396,7 @@ static int get_an_adv_pause_param(void)
 * \retval -1 Failure
 */
 
-static int get_an_adv_duplex_param(void)
+static int get_an_adv_duplex_param(struct DWC_ETH_QOS_prv_data *pdata)
 {
   unsigned long varmac_aad;
 
@@ -425,7 +420,7 @@ static int get_an_adv_duplex_param(void)
 * \retval -1 Failure
 */
 
-static int get_lp_an_adv_pause_param(void)
+static int get_lp_an_adv_pause_param(struct DWC_ETH_QOS_prv_data *pdata)
 {
   unsigned long varmac_alpa;
 
@@ -446,7 +441,7 @@ static int get_lp_an_adv_pause_param(void)
 * \retval -1 Failure
 */
 
-static int get_lp_an_adv_duplex_param(void)
+static int get_lp_an_adv_duplex_param(struct DWC_ETH_QOS_prv_data *pdata)
 {
   unsigned long varmac_alpa;
 
@@ -460,7 +455,7 @@ static int get_lp_an_adv_duplex_param(void)
 }
 
 
-static UINT get_vlan_tag_comparison(void)
+static UINT get_vlan_tag_comparison(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT etv;
 
@@ -481,7 +476,8 @@ static UINT get_vlan_tag_comparison(void)
 
 static INT config_vlan_filtering(INT filter_enb_dis,
                                  INT perfect_hash_filtering,
-				 INT perfect_inverse_match)
+                                 INT perfect_inverse_match,
+                                 struct DWC_ETH_QOS_prv_data *pdata)
 {
   MAC_MPFR_VTFE_UdfWr(filter_enb_dis);
   DBGPR_VLAN("%s:VLAN: MPFR_VTFE=%d\n",__func__,filter_enb_dis);
@@ -522,7 +518,7 @@ static INT config_vlan_filtering(INT filter_enb_dis,
 * \retval -1 Failure
 */
 
-static INT update_vlan_id(USHORT vid)
+static INT update_vlan_id(USHORT vid, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_VLANTR_VL_UdfWr(vid);
@@ -541,7 +537,7 @@ static INT update_vlan_id(USHORT vid)
 * \retval -1 Failure
 */
 
-static INT update_vlan_hash_table_reg(USHORT data)
+static INT update_vlan_hash_table_reg(USHORT data, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_VLANHTR_VLHT_UdfWr(data);
@@ -559,7 +555,7 @@ static INT update_vlan_hash_table_reg(USHORT data)
 * \retval -1 Failure
 */
 
-static INT get_vlan_hash_table_reg(void)
+static INT get_vlan_hash_table_reg(struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG varMAC_VLANHTR;
 
@@ -582,7 +578,8 @@ static INT get_vlan_hash_table_reg(void)
 */
 
 static INT update_l4_da_port_no(INT filter_no,
-                                USHORT port_no)
+                                USHORT port_no,
+								struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_L4AR_L4DP0_UdfWr(filter_no, port_no);
@@ -604,7 +601,8 @@ static INT update_l4_da_port_no(INT filter_no,
 */
 
 static INT update_l4_sa_port_no(INT filter_no,
-                                USHORT port_no)
+                                USHORT port_no,
+								struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_L4AR_L4SP0_UdfWr(filter_no, port_no);
@@ -631,7 +629,8 @@ static INT config_l4_filters(INT filter_no,
 		                         INT enb_dis,
                              INT tcp_udp_match,
                              INT src_dst_port_match,
-                             INT perfect_inverse_match)
+                             INT perfect_inverse_match,
+							 struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_L3L4CR_L4PEN0_UdfWr(filter_no, tcp_udp_match);
@@ -677,7 +676,8 @@ static INT config_l4_filters(INT filter_no,
 */
 
 static INT update_ip6_addr(INT filter_no,
-                           USHORT addr[])
+                           USHORT addr[],
+						   struct DWC_ETH_QOS_prv_data *pdata)
 {
   /* update Bits[31:0] of 128-bit IP addr */
   MAC_L3A0R_RgWr(filter_no, (addr[7] | (addr[6] << 16)));
@@ -704,7 +704,8 @@ static INT update_ip6_addr(INT filter_no,
 */
 
 static INT update_ip4_addr1(INT filter_no,
-                            UCHAR addr[])
+                            UCHAR addr[],
+							struct DWC_ETH_QOS_prv_data *pdata)
 {
   MAC_L3A1R_RgWr(filter_no, (addr[3] | (addr[2] << 8) | (addr[1] << 16) | (addr[0] << 24)));
 
@@ -724,7 +725,8 @@ static INT update_ip4_addr1(INT filter_no,
 */
 
 static INT update_ip4_addr0(INT filter_no,
-                            UCHAR addr[])
+                            UCHAR addr[],
+							struct DWC_ETH_QOS_prv_data *pdata)
 {
   MAC_L3A0R_RgWr(filter_no, (addr[3] | (addr[2] << 8) | (addr[1] << 16) | (addr[0] << 24)));
 
@@ -750,7 +752,8 @@ static INT config_l3_filters(INT filter_no,
 		                         INT enb_dis,
                              INT ipv4_ipv6_match,
                              INT src_dst_addr_match,
-                             INT perfect_inverse_match)
+                             INT perfect_inverse_match,
+							 struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_L3L4CR_L3PEN0_UdfWr(filter_no, ipv4_ipv6_match);
 
@@ -830,7 +833,8 @@ static INT config_mac_pkt_filter_reg(UCHAR pr_mode,
                                      UCHAR huc_mode,
                                      UCHAR hmc_mode,
                                      UCHAR pm_mode,
-                                     UCHAR hpf_mode)
+                                     UCHAR hpf_mode,
+									 struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG varMAC_MPFR;
 
@@ -859,7 +863,7 @@ static INT config_mac_pkt_filter_reg(UCHAR pr_mode,
 * \retval -1 Failure
 */
 
-static INT config_l3_l4_filter_enable(INT filter_enb_dis)
+static INT config_l3_l4_filter_enable(INT filter_enb_dis, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_MPFR_IPFE_UdfWr(filter_enb_dis);
@@ -878,7 +882,7 @@ static INT config_l3_l4_filter_enable(INT filter_enb_dis)
 * \retval -1 Failure
 */
 
-static INT config_l2_da_perfect_inverse_match(INT perfect_inverse_match)
+static INT config_l2_da_perfect_inverse_match(INT perfect_inverse_match, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_MPFR_DAIF_UdfWr(perfect_inverse_match);
@@ -904,7 +908,8 @@ static INT config_l2_da_perfect_inverse_match(INT perfect_inverse_match)
 */
 
 static INT update_mac_addr3_31_low_high_reg(INT idx,
-                                            UCHAR addr[])
+                                            UCHAR addr[],
+											struct DWC_ETH_QOS_prv_data *pdata)
 {
   if(idx < 3)
 	return Y_FAILURE;
@@ -930,7 +935,8 @@ static INT update_mac_addr3_31_low_high_reg(INT idx,
 */
 
 static INT update_hash_table_reg(INT idx,
-                                 UINT data)
+                                 UINT data,
+								 struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_HTR_RgWr(idx, data);
@@ -950,7 +956,7 @@ static INT update_hash_table_reg(INT idx,
 * \retval -1 Failure
 */
 
-static INT drop_tx_status_enabled(void)
+static INT drop_tx_status_enabled(struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG varMTL_OMR;
 
@@ -970,7 +976,7 @@ static INT drop_tx_status_enabled(void)
 * \retval -1 Failure
 */
 
-static INT config_sub_second_increment(ULONG ptp_clock)
+static INT config_sub_second_increment(ULONG ptp_clock, struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG val;
   ULONG varMAC_TCR;
@@ -1005,35 +1011,34 @@ static INT config_sub_second_increment(ULONG ptp_clock)
 * \retval ns
 */
 
-static ULONG_LONG get_systime(void)
+static ULONG_LONG get_systime(struct DWC_ETH_QOS_prv_data *pdata)
 {
-  ULONG ns1, ns2;
+  ULONG ns;
   ULONG varmac_stnsr;
-  ULONG varmac_stsr;
+  ULONG varmac_stsr1, varmac_stsr2;
 
-  /* Read the nanoseconds once */
-  MAC_STNSR_RgRd(varmac_stnsr);
-  ns1 = GET_VALUE(varmac_stnsr, MAC_STNSR_TSSS_LPOS, MAC_STNSR_TSSS_HPOS);
+  /* Read the seconds once */
+  MAC_STSR_RgRd(varmac_stsr1);
 
   while (1) {
-    /* Read the seconds */
-    MAC_STSR_RgRd(varmac_stsr);
-
-    /* Read the nanoseconds again */
+    /* Read the nanoseconds */
     MAC_STNSR_RgRd(varmac_stnsr);
-    ns2 = GET_VALUE(varmac_stnsr, MAC_STNSR_TSSS_LPOS, MAC_STNSR_TSSS_HPOS);
+    ns = GET_VALUE(varmac_stnsr, MAC_STNSR_TSSS_LPOS, MAC_STNSR_TSSS_HPOS);
 
-    /* If the nanoseconds didn't roll over, break and return the time */
-    if (ns2 > ns1) {
+    /* Read the seconds again */
+    MAC_STSR_RgRd(varmac_stsr2);
+
+    /* If the seconds didn't roll over, break and return the time */
+    if (varmac_stsr1 == varmac_stsr2) {
       break;
     }
 
-    /* If the nanoseconds did roll over, read the time again */
-    ns1 = ns2;
+    /* If the seconds did roll over, read the time again */
+    varmac_stsr1 = varmac_stsr2;
   }
 
   /* convert sec/high time value to nanosecond */
-  return ((ULONG_LONG) ns2) + (varmac_stsr * 1000000000ull);
+  return ((ULONG_LONG) ns) + (varmac_stsr1 * 1000000000ull);
 }
 
 
@@ -1053,7 +1058,8 @@ static ULONG_LONG get_systime(void)
 static INT adjust_systime(UINT sec,
 						UINT nsec,
 			  			INT add_sub,
-						bool one_nsec_accuracy)
+						bool one_nsec_accuracy,
+						struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG retryCount = 100000;
   ULONG vy_count;
@@ -1137,7 +1143,7 @@ static INT adjust_systime(UINT sec,
 * \retval -1 Failure
 */
 
-static INT config_addend(UINT data)
+static INT config_addend(UINT data, struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG retryCount = 100000;
   ULONG vy_count;
@@ -1195,7 +1201,8 @@ static INT config_addend(UINT data)
 */
 
 static INT init_systime(UINT sec,
-                        UINT nsec)
+                        UINT nsec,
+						struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG retryCount = 100000;
   ULONG vy_count;
@@ -1261,7 +1268,7 @@ static INT init_systime(UINT sec,
 * \retval -1 Failure
 */
 
-static INT config_hw_time_stamping(UINT config_val)
+static INT config_hw_time_stamping(UINT config_val, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MAC_TCR_RgWr(config_val);
@@ -1376,7 +1383,7 @@ static UINT rx_tstamp_available(t_RX_NORMAL_DESC *rxdesc)
 * \retval ns
 */
 
-static ULONG_LONG get_tx_tstamp_via_reg(void)
+static ULONG_LONG get_tx_tstamp_via_reg(struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG_LONG ns;
   ULONG varmac_ttn;
@@ -1402,7 +1409,7 @@ static ULONG_LONG get_tx_tstamp_via_reg(void)
 * \retval -1 Failure
 */
 
-static UINT get_tx_tstamp_status_via_reg(void)
+static UINT get_tx_tstamp_status_via_reg(struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG varMAC_TCR;
   ULONG varMAC_TTSN;
@@ -1485,7 +1492,8 @@ static UINT get_tx_tstamp_status(t_TX_NORMAL_DESC *txdesc)
 */
 
 static INT set_tx_queue_operating_mode(UINT chInx,
-                                       UINT q_mode)
+                                       UINT q_mode,
+									   struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MTL_QTOMR_TXQEN_UdfWr(chInx, q_mode);
@@ -1504,7 +1512,7 @@ static INT set_tx_queue_operating_mode(UINT chInx,
 * \retval -1 Failure
 */
 
-static INT set_avb_algorithm(UINT chInx, UCHAR avb_algo)
+static INT set_avb_algorithm(UINT chInx, UCHAR avb_algo, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MTL_QECR_AVALG_UdfWr(chInx, avb_algo);
@@ -1520,7 +1528,7 @@ static INT set_avb_algorithm(UINT chInx, UCHAR avb_algo)
 * \retval -1 Failure
 */
 
-static INT config_credit_control(UINT chInx, UINT cc)
+static INT config_credit_control(UINT chInx, UINT cc, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MTL_QECR_CC_UdfWr(chInx, cc);
@@ -1541,7 +1549,8 @@ static INT config_credit_control(UINT chInx, UINT cc)
 */
 
 static INT config_send_slope(UINT chInx,
-                          UINT sendSlope)
+                          UINT sendSlope,
+						  struct DWC_ETH_QOS_prv_data *pdata)
 {
   NDBGPR_L1("send slop  %08x\n",sendSlope);
   MTL_QSSCR_SSC_UdfWr(chInx, sendSlope);
@@ -1563,7 +1572,8 @@ static INT config_send_slope(UINT chInx,
 */
 
 static INT config_idle_slope(UINT chInx,
-                          UINT idleSlope)
+                          UINT idleSlope,
+						  struct DWC_ETH_QOS_prv_data *pdata)
 {
   NDBGPR_L1("Idle slop  %08x\n",idleSlope);
   MTL_QW_ISCQW_UdfWr(chInx, idleSlope);
@@ -1585,7 +1595,8 @@ static INT config_idle_slope(UINT chInx,
 */
 
 static INT config_low_credit(UINT chInx,
-			UINT lowCredit)
+							UINT lowCredit,
+							struct DWC_ETH_QOS_prv_data *pdata)
 {
 	INT lowCredit_neg = lowCredit;
 	NDBGPR_L1( "lowCreidt = %08x lowCredit_neg:%08x\n",
@@ -1660,7 +1671,8 @@ static INT config_advance_slot_num_check(UINT chInx, UCHAR adv_slot_check)
 */
 
 static INT config_high_credit(UINT chInx,
-                           UINT hiCredit)
+							 UINT hiCredit,
+							 struct DWC_ETH_QOS_prv_data *pdata)
 {
    NDBGPR_L1( "hiCreidt = %08x \n",hiCredit);
 
@@ -1679,7 +1691,8 @@ static INT config_high_credit(UINT chInx,
 */
 
 static INT set_dcb_queue_weight(UINT chInx,
-                                UINT q_weight)
+                                UINT q_weight,
+								struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MTL_QW_ISCQW_UdfWr(chInx, q_weight);
@@ -1698,7 +1711,7 @@ static INT set_dcb_queue_weight(UINT chInx,
 * \retval -1 Failure
 */
 
-static INT set_dcb_algorithm(UCHAR dcb_algo)
+static INT set_dcb_algorithm(UCHAR dcb_algo, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   MTL_OMR_SCHALG_UdfWr(dcb_algo);
@@ -1714,12 +1727,12 @@ static INT set_dcb_algorithm(UCHAR dcb_algo)
 * \retval -1 Failure
 */
 
-UCHAR get_tx_queue_count(void)
+UCHAR get_tx_queue_count(ULONG dwc_eth_ntn_reg_pci_base_addr)
 {
 	UCHAR count;
   ULONG varMAC_HFR2;
 
-  MAC_HFR2_RgRd(varMAC_HFR2);
+  MAC_HFR2_NOPRV_RgRd(varMAC_HFR2);
   count = GET_VALUE(varMAC_HFR2, MAC_HFR2_TXQCNT_LPOS, MAC_HFR2_TXQCNT_HPOS);
 
   return (count + 1);
@@ -1736,12 +1749,12 @@ UCHAR get_tx_queue_count(void)
 * \retval -1 Failure
 */
 
-UCHAR get_rx_queue_count(void)
+UCHAR get_rx_queue_count(ULONG dwc_eth_ntn_reg_pci_base_addr)
 {
 	UCHAR count;
   ULONG varMAC_HFR2;
 
-  MAC_HFR2_RgRd(varMAC_HFR2);
+  MAC_HFR2_NOPRV_RgRd(varMAC_HFR2);
   count = GET_VALUE(varMAC_HFR2, MAC_HFR2_RXQCNT_LPOS, MAC_HFR2_RXQCNT_HPOS);
 
   return (count + 1);
@@ -1757,7 +1770,7 @@ UCHAR get_rx_queue_count(void)
 * \retval -1 Failure
 */
 
-static INT disable_mmc_interrupts(void)
+static INT disable_mmc_interrupts(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   /* disable all TX interrupts */
@@ -1778,7 +1791,7 @@ static INT disable_mmc_interrupts(void)
 * \retval -1 Failure
 */
 
-static INT config_mmc_counters(void)
+static INT config_mmc_counters(struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG varMMC_CNTRL;
 
@@ -1806,7 +1819,7 @@ static INT config_mmc_counters(void)
 * \retval -1 Failure
 */
 
-static INT disable_rx_interrupt(UINT chInx)
+static INT disable_rx_interrupt(UINT chInx,struct DWC_ETH_QOS_prv_data *pdata)
 {
     /* INTC register */
     //NTN_INTC_INTMCUMASK1_RXCHINT_UdfWr(chInx, 0);
@@ -1829,7 +1842,7 @@ static INT disable_rx_interrupt(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT enable_rx_interrupt(UINT chInx)
+static INT enable_rx_interrupt(UINT chInx,struct DWC_ETH_QOS_prv_data *pdata)
 {
     /* INTC register */
 //    NTN_INTC_INTMCUMASK1_RXCHINT_UdfWr(chInx, 0x1);
@@ -1842,43 +1855,43 @@ static INT enable_rx_interrupt(UINT chInx)
 }
 
 
-static VOID configure_sa_via_reg(u32 cmd)
+static VOID configure_sa_via_reg(u32 cmd, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_MCR_SARC_UdfWr(cmd);
 }
 
-static VOID configure_mac_addr1_reg(UCHAR *mac_addr)
+static VOID configure_mac_addr1_reg(UCHAR *mac_addr, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_MA1HR_RgWr(((mac_addr[5] << 8) | (mac_addr[4])));
 	MAC_MA1LR_RgWr(((mac_addr[3] << 24) | (mac_addr[2] << 16) |
 			(mac_addr[1] << 8) | (mac_addr[0])));
 }
 
-static VOID configure_mac_addr0_reg(UCHAR *mac_addr)
+static VOID configure_mac_addr0_reg(UCHAR *mac_addr, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_MA0HR_RgWr(((mac_addr[5] << 8) | (mac_addr[4])));
 	MAC_MA0LR_RgWr(((mac_addr[3] << 24) | (mac_addr[2] << 16) |
 			(mac_addr[1] << 8) | (mac_addr[0])));
 }
 
-static VOID config_rx_outer_vlan_stripping(u32 cmd)
+static VOID config_rx_outer_vlan_stripping(u32 cmd, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_VLANTR_EVLS_UdfWr(cmd);
 }
 
-static VOID config_rx_inner_vlan_stripping(u32 cmd)
+static VOID config_rx_inner_vlan_stripping(u32 cmd, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_VLANTR_EIVLS_UdfWr(cmd);
 }
 
-static VOID config_ptpoffload_engine(UINT pto_cr, UINT mc_uc)
+static VOID config_ptpoffload_engine(UINT pto_cr, UINT mc_uc, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_PTO_CR_RgWr(pto_cr);
     MAC_TCR_TSENMACADDR_UdfWr(mc_uc);
 }
 
 
-static VOID configure_reg_vlan_control(struct DWC_ETH_QOS_tx_wrapper_descriptor *desc_data)
+static VOID configure_reg_vlan_control(struct DWC_ETH_QOS_tx_wrapper_descriptor *desc_data, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	USHORT vlan_id = desc_data->vlan_tag_id;
 	UINT vlan_control = desc_data->tx_vlan_tag_ctrl;
@@ -1897,7 +1910,7 @@ static VOID configure_desc_vlan_control(struct DWC_ETH_QOS_prv_data *pdata)
 * \retval -1 Failure
 */
 
-static INT configure_mac_for_vlan_pkt(void)
+static INT configure_mac_for_vlan_pkt(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	/* Enable VLAN Tag stripping (except for loopback testing)*/
 #ifdef NTN_DRV_TEST_LOOPBACK
@@ -1947,7 +1960,7 @@ static INT config_pblx8(UINT chInx, UINT val)
 * \retval programmed Tx PBL value
 */
 
-static INT get_tx_pbl_val(UINT chInx)
+static INT get_tx_pbl_val(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT tx_pbl;
 
@@ -1962,7 +1975,7 @@ static INT get_tx_pbl_val(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT config_tx_pbl_val(UINT chInx, UINT tx_pbl)
+static INT config_tx_pbl_val(UINT chInx, UINT tx_pbl, struct DWC_ETH_QOS_prv_data *pdata)
 {
   	DMA_TXCHCTL_TXPBL_UdfWr(chInx, tx_pbl);
 
@@ -1974,7 +1987,7 @@ static INT config_tx_pbl_val(UINT chInx, UINT tx_pbl)
 * \retval programmed Rx PBL value
 */
 
-static INT get_rx_pbl_val(UINT chInx)
+static INT get_rx_pbl_val(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT rx_pbl;
 
@@ -1989,7 +2002,7 @@ static INT get_rx_pbl_val(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT config_rx_pbl_val(UINT chInx, UINT rx_pbl)
+static INT config_rx_pbl_val(UINT chInx, UINT rx_pbl, struct DWC_ETH_QOS_prv_data *pdata)
 {
   	DMA_RXCHCTL_RXPBL_UdfWr(chInx, rx_pbl);
 
@@ -2003,7 +2016,7 @@ static INT config_rx_pbl_val(UINT chInx, UINT rx_pbl)
 * \retval -1 Failure
 */
 
-static INT config_axi_rorl_val(UINT axi_rorl)
+static INT config_axi_rorl_val(UINT axi_rorl, struct DWC_ETH_QOS_prv_data *pdata)
 {
         DMA_BUSCFG_RD_OSR_LMT_UdfWr(axi_rorl);
 
@@ -2017,7 +2030,7 @@ static INT config_axi_rorl_val(UINT axi_rorl)
 * \retval -1 Failure
 */
 
-static INT config_axi_worl_val(UINT axi_worl)
+static INT config_axi_worl_val(UINT axi_worl, struct DWC_ETH_QOS_prv_data *pdata)
 {
         DMA_BUSCFG_WR_OSR_LMT_UdfWr(axi_worl);
 
@@ -2031,7 +2044,7 @@ static INT config_axi_worl_val(UINT axi_worl)
 * \retval -1 Failure
 */
 
-static INT config_axi_pbl_val(UINT axi_pbl)
+static INT config_axi_pbl_val(UINT axi_pbl, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT varDMA_SBUS;
 
@@ -2050,7 +2063,7 @@ static INT config_axi_pbl_val(UINT axi_pbl)
 * \retval -1 Failure
 */
 
-static INT config_incr_incrx_mode(UINT val)
+static INT config_incr_incrx_mode(UINT val, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	DMA_BUSCFG_FB_UdfWr(val);
 
@@ -2063,7 +2076,7 @@ static INT config_incr_incrx_mode(UINT val)
 * \retval -1 Failure
 */
 
-static INT config_osf_mode(UINT chInx, UINT val)
+static INT config_osf_mode(UINT chInx, UINT val, struct DWC_ETH_QOS_prv_data *pdata)
 {
   	DMA_TXCHCTL_OSP_UdfWr(chInx, val);
 
@@ -2076,7 +2089,7 @@ static INT config_osf_mode(UINT chInx, UINT val)
 * \retval -1 Failure
 */
 
-static INT config_rsf_mode(UINT chInx, UINT val)
+static INT config_rsf_mode(UINT chInx, UINT val, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	//if (chInx == 0) {
 		//MTL_Q0ROMR_RSF_UdfWr(val);
@@ -2094,7 +2107,7 @@ static INT config_rsf_mode(UINT chInx, UINT val)
 * \retval -1 Failure
 */
 
-static INT config_tsf_mode(UINT chInx, UINT val)
+static INT config_tsf_mode(UINT chInx, UINT val, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MTL_QTOMR_TSF_UdfWr(chInx, val);
 
@@ -2107,7 +2120,7 @@ static INT config_tsf_mode(UINT chInx, UINT val)
 * \retval -1 Failure
 */
 
-static INT config_rx_threshold(UINT chInx, UINT val)
+static INT config_rx_threshold(UINT chInx, UINT val, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MTL_QROMR_RTC_UdfWr(chInx, val);
 
@@ -2120,7 +2133,7 @@ static INT config_rx_threshold(UINT chInx, UINT val)
 * \retval -1 Failure
 */
 
-static INT config_tx_threshold(UINT chInx, UINT val)
+static INT config_tx_threshold(UINT chInx, UINT val, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MTL_QTOMR_TTC_UdfWr(chInx, val);
 
@@ -2133,7 +2146,7 @@ static INT config_tx_threshold(UINT chInx, UINT val)
 * \retval -1 Failure
 */
 
-static INT config_rx_watchdog_timer(UINT chInx, u32 riwt)
+static INT config_rx_watchdog_timer(UINT chInx, u32 riwt, struct DWC_ETH_QOS_prv_data *pdata)
 {
         DMA_RXCH_CUR_WATCHDOG_TIMER_RWT_UdfWr(chInx, riwt);
 
@@ -2146,7 +2159,7 @@ static INT config_rx_watchdog_timer(UINT chInx, u32 riwt)
 * \retval -1 Failure
 */
 
-static INT enable_magic_pmt_operation(void)
+static INT enable_magic_pmt_operation(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_PMTCSR_MGKPKTEN_UdfWr(0x1);
 	MAC_PMTCSR_PWRDWN_UdfWr(0x1);
@@ -2160,7 +2173,7 @@ static INT enable_magic_pmt_operation(void)
 * \retval -1 Failure
 */
 
-static INT disable_magic_pmt_operation(void)
+static INT disable_magic_pmt_operation(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT varPMTCSR_PWRDWN;
 
@@ -2179,7 +2192,7 @@ static INT disable_magic_pmt_operation(void)
 * \retval -1 Failure
 */
 
-static INT enable_remote_pmt_operation(void)
+static INT enable_remote_pmt_operation(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	MAC_PMTCSR_RWKPKTEN_UdfWr(0x1);
 	MAC_PMTCSR_PWRDWN_UdfWr(0x1);
@@ -2193,7 +2206,7 @@ static INT enable_remote_pmt_operation(void)
 * \retval -1 Failure
 */
 
-static INT disable_remote_pmt_operation(void)
+static INT disable_remote_pmt_operation(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT varPMTCSR_PWRDWN;
 
@@ -2212,7 +2225,7 @@ static INT disable_remote_pmt_operation(void)
 * \retval -1 Failure
 */
 
-static INT configure_rwk_filter_registers(UINT *value, UINT count)
+static INT configure_rwk_filter_registers(UINT *value, UINT count, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT i;
 
@@ -2229,7 +2242,7 @@ static INT configure_rwk_filter_registers(UINT *value, UINT count)
 * \retval -1 Failure
 */
 
-static INT disable_tx_flow_ctrl(UINT qInx)
+static INT disable_tx_flow_ctrl(UINT qInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_QTFCR_TFE_UdfWr(qInx, 0);
@@ -2243,7 +2256,7 @@ static INT disable_tx_flow_ctrl(UINT qInx)
 * \retval -1 Failure
 */
 
-static INT enable_tx_flow_ctrl(UINT qInx)
+static INT enable_tx_flow_ctrl(UINT qInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_QTFCR_TFE_UdfWr(qInx, 1);
@@ -2257,7 +2270,7 @@ static INT enable_tx_flow_ctrl(UINT qInx)
 * \retval -1 Failure
 */
 
-static INT disable_rx_flow_ctrl(void)
+static INT disable_rx_flow_ctrl(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_RFCR_RFE_UdfWr(0);
@@ -2271,7 +2284,7 @@ static INT disable_rx_flow_ctrl(void)
 * \retval -1 Failure
 */
 
-static INT enable_rx_flow_ctrl(void)
+static INT enable_rx_flow_ctrl(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_RFCR_RFE_UdfWr(0x1);
@@ -2286,7 +2299,7 @@ static INT enable_rx_flow_ctrl(void)
 * \retval -1 Failure
 */
 
-static INT stop_dma_rx(UINT chInx)
+static INT stop_dma_rx(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG retryCount = 10;
   ULONG vy_count;
@@ -2330,7 +2343,7 @@ static INT stop_dma_rx(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT start_dma_rx(UINT chInx)
+static INT start_dma_rx(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
     DMA_RXCHCTL_ST_UdfWr(chInx, 0x1);
@@ -2345,7 +2358,7 @@ static INT start_dma_rx(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT stop_dma_tx(UINT chInx)
+static INT stop_dma_tx(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
   ULONG retryCount = 10;
   ULONG vy_count;
@@ -2387,7 +2400,7 @@ static INT stop_dma_tx(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT start_dma_tx(UINT chInx)
+static INT start_dma_tx(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 
   DMA_TXCHCTL_ST_UdfWr(chInx, 0x1);
@@ -2401,7 +2414,7 @@ static INT start_dma_tx(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT stop_mac_tx_rx(void)
+static INT stop_mac_tx_rx(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	ULONG varMAC_MCR;
 
@@ -2419,7 +2432,7 @@ static INT stop_mac_tx_rx(void)
 * \retval -1 Failure
 */
 
-static INT start_mac_tx_rx(void)
+static INT start_mac_tx_rx(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	ULONG varMAC_MCR;
 
@@ -2438,7 +2451,7 @@ static INT start_mac_tx_rx(void)
 * \retval -1 Failure
 */
 
-static INT enable_dma_tx_interrupts(UINT chInx)
+static INT enable_dma_tx_interrupts(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	ULONG varDMA_TXCHSTS;
 	ULONG varDMA_TXCHINTMASK;
@@ -2474,7 +2487,7 @@ static INT enable_dma_tx_interrupts(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT enable_dma_rx_interrupts(UINT chInx)
+static INT enable_dma_rx_interrupts(UINT chInx, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	ULONG varDMA_RXCHSTS;
 	ULONG varDMA_RXCHINTMASK;
@@ -2504,7 +2517,7 @@ static INT enable_dma_rx_interrupts(UINT chInx)
 * \retval -1 Failure
 */
 
-static INT set_gmii_speed(void)
+static INT set_gmii_speed(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MCR_PS_UdfWr(0);
@@ -2521,7 +2534,7 @@ static INT set_gmii_speed(void)
 * \retval -1 Failure
 */
 
-static INT set_mii_speed_10(void)
+static INT set_mii_speed_10(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MCR_PS_UdfWr(0x1);
@@ -2538,7 +2551,7 @@ static INT set_mii_speed_10(void)
 * \retval -1 Failure
 */
 
-static INT set_mii_speed_100(void)
+static INT set_mii_speed_100(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MCR_PS_UdfWr(0x1);
@@ -2555,7 +2568,7 @@ static INT set_mii_speed_100(void)
 * \retval -1 Failure
 */
 
-static INT set_half_duplex(void)
+static INT set_half_duplex(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MCR_DM_UdfWr(0);
@@ -2571,7 +2584,7 @@ static INT set_half_duplex(void)
 * \retval -1 Failure
 */
 
-static INT set_full_duplex(void)
+static INT set_full_duplex(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MCR_DM_UdfWr(0x1);
@@ -2587,7 +2600,7 @@ static INT set_full_duplex(void)
 * \retval -1 Failure
 */
 
-static INT set_multicast_list_mode(void)
+static INT set_multicast_list_mode(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MPFR_HMC_UdfWr(0);
@@ -2602,7 +2615,7 @@ static INT set_multicast_list_mode(void)
 * \retval -1 Failure
 */
 
-static INT set_unicast_mode(void)
+static INT set_unicast_mode(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MPFR_HUC_UdfWr(0);
@@ -2617,7 +2630,7 @@ static INT set_unicast_mode(void)
 * \retval -1 Failure
 */
 
-static INT set_all_multicast_mode(void)
+static INT set_all_multicast_mode(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	MAC_MPFR_PM_UdfWr(0x1);
@@ -2632,7 +2645,7 @@ static INT set_all_multicast_mode(void)
 * \retval -1 Failure
 */
 
-static INT set_promiscuous_mode(void)
+static INT set_promiscuous_mode(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	//MAC_MPFR_PR_UdfWr(0x1);
@@ -2651,7 +2664,7 @@ static INT set_promiscuous_mode(void)
 * \retval -1 Failure
 */
 
-static INT write_phy_regs(INT phy_id, INT phy_reg, INT phy_reg_data)
+static INT write_phy_regs(INT phy_id, INT phy_reg, INT phy_reg_data, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	ULONG retryCount = 1000;
 	ULONG vy_count;
@@ -2720,7 +2733,7 @@ static INT write_phy_regs(INT phy_id, INT phy_reg, INT phy_reg_data)
 * \retval -1 Failure
 */
 
-static INT read_phy_regs(INT phy_id, INT phy_reg, INT *phy_reg_data)
+static INT read_phy_regs(INT phy_id, INT phy_reg, INT *phy_reg_data, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	ULONG retryCount = 1000;
 	ULONG vy_count;
@@ -2878,7 +2891,7 @@ static INT tx_complete(t_TX_NORMAL_DESC *txdesc)
 * \retval -1 Failure
 */
 
-static INT get_rx_csum_status(void)
+static INT get_rx_csum_status(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	ULONG varMAC_MCR;
 
@@ -2897,7 +2910,7 @@ static INT get_rx_csum_status(void)
 * \retval -1 Failure
 */
 
-static INT disable_rx_csum(void)
+static INT disable_rx_csum(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	/* enable rx checksum */
@@ -2913,7 +2926,7 @@ static INT disable_rx_csum(void)
 * \retval -1 Failure
 */
 
-static INT enable_rx_csum(void)
+static INT enable_rx_csum(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 	/* enable rx checksum */
@@ -3016,7 +3029,7 @@ static void rx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata, UINT chInx)
 
 	/* initialize all desc */
 
-	for (i = 0; i < RX_DESC_CNT; i++) {
+	for (i = 0; i < pdata->rx_dma_ch[chInx].desc_cnt; i++) {
 		memset(RX_NORMAL_DESC, 0, sizeof(struct s_RX_NORMAL_DESC));
 		/* update buffer 1 address pointer */
 		dma_adrs = buffer->dma;
@@ -3061,7 +3074,7 @@ static void rx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata, UINT chInx)
 			}
 		}
 
-		INCR_RX_DESC_INDEX(rx_desc_data->cur_rx, 1);
+		INCR_RX_DESC_INDEX(rx_desc_data->cur_rx, 1, pdata->rx_dma_ch[chInx].desc_cnt);
 		RX_NORMAL_DESC =
 			GET_RX_DESC_PTR(chInx, rx_desc_data->cur_rx);
 		buffer = GET_RX_BUF_PTR(chInx, rx_desc_data->cur_rx);
@@ -3069,14 +3082,14 @@ static void rx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata, UINT chInx)
 
 	/* Reset the OWN bit of last descriptor */
 	if (pdata->ipa_enabled && chInx == NTN_RX_DMA_CH_0) {
-		RX_NORMAL_DESC = GET_RX_DESC_PTR(chInx, RX_DESC_CNT - 1);
+		RX_NORMAL_DESC = GET_RX_DESC_PTR(chInx, pdata->rx_dma_ch[chInx].desc_cnt - 1);
 		RX_CONTEXT_DESC_RDES3_OWN_Mlf_Wr(RX_NORMAL_DESC->RDES3, 0);
 	}
 
 	/* update the total no of Rx descriptors count */
-	DMA_RXCH_DESC_RING_LENGTH_RgWr(chInx, (RX_DESC_CNT - 1));
+	DMA_RXCH_DESC_RING_LENGTH_RgWr(chInx, (pdata->rx_dma_ch[chInx].desc_cnt - 1));
 	/* update the Rx Descriptor Tail Pointer */
-	last_index = GET_CURRENT_RCVD_LAST_DESC_INDEX(start_index, 0);
+	last_index = GET_RX_CURRENT_RCVD_LAST_DESC_INDEX(start_index, 0, pdata->rx_dma_ch[chInx].desc_cnt);
 	DMA_RXCH_DESC_TAILPTR_RgWr(chInx, GET_RX_DESC_DMA_ADDR(chInx, last_index));
 	/* update the starting address of desc chain/ring */
 	desc_dma_adrs = GET_RX_DESC_DMA_ADDR(chInx, start_index);
@@ -3108,7 +3121,7 @@ static void tx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata,
 
 	/* initialze all descriptors. */
 
-	for (i = 0; i < TX_DESC_CNT; i++) {
+	for (i = 0; i < pdata->tx_dma_ch[chInx].desc_cnt; i++) {
 		/* update buffer 1 address pointer to zero */
 		TX_NORMAL_DESC_TDES0_Ml_Wr(TX_NORMAL_DESC->TDES0, 0);
 		/* update buffer 2 address pointer to zero */
@@ -3118,12 +3131,12 @@ static void tx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata,
 		/* set all other control bits (OWN, CTXT, FD, LD, CPC, CIC etc) to zero */
 		TX_NORMAL_DESC_TDES3_Ml_Wr(TX_NORMAL_DESC->TDES3, 0);
 
-		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1);
+		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1, pdata->tx_dma_ch[chInx].desc_cnt);
 		TX_NORMAL_DESC = GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
 	}
 
 	/* update the total no of Tx descriptors count */
-	DMA_TXCH_DESC_RING_LENGTH_RgWr(chInx, (TX_DESC_CNT - 1));
+	DMA_TXCH_DESC_RING_LENGTH_RgWr(chInx, (pdata->tx_dma_ch[chInx].desc_cnt - 1));
 	/* update the starting address of desc chain/ring */
 	desc_dma_adrs = GET_TX_DESC_DMA_ADDR(chInx, start_index);
 #ifdef NTN_DESC_BUF_IN_HOST_MEM
@@ -3145,7 +3158,7 @@ static void tx_descriptor_init(struct DWC_ETH_QOS_prv_data *pdata,
 */
 
 static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
-				UINT chInx)
+				UINT chInx, UINT ethertype)
 {
 	struct DWC_ETH_QOS_tx_wrapper_descriptor *tx_desc_data =
 	    GET_TX_WRAPPER_DESC(chInx);
@@ -3154,7 +3167,7 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 	struct s_TX_NORMAL_DESC *TX_NORMAL_DESC =
 	    GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
 	struct s_TX_CONTEXT_DESC *TX_CONTEXT_DESC =
-	    GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
+	    (struct s_TX_CONTEXT_DESC *)GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
 	UINT varcsum_enable;
 	UINT varvlan_pkt;
 	UINT varvt = 0;
@@ -3205,7 +3218,7 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 		DBGPR_VLAN("%s:VLAN: TXDESC3_VT=%x VLTV,CTXT,OWN=1\n",__func__,varvt);
 
 		original_start_index = tx_desc_data->cur_tx;
-		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1);
+		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1, pdata->tx_dma_ch[chInx].desc_cnt);
 		start_index = tx_desc_data->cur_tx;
 		TX_NORMAL_DESC =
 			GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
@@ -3236,7 +3249,7 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 		TX_CONTEXT_DESC_TDES3_OWN_Mlf_Wr(TX_CONTEXT_DESC->TDES3, 0x1);
 
 		original_start_index = tx_desc_data->cur_tx;
-		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1);
+		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1, pdata->tx_dma_ch[chInx].desc_cnt);
 		start_index = tx_desc_data->cur_tx;
 		TX_NORMAL_DESC = GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
 		buffer = GET_TX_BUF_PTR(chInx, tx_desc_data->cur_tx);
@@ -3258,7 +3271,7 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 		tx_desc_data->default_mss = tx_pkt_features->mss;
 
 		original_start_index = tx_desc_data->cur_tx;
-		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1);
+		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1, pdata->tx_dma_ch[chInx].desc_cnt);
 		start_index = tx_desc_data->cur_tx;
 		TX_NORMAL_DESC = GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
 		buffer = GET_TX_BUF_PTR(chInx, tx_desc_data->cur_tx);
@@ -3282,7 +3295,7 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 	} else {
 		/* update total length of packet */
 		GET_TX_TOT_LEN(GET_TX_BUF_PTR(chInx, 0), tx_desc_data->cur_tx,
-				GET_CURRENT_XFER_DESC_CNT(chInx), total_len);
+				GET_CURRENT_XFER_DESC_CNT(chInx), total_len, pdata->tx_dma_ch[chInx].desc_cnt);
 		TX_NORMAL_DESC_TDES3_FL_Mlf_Wr(TX_NORMAL_DESC->TDES3, total_len);
 	}
 
@@ -3340,7 +3353,7 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 		TX_NORMAL_DESC_TDES2_TTSE_Mlf_Wr(TX_NORMAL_DESC->TDES2, 0x1);
 	}
 
-	INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1);
+	INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1, pdata->tx_dma_ch[chInx].desc_cnt);
 	TX_NORMAL_DESC = GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
 	buffer = GET_TX_BUF_PTR(chInx, tx_desc_data->cur_tx);
 
@@ -3359,13 +3372,13 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 		/* Mark it as NORMAL descriptor */
 		TX_NORMAL_DESC_TDES3_CTXT_Mlf_Wr(TX_NORMAL_DESC->TDES3, 0);
 
-		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1);
+		INCR_TX_DESC_INDEX(tx_desc_data->cur_tx, 1, pdata->tx_dma_ch[chInx].desc_cnt);
 		TX_NORMAL_DESC = GET_TX_DESC_PTR(chInx, tx_desc_data->cur_tx);
 		buffer = GET_TX_BUF_PTR(chInx, tx_desc_data->cur_tx);
 	}
 	/* Mark it as LAST descriptor */
 	last_index =
-		GET_CURRENT_XFER_LAST_DESC_INDEX(chInx, start_index, 0);
+		GET_TX_CURRENT_XFER_LAST_DESC_INDEX(chInx, start_index, 0, pdata->tx_dma_ch[chInx].desc_cnt);
 	TX_NORMAL_DESC = GET_TX_DESC_PTR(chInx, last_index);
 	TX_NORMAL_DESC_TDES3_LD_Mlf_Wr(TX_NORMAL_DESC->TDES3, 0x1);
 	/* set Interrupt on Completion for last descriptor */
@@ -3375,8 +3388,21 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 		TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, 0x1);
 		//TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2,(chInx==3?(!(tx_desc_data->cur_tx%4)):1));
 #else
-	//TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2,(chInx==3?(!(tx_desc_data->cur_tx%4)):1));
-	TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, 0x1);
+	/* Set the interrupt on complete bit. For normal IP traffic
+	 * (channel 0) and AVTP traffic (channels 3 and 4), trigger an interrupt on
+	 * every 8th transmit to improve performance. For GPTP traffic, trigger
+	 * an interrupt on complete for every packet (in order to get the TX time). */
+	if (chInx == NTN_TX_DMA_CH_0) {
+		if (ethertype == NTN_GPTP_ETH_TYPE) {
+			TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, 0x1);
+		} else {
+			TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, (!(tx_desc_data->cur_tx % 8)));
+		}
+	} else if (chInx == NTN_TX_DMA_CH_3 || chInx == NTN_TX_DMA_CH_4) {
+		TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, (!(tx_desc_data->cur_tx % 8)));
+	} else {
+		TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, 0x1);
+	}
 #endif
 
 	/* Set the launch time for the TX packet, before setting the OWN bit */
@@ -3418,13 +3444,13 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 		pdata->mac_enable_count -= pdata->drop_tx_pktburstcnt;
 		/* issue a poll command to Tx DMA by writing address
 		 * of next immediate free descriptor */
-		last_index = GET_CURRENT_XFER_LAST_DESC_INDEX(chInx, start_index, 1);
+		last_index = GET_TX_CURRENT_XFER_LAST_DESC_INDEX(chInx, start_index, 1, pdata->tx_dma_ch[chInx].desc_cnt);
 		DMA_TXCH_DESC_TAILPTR_RgWr(chInx, GET_TX_DESC_DMA_ADDR(chInx, last_index));
 	}
 #else
 	/* issue a poll command to Tx DMA by writing address
 	 * of next immediate free descriptor */
-	last_index = GET_CURRENT_XFER_LAST_DESC_INDEX(chInx, start_index, 1);
+	last_index = GET_TX_CURRENT_XFER_LAST_DESC_INDEX(chInx, start_index, 1, pdata->tx_dma_ch[chInx].desc_cnt);
     DMA_TXCH_DESC_TAILPTR_RgWr(chInx, GET_TX_DESC_DMA_ADDR(chInx, last_index));
 
 #endif
@@ -3542,7 +3568,7 @@ static void device_read(struct DWC_ETH_QOS_prv_data *pdata, UINT chInx)
 	DBGPR("<--device_read: cur_rx = %d\n", rx_desc_data->cur_rx);
 }
 
-static void update_rx_tail_ptr(unsigned int chInx, unsigned int dma_addr)
+static void update_rx_tail_ptr(unsigned int chInx, unsigned int dma_addr, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	NDBGPR_TS2("Updating RX Tail PTR\n");
 	DMA_RXCH_DESC_TAILPTR_RgWr(chInx, dma_addr);
@@ -3601,8 +3627,8 @@ static INT get_tx_descriptor_last(t_TX_NORMAL_DESC *txdesc)
 * \return Returns successful execution of the routine
 * \retval Y_SUCCESS Function executed successfully
 */
-static INT ntn_mac_reset_config(UINT assert_deassert);
-static INT DWC_ETH_QOS_yexit(void)
+static INT ntn_mac_reset_config(UINT assert_deassert, struct DWC_ETH_QOS_prv_data *pdata);
+static INT DWC_ETH_QOS_yexit(struct DWC_ETH_QOS_prv_data *pdata)
 {
 
 #if 0 //Commented Synopsys Implementation
@@ -3641,12 +3667,12 @@ static INT DWC_ETH_QOS_yexit(void)
 	DBGPR("-->DWC_ETH_QOS_yexit\n");
 
 	/* assert software reset */
-    ret |= ntn_mac_reset_config(0x1);
+    ret |= ntn_mac_reset_config(0x1, pdata);
     /* DELAY IMPLEMENTATION USING udelay() */
 	udelay(10);
 
 	/* deassert software reset */
-    ret |= ntn_mac_reset_config(0x0);
+    ret |= ntn_mac_reset_config(0x0, pdata);
     /* DELAY IMPLEMENTATION USING udelay() */
 	udelay(10);
 
@@ -3744,7 +3770,7 @@ static INT configure_dma_tx_channel(UINT chInx,
 
 	DMA_TXCHCTL_OSP_UdfWr(chInx, 0x1);
 
-	enable_dma_tx_interrupts(chInx);
+	enable_dma_tx_interrupts(chInx, pdata);
 
 	DMA_TXCHCTL_TXPBL_UdfWr(chInx, 32);
 
@@ -3805,7 +3831,7 @@ static INT configure_dma_rx_channel(UINT chInx,
 	NDBGPR_L1( "%s Rx watchdog timer\n",
 		(rx_desc_data->use_riwt ? "Enabled" : "Disabled"));
 
-	enable_dma_rx_interrupts(chInx);
+	enable_dma_rx_interrupts(chInx, pdata);
 
 	/* set RX PBL = 128 bytes */
   	DMA_RXCHCTL_RXPBL_UdfWr(chInx, 16);
@@ -3828,7 +3854,7 @@ static INT configure_dma_rx_channel(UINT chInx,
 * \retval -1 Failure
 */
 
-static int enable_mac_interrupts(void)
+static int enable_mac_interrupts(struct DWC_ETH_QOS_prv_data *pdata)
 {
   unsigned long varmac_imr;
   unsigned long reg_val;
@@ -3849,6 +3875,10 @@ static int enable_mac_interrupts(void)
   reg_val = reg_val & 0xC0000000;	//Preserve int mask for qSPI and GDMA
   reg_val = reg_val | NTN_INTC_GMAC_INT_MASK;
   NTN_INTC_INTMCUMASK1_RgWr(reg_val);
+
+  /* Mask PCIe controller interrupt */
+  reg_val = (0xF << 9);
+  NTN_INTC_INTMCUMASK2_RgWr(reg_val);
 
   return Y_SUCCESS;
 }
@@ -3879,10 +3909,10 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
 		MAC_TQPM0R_PSTQ0_UdfWr(qInx);
 
 		if ((pdata->flow_ctrl & DWC_ETH_QOS_FLOW_CTRL_TX) == DWC_ETH_QOS_FLOW_CTRL_TX) {
-			enable_tx_flow_ctrl(qInx);
+			enable_tx_flow_ctrl(qInx, pdata);
 			NMSGPR_INFO("TX flow control for Queue(%d): ENABLED \n",qInx);
 		} else {
-			disable_tx_flow_ctrl(qInx);
+			disable_tx_flow_ctrl(qInx, pdata);
 			NMSGPR_INFO("TX flow control for Queue(%d): DISABLED \n",qInx);
 		}
 	}
@@ -3934,10 +3964,10 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
 
 	/* Set Rx flow control parameters */
 	if ((pdata->flow_ctrl & DWC_ETH_QOS_FLOW_CTRL_RX) == DWC_ETH_QOS_FLOW_CTRL_RX) {
-		enable_rx_flow_ctrl();
+		enable_rx_flow_ctrl(pdata);
 		NMSGPR_INFO("RX flow control ENABLED \n");
 	} else {
-		disable_rx_flow_ctrl();
+		disable_rx_flow_ctrl(pdata);
 		NMSGPR_INFO("RX flow control DISABLED \n");
 	}
 
@@ -3962,7 +3992,7 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
 		//regval = ioread32((void*)(dwc_eth_ntn_reg_pci_base_addr + 0x3004));
 		regval = 0x02FF0000;
 		//regval = (regval & 0x00FF0000) | 0x02000000;
-		iowrite32(regval, (void*)(dwc_eth_ntn_reg_pci_base_addr + 0x3004));
+		iowrite32(regval, (void*)(pdata->dev->base_addr + 0x3004));
 	}
 
 	/*Enable MAC Transmit process */
@@ -3982,21 +4012,21 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
 		MAC_MCR_IPC_UdfWr(0x1);
 
 #ifdef DWC_ETH_QOS_ENABLE_VLAN_TAG
-	configure_mac_for_vlan_pkt();
+	configure_mac_for_vlan_pkt(pdata);
 	if (pdata->hw_feat.vlan_hash_en)
-			config_vlan_filtering(1, 1, 0);
+			config_vlan_filtering(1, 1, 0, pdata);
 #endif
 
 	if (pdata->hw_feat.mmc_sel) {
 		/* disable all MMC intterrupt as MMC are managed in SW and
 		 * registers are cleared on each READ eventually
 		 * */
-		disable_mmc_interrupts();
-		config_mmc_counters();
+		disable_mmc_interrupts(pdata);
+		config_mmc_counters(pdata);
 	}
 
 #ifndef NTN_POLLING_METHOD
-	enable_mac_interrupts();
+	enable_mac_interrupts(pdata);
 #endif
 
 	//MAC_VLANTR_RgWr(0x1010025);
@@ -4022,7 +4052,7 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
 * \retval -1 Failure
 */
 
-static INT ntn_mac_clock_config(UINT ena_dis)
+static INT ntn_mac_clock_config(UINT ena_dis, struct DWC_ETH_QOS_prv_data *pdata)
 {
     UINT rd_val;
 
@@ -4060,7 +4090,7 @@ static INT ntn_mac_clock_config(UINT ena_dis)
 * \retval -1 Failure
 */
 
-static INT ntn_wrap_ts_ignore_config(UINT ena_dis)
+static INT ntn_wrap_ts_ignore_config(UINT ena_dis, struct DWC_ETH_QOS_prv_data *pdata)
 {
     UINT rd_val;
 
@@ -4085,7 +4115,7 @@ static INT ntn_wrap_ts_ignore_config(UINT ena_dis)
 * \retval -1 Failure
 */
 
-static INT ntn_wrap_ts_valid_window_config(UINT ts_window)
+static INT ntn_wrap_ts_valid_window_config(UINT ts_window, struct DWC_ETH_QOS_prv_data *pdata)
 {
     UINT rd_val;
 
@@ -4113,7 +4143,7 @@ static INT ntn_wrap_ts_valid_window_config(UINT ts_window)
  * \return
  * \retval  0 Success
  */
-void ntn_config_tamap(UINT tmap_no, ULONG_LONG adrs, ULONG_LONG replacement_adrs, UINT no_of_bits)
+void ntn_config_tamap(UINT tmap_no, ULONG_LONG adrs, ULONG_LONG replacement_adrs, UINT no_of_bits, struct DWC_ETH_QOS_prv_data *pdata)
 {
 	unsigned int varOFFSET_ADR_UP = adrs>>32;
 	unsigned int varOFFSET_ADR_DW = adrs&0xFFFFF000;
@@ -4153,7 +4183,7 @@ void ntn_config_tamap(UINT tmap_no, ULONG_LONG adrs, ULONG_LONG replacement_adrs
 * \retval -1 Failure
 */
 
-static INT ntn_mac_reset_config(UINT assert_deassert)
+static INT ntn_mac_reset_config(UINT assert_deassert, struct DWC_ETH_QOS_prv_data *pdata)
 {
     UINT rd_val;
 
@@ -4175,14 +4205,26 @@ static INT ntn_mac_reset_config(UINT assert_deassert)
  * \param[in] bar number
  * \return register value
  */
-static UINT ntn_reg_rd(UINT reg_offset, INT bar_num)
+static UINT ntn_reg_rd(UINT reg_offset, INT bar_num, struct DWC_ETH_QOS_prv_data *pdata)
 {
     if(2 == bar_num)
-	    return ioread32( (void*)(dwc_eth_ntn_SRAM_pci_base_addr_virt + reg_offset));
+	    return ioread32( (void*)(pdata->dwc_eth_ntn_SRAM_pci_base_addr_virt + reg_offset));
     else if(4 == bar_num)
-	    return ioread32( (void*)(dwc_eth_ntn_FLASH_pci_base_addr + reg_offset));
+	    return ioread32( (void*)(pdata->dwc_eth_ntn_FLASH_pci_base_addr + reg_offset));
     else //(0 == bar_num)
-        return ioread32( (void*)(dwc_eth_ntn_reg_pci_base_addr + reg_offset));
+        return ioread32( (void*)(pdata->dev->base_addr + reg_offset));
+}
+
+/*!
+* \brief API to read FW version and features
+* \param[in]
+* \return register value
+*/
+static UINT read_fw_ver_features(struct DWC_ETH_QOS_prv_data *pdata)
+{
+       return ntn_reg_rd(
+                       (NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
+                       PCIE_SRAM_BAR_NUM, pdata);
 }
 
 /*!
@@ -4190,14 +4232,14 @@ static UINT ntn_reg_rd(UINT reg_offset, INT bar_num)
  * \param[in] address offset as per Neutrino data-sheet
  * \return register
  */
-static void ntn_reg_wr(UINT reg_offset, UINT reg_val, INT bar_num)
+static void ntn_reg_wr(UINT reg_offset, UINT reg_val, INT bar_num, struct DWC_ETH_QOS_prv_data *pdata)
 {
     if(0 == bar_num)
-        iowrite32(reg_val, (void*)(dwc_eth_ntn_reg_pci_base_addr + reg_offset));
+        iowrite32(reg_val, (void*)(pdata->dev->base_addr + reg_offset));
     if(2 == bar_num)
-            iowrite32(reg_val, (void*)(dwc_eth_ntn_SRAM_pci_base_addr_virt + reg_offset));
+            iowrite32(reg_val, (void*)(pdata->dwc_eth_ntn_SRAM_pci_base_addr_virt + reg_offset));
     if(4 == bar_num)
-            iowrite32(reg_val, (void*)(dwc_eth_ntn_FLASH_pci_base_addr + reg_offset));
+            iowrite32(reg_val, (void*)(pdata->dwc_eth_ntn_FLASH_pci_base_addr + reg_offset));
     return;
 }
 
@@ -4206,7 +4248,7 @@ static void ntn_reg_wr(UINT reg_offset, UINT reg_val, INT bar_num)
  * \param[in]
  * \return register
  */
-static INT ntn_set_tx_clk_125MHz(void)
+static INT ntn_set_tx_clk_125MHz(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT reg_val;
 
@@ -4219,7 +4261,7 @@ static INT ntn_set_tx_clk_125MHz(void)
 	return Y_SUCCESS;
 }
 
-static INT ntn_set_tx_clk_25MHz(void)
+static INT ntn_set_tx_clk_25MHz(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT reg_val;
 
@@ -4232,7 +4274,7 @@ static INT ntn_set_tx_clk_25MHz(void)
 	return Y_SUCCESS;
 }
 
-static INT ntn_set_tx_clk_2_5MHz(void)
+static INT ntn_set_tx_clk_2_5MHz(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT reg_val;
 
@@ -4245,7 +4287,7 @@ static INT ntn_set_tx_clk_2_5MHz(void)
 	return Y_SUCCESS;
 }
 
-static UINT ntn_boot_host_initiated(void)
+static UINT ntn_boot_host_initiated(struct DWC_ETH_QOS_prv_data *pdata)
 {
   UINT rd_val;
   NTN_NMODESTS_RgRd(rd_val);
@@ -4255,7 +4297,7 @@ static UINT ntn_boot_host_initiated(void)
           (rd_val & NTN_NMODESTS_HOST_BOOT_MASK);
 }
 
-static UINT ntn_boot_from_flash_done(void)
+static UINT ntn_boot_from_flash_done(struct DWC_ETH_QOS_prv_data *pdata)
 {
   UINT rd_val;
   NTN_NCTLSTS_RgRd(rd_val);
@@ -4282,34 +4324,34 @@ static int DWC_ETH_QOS_yexit_offload(void)
 	return Y_SUCCESS;
 }
 
-static bool ntn_fw_ipa_supported(void)
+static bool ntn_fw_ipa_supported(struct DWC_ETH_QOS_prv_data *pdata)
 {
 	UINT reg_val = ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
-				  PCIE_SRAM_BAR_NUM);
+				  PCIE_SRAM_BAR_NUM, pdata);
 	return reg_val & NTN_M3_DBG_IPA_CAPABLE_MASK;
 }
 
-static void enable_offload(void)
+static void enable_offload(struct DWC_ETH_QOS_prv_data *pdata)
 {
   UINT reg_val;
 
   reg_val = ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
-                       PCIE_SRAM_BAR_NUM);
+                       PCIE_SRAM_BAR_NUM, pdata);
   reg_val = (reg_val | IPA_ENABLE_OFFLOAD_MASK);
   ntn_reg_wr((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
-             reg_val, PCIE_SRAM_BAR_NUM);
+             reg_val, PCIE_SRAM_BAR_NUM, pdata);
   NDBGPR_L1("Enabled FW ipa offload, 0x%x\n", reg_val);
 }
 
-static void disable_offload(void)
+static void disable_offload(struct DWC_ETH_QOS_prv_data *pdata)
 {
   UINT reg_val;
 
   reg_val = ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
-                       PCIE_SRAM_BAR_NUM);
+                       PCIE_SRAM_BAR_NUM, pdata);
   reg_val = reg_val & IPA_DISABLE_OFFLOAD_MASK;
   ntn_reg_wr((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
-             reg_val, PCIE_SRAM_BAR_NUM);
+             reg_val, PCIE_SRAM_BAR_NUM, pdata);
   NDBGPR_L1("Disabled FW ipa offload, 0x%x\n", reg_val);
 }
 
@@ -4327,9 +4369,9 @@ static INT DWC_ETH_QOS_yinit(struct DWC_ETH_QOS_prv_data *pdata)
         DBGPR("-->DWC_ETH_QOS_yinit\n");
 
         /* Initialize for 1Gbps, Full Duplex and 125 MHz */
-        set_full_duplex();
-        set_gmii_speed();
-        ntn_set_tx_clk_125MHz();
+        set_full_duplex(pdata);
+        set_gmii_speed(pdata);
+        ntn_set_tx_clk_125MHz(pdata);
 
         /* reset mmc counters */
         MMC_CNTRL_RgWr(0x1);
@@ -4444,6 +4486,7 @@ void DWC_ETH_QOS_init_function_ptrs_dev(struct hw_if_struct *hw_if)
 	hw_if->dev_read = device_read;
 	hw_if->init = DWC_ETH_QOS_yinit;
 	hw_if->exit = DWC_ETH_QOS_yexit;
+	hw_if->read_fw_ver_features = read_fw_ver_features;
 	hw_if->init_offload = DWC_ETH_QOS_yinit_offload;
 	hw_if->exit_offload = DWC_ETH_QOS_yexit_offload;
 	hw_if->enable_offload = enable_offload;

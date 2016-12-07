@@ -93,38 +93,29 @@
 
 struct DWC_ETH_QOS_prv_data *gDWC_ETH_QOS_prv_data;
 
-extern struct DWC_ETH_QOS_plt_data *plt_data;
+extern struct list_head ntn_plt_data_list;
 
 static UCHAR dev_addr[6] = { 0xE8, 0xE0, 0xB7, 0xB5, 0x7D, 0xF8};
 typedef struct
 {
-	char key[32];
-	unsigned short key_len;
-	unsigned short str_len;
-	char str_def[20];
+	char mdio_key[32];
+	unsigned short mdio_key_len;
+	char mac_key[32];
+	unsigned short mac_key_len;
+	unsigned short mac_str_len;
+	char mac_str_def[20];
 } config_param_list_t;
 
-const config_param_list_t config_param_list[] = {
-{"MAC_ID:", 7, 17, "00:00:00:00:00:00"},
+static const config_param_list_t config_param_list[] = {
+{"MDIOBUSID",9,"MAC_ID", 6, 17, "00:00:00:00:00:00"},
 };
 
 #define CONFIG_PARAM_NUM (sizeof(config_param_list)/sizeof(config_param_list[0]))
 /* Holds virtual address for BAR0 for register access,
    BAR1 for SRAM memory and BAR2 for Flash memory */
-ULONG dwc_eth_ntn_reg_pci_base_addr;
-ULONG dwc_eth_ntn_reg_pci_base_addr_phy;
-ULONG dwc_eth_ntn_SRAM_pci_base_addr_phy;
-ULONG dwc_eth_ntn_SRAM_pci_base_addr_virt;
 #if !defined(NTN_DECLARE_MEM_FOR_DMAAPI) && !defined(DESC_HOSTMEM_BUF_HOSTMEM)
 ULONG cur_virt;
 #endif
-ULONG dwc_eth_ntn_FLASH_pci_base_addr;
-ULONG dwc_eth_ntn_reg_len;
-ULONG dwc_eth_ntn_SRAM_len;
-ULONG dwc_eth_ntn_FLASH_len;
-
-dma_addr_t dwc_eth_ntn_hostmem_pci_base_addr_phy;
-ULONG dwc_eth_ntn_hostmem_pci_base_addr_virt;
 
 CHARP fw_filename = "";
 
@@ -218,10 +209,11 @@ void extract_macid(char *string)
  *
  * \return - True on Success and False in failure
  */
-static bool lookfor_macid(char *file_buf)
+static bool lookfor_macid(char *file_buf, USHORT mdio_bus_id)
 {
-	char *string, *token_n = NULL, *token_s= NULL;
+	char *string = NULL, *token_n = NULL, *token_s = NULL, *token_m = NULL;
 	bool status = false;
+	int ntn_device_no= 0;
 
 	string = file_buf;
 	/* Parse Line-0 */
@@ -233,9 +225,23 @@ static bool lookfor_macid(char *file_buf)
 			/* Extract the token based space character */
 			token_s = strsep(&token_n, " ");
 			if (token_s != NULL) {
+			if (strncmp (token_s, config_param_list[0].mdio_key, 9) == 0 ) {
+					token_s = strsep(&token_n, " ");
+					token_m = strsep(&token_s, ":");
+					sscanf(token_m, "%d", &ntn_device_no);
+					if (ntn_device_no != mdio_bus_id){
+						if ((token_n = strsep(&string, "\n")) == NULL)
+							break;
+						continue;
+					}
+				}
+			}
 
+			/* Extract the token based space character */
+			token_s = strsep(&token_n, " ");
+			if (token_s != NULL) {
 				/* Compare if parsed string matches with key listed in configuration table */
-				if (strncmp (token_s, config_param_list[0].key, 7) == 0 ) {
+				if (strncmp (token_s, config_param_list[0].mac_key, 6) == 0 ) {
 
 					NDBGPR_L1("MAC_ID Key is found\n");
 					/* Read next word */
@@ -243,11 +249,14 @@ static bool lookfor_macid(char *file_buf)
 					if (token_s != NULL) {
 
 						/* Check if MAC ID length  and MAC ID is valid */
-						if ((isMAC(token_s) == true) && (strlen(token_s) ==  config_param_list[0].str_len)) {
+						if ((isMAC(token_s) == true) && (strlen(token_s) ==  config_param_list[0].mac_str_len)) {
 							/* If user configured MAC ID is valid,  assign default MAC ID */
 							extract_macid(token_s);
 							status = true;
 						} else {
+						    NMSGPR_ALERT( "Mac: isMAC(token_s) = %d\n",isMAC(token_s));
+							NMSGPR_ALERT( "Mac: strlen(token_s) = %d\n",(int)strlen(token_s));
+							NMSGPR_ALERT( "Mac: config_param_list[0].mac_str_len = %d\n",config_param_list[0].mac_str_len);
 							NMSGPR_ALERT( "Valid Mac ID not found\n");
 						}
 					}
@@ -270,10 +279,10 @@ static bool lookfor_macid(char *file_buf)
  * \return None
  *
  */
-static void parse_config_file(void)
+static void parse_config_file(USHORT mdio_bus_id)
 {
 	struct file *filep = NULL;
-	char data[128]={0};
+	char *data = kmalloc(512, GFP_KERNEL);
 	mm_segment_t oldfs;
 	int ret, flags = O_RDONLY, i = 0;
 
@@ -288,14 +297,14 @@ static void parse_config_file(void)
 	}
 	else  {
 		/* Parse the file */
-		ret = file_read(filep, 0, data, 128);
+		ret = file_read(filep, 0, data, 512);
 		for (i = 0; i < CONFIG_PARAM_NUM; i++) {
-			if (strstr ((const char *)data, config_param_list[i].key)) {
+			if (strstr ((const char *)data, config_param_list[i].mdio_key)) {
 				NDBGPR_L1("Pattern Match\n");
-				if (strncmp(config_param_list[i].key, "MAC_ID:", 7) == 0) {
+				if (strncmp(config_param_list[i].mdio_key, "MDIOBUSID", 9) == 0) {
 					/* MAC ID Configuration */
 					NDBGPR_L1("MAC_ID Configuration\n");
-					if (lookfor_macid(data) == false) {
+					if (lookfor_macid(data, mdio_bus_id) == false) {
 						//extract_macid ((char *)config_param_list[i].str_def);
 					}
 		}
@@ -303,6 +312,7 @@ static void parse_config_file(void)
 		}
 	}
 
+	kfree(data);
 	filp_close(filep, NULL);
 
 	return;
@@ -344,18 +354,18 @@ static int DWC_ETH_QOS_load_fw(struct pci_dev *pdev)
 	}
 
 	/* Set the reset bit */
-	reg_val = *(unsigned int*)(dwc_eth_ntn_reg_pci_base_addr + 0x1008);
-	*(unsigned int*)(dwc_eth_ntn_reg_pci_base_addr + 0x1008) =
+	reg_val = *(unsigned int*)(pdata->dev->base_addr + 0x1008);
+	*(unsigned int*)(pdata->dev->base_addr + 0x1008) =
 		(reg_val | 1);
 	msleep(1);
 	/* Write the FW to SRAM */
-	memcpy((char*)dwc_eth_ntn_SRAM_pci_base_addr_virt, fw_entry->data,
+	memcpy((char*)pdata->dwc_eth_ntn_SRAM_pci_base_addr_virt, fw_entry->data,
 	       fw_entry->size);
 	msleep(1);
 	/* Clear the reset bit to restart the Neutrino */
-	*(unsigned int*)(dwc_eth_ntn_reg_pci_base_addr + 0x1008) =
+	*(unsigned int*)(pdata->dev->base_addr + 0x1008) =
 		(reg_val & ~0x3);
-	reg_val = *(unsigned int*)(dwc_eth_ntn_reg_pci_base_addr + 0x1008);
+	reg_val = *(unsigned int*)(pdata->dev->base_addr + 0x1008);
 
 	release_firmware(fw_entry);
 
@@ -372,7 +382,7 @@ static int DWC_ETH_QOS_panic_notifier(struct notifier_block *this,
 {
 	if (gDWC_ETH_QOS_prv_data) {
 		DBGPR("DWC_ETH_QOS: 0x%pK\n", gDWC_ETH_QOS_prv_data);
-		update_dma_stats(gDWC_ETH_QOS_prv_data);
+		DWC_ETH_QOS_ipa_stats_read(gDWC_ETH_QOS_prv_data);
 	}
 	return NOTIFY_DONE;
 }
@@ -599,7 +609,7 @@ static void DWC_ETH_QOS_config_tamap(struct pci_dev *pdev)
 	adrs_to_be_replaced = ( (unsigned long long)0x00000010 << 32);
 	adrs_for_replacement = ( (unsigned long long)0x00000000 << 32);
 	no_of_bits = 28;
-	hw_if->ntn_config_tamap(tmap_no, adrs_to_be_replaced, adrs_for_replacement, no_of_bits);
+	hw_if->ntn_config_tamap(tmap_no, adrs_to_be_replaced, adrs_for_replacement, no_of_bits, pdata);
 
 	/* Configure TMAP 1 to access IPA uC Register in host memory */
 	tmap_no = 1;
@@ -610,7 +620,7 @@ static void DWC_ETH_QOS_config_tamap(struct pci_dev *pdev)
 		"%llx no_of_bits %d \n",tmap_no, adrs_to_be_replaced,
 		adrs_for_replacement, no_of_bits);
 	hw_if->ntn_config_tamap(tmap_no, adrs_to_be_replaced,
-				adrs_for_replacement, no_of_bits);
+				adrs_for_replacement, no_of_bits, pdata);
 }
 #endif
 
@@ -640,12 +650,23 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 
 	struct DWC_ETH_QOS_prv_data *pdata = NULL;
 	struct net_device *dev = NULL;
-	struct platform_device *pldev = plt_data->pldev;
+	struct platform_device *pldev = NULL;
+	struct DWC_ETH_QOS_plt_data *plt_data = NULL;
 	int i, ret = 0;
 	struct hw_if_struct *hw_if = NULL;
 	struct desc_if_struct *desc_if = NULL;
 	UCHAR tx_q_count = 0, rx_q_count = 0;
-	unsigned int reg_val, fw_ver_cap=0;
+	unsigned int reg_val;
+	int domain;
+	ULONG dwc_eth_ntn_reg_pci_base_addr_phy;
+	ULONG dwc_eth_ntn_reg_pci_base_addr;
+	ULONG dwc_eth_ntn_FLASH_pci_base_addr;
+	ULONG dwc_eth_ntn_SRAM_pci_base_addr_virt;
+	ULONG dwc_eth_ntn_SRAM_pci_base_addr_phy;
+	ULONG dwc_eth_ntn_reg_len;
+	ULONG dwc_eth_ntn_SRAM_len;
+	ULONG dwc_eth_ntn_FLASH_len;
+	static USHORT mdio_bus_id = 0;
 #ifdef NTN_DECLARE_MEM_FOR_DMAAPI
 	ULONG phy_mem_adrs;
 #endif
@@ -653,6 +674,7 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	NDBGPR_L1("Debug version\n");
 
 	DBGPR("--> DWC_ETH_QOS_probe\n");
+
 
 	/* Resume PCI link and restore the state */
 	ret = DWC_ETH_QOS_pci_resume(pdev);
@@ -739,8 +761,8 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
     }
 
 	/* queue count */
-	tx_q_count = get_tx_queue_count();
-	rx_q_count = get_rx_queue_count();
+	tx_q_count = get_tx_queue_count(dwc_eth_ntn_reg_pci_base_addr);
+	rx_q_count = get_rx_queue_count(dwc_eth_ntn_reg_pci_base_addr);
 
     	NDBGPR_L1("No of TX Queue = %d\n", tx_q_count);
     	NDBGPR_L1("No of RX Queue = %d\n", rx_q_count);
@@ -754,8 +776,9 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 		ret = -ENOMEM;
 		goto err_out_dev_failed;
 	}
+	++mdio_bus_id;
 	/* Read mac address from mac.ini file */
-	parse_config_file();
+	parse_config_file(mdio_bus_id);
 	if(!is_valid_ether_addr(dev_addr)) {
 		NMSGPR_ALERT( "Not found valid mac address\n");
 		NMSGPR_ALERT( "Using Default MAC Address\n");
@@ -775,18 +798,19 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	gDWC_ETH_QOS_prv_data = pdata;
 	NDBGPR_L1("gDWC_ETH_QOS_prv_data 0x%pK \n", gDWC_ETH_QOS_prv_data);
 
-	atomic_notifier_chain_register(&panic_notifier_list,
-			&DWC_ETH_QOS_panic_blk);
 	DWC_ETH_QOS_init_all_fptrs(pdata);
 	hw_if = &(pdata->hw_if);
 	desc_if = &(pdata->desc_if);
 
 	pci_set_drvdata(pdev, dev);
 	pdata->pdev = pdev;
-
+        pdata->mdio_bus_id = mdio_bus_id;
 	pdata->dev = dev;
 	pdata->tx_dma_ch_cnt = tx_q_count + 2;
 	pdata->rx_dma_ch_cnt = rx_q_count + 2;
+	pdata->dwc_eth_ntn_reg_pci_base_addr_phy = dwc_eth_ntn_reg_pci_base_addr_phy;
+	pdata->dwc_eth_ntn_FLASH_pci_base_addr = dwc_eth_ntn_FLASH_pci_base_addr;
+	pdata->dwc_eth_ntn_SRAM_pci_base_addr_virt = dwc_eth_ntn_SRAM_pci_base_addr_virt;
 
 	/* 	Host: TX DMA CH : 0,2,3,4,
 		Host: RX DMA CH : 0,2,3,4,5 */
@@ -840,51 +864,74 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 		goto err_rx_mem_pool_creation;
 	}
 #endif
-
-	ret = of_property_read_u32(pldev->dev.of_node, "qcom,ntn-fw-load-delay-msec", &pdata->fw_load_delay);
-	if (ret) {
-		NMSGPR_ALERT("%s: Failed to find fw_load_delay value, hardcoding to 200 msec\n", __func__);
-		pdata->fw_load_delay = 200;
-	} else {
-		NDBGPR_L1("%s: fw_load_delay = %d msec\n", __func__, pdata->fw_load_delay);
+	domain = pci_domain_nr(pdev->bus);
+	NDBGPR_L1("%s: RC number for device %d, pci bus number =%d\n", __func__, domain, pdev->bus->number);
+	list_for_each_entry(plt_data, &ntn_plt_data_list, node) {
+		if (plt_data->rc_num == domain) {
+			if (plt_data->bus_num == pdev->bus->number) {
+				plt_data->pcidev = pdev;
+				pldev = plt_data->pldev;
+				break;
+			} else {
+				if (plt_data->bus_num == -1) {
+					/* No device tree entry for bus number*/
+					plt_data->pcidev = pdev;
+					pldev = plt_data->pldev;
+					break;
+				}
+			}
+		}
 	}
 
-	pdata->pcierst_resx = of_property_read_bool(pldev->dev.of_node, "qcom,ntn-pcierst-resx");
-	NDBGPR_L1("%s: pcierst_resx = %d\n", __func__, pdata->pcierst_resx);
+	if (pldev) {
 
-	pdata->enable_phy = !of_property_read_bool(pldev->dev.of_node, "qcom,ntn-disable-phy");
-	NDBGPR_L1("%s: enable_phy = %d\n", __func__, pdata->enable_phy);
+		ret = of_property_read_u32(pldev->dev.of_node, "qcom,ntn-fw-load-delay-msec", &pdata->fw_load_delay);
+		if (ret) {
+			NMSGPR_ALERT("%s: Failed to find fw_load_delay value, hardcoding to 200 msec\n", __func__);
+			pdata->fw_load_delay = 200;
+		} else {
+			NDBGPR_L1("%s: fw_load_delay = %d msec\n", __func__, pdata->fw_load_delay);
+		}
 
-	/*
-	 * Set the EAVB timestamp window according to the
-	 * ntn-timestamp-valid-window setting in the device tree.
-	 * If the timestamp in the AVTP packet is between the
-	 * current time and the current time plus the timestamp window,
-	 * Neutrino will hold the packet until the timestamp elapses.
-	 * Otherwise, the packet is sent immediately.
-	 * Each unit is 2^24 ns, or approx 16.8 ms.
-	 * If the setting is not in the device tree, set the value to
-	 * 4 (67 ms). Note: if this register is not set, Neutrino will default to
-	 * 0x80 (2.1 sec). 67 ms is chosen as a reasonable default because
-	 * trying to queue up more than 67 ms worth of packets would cause the
-	 * TX queue to overflow, and according to the AVB spec, Class B packets
-	 * should have no more than 50 ms of latency, and Class A packets should
-	 * have even less latency than that. Thus an application would not try to
-	 * send AVTP packets with timestamps more than 50 ms in the future.
-	 */
-	ret = of_property_read_u32(pldev->dev.of_node,
+		pdata->pcierst_resx = of_property_read_bool(pldev->dev.of_node, "qcom,ntn-pcierst-resx");
+		NDBGPR_L1("%s: pcierst_resx = %d\n", __func__, pdata->pcierst_resx);
+
+		pdata->enable_phy = !of_property_read_bool(pldev->dev.of_node, "qcom,ntn-disable-phy");
+		NDBGPR_L1("%s: enable_phy = %d\n", __func__, pdata->enable_phy);
+
+		/*
+		* Set the EAVB timestamp window according to the
+		* ntn-timestamp-valid-window setting in the device tree.
+		* If the timestamp in the AVTP packet is between the
+		* current time and the current time plus the timestamp window,
+		* Neutrino will hold the packet until the timestamp elapses.
+		* Otherwise, the packet is sent immediately.
+		* Each unit is 2^24 ns, or approx 16.8 ms.
+		* If the setting is not in the device tree, set the value to
+		* 4 (67 ms). Note: if this register is not set, Neutrino will default to
+		* 0x80 (2.1 sec). 67 ms is chosen as a reasonable default because
+		* trying to queue up more than 67 ms worth of packets would cause the
+		* TX queue to overflow, and according to the AVB spec, Class B packets
+		* should have no more than 50 ms of latency, and Class A packets should
+		* have even less latency than that. Thus an application would not try to
+		* send AVTP packets with timestamps more than 50 ms in the future.
+		*/
+		ret = of_property_read_u32(pldev->dev.of_node,
 							   "qcom,ntn-timestamp-valid-window",
 							   &pdata->ntn_timestamp_valid_window);
-	if (ret) {
-		NMSGPR_ALERT("%s: Failed to read ntn-timestamp-valid-window, hardcoding to 4 (67 msec)\n",
+		if (ret) {
+			NMSGPR_ALERT("%s: Failed to read ntn-timestamp-valid-window, hardcoding to 4 (67 msec)\n",
 					 __func__);
-		pdata->ntn_timestamp_valid_window = 4;
-		ret = 0; /* This is not a fatal error. */
-	} else {
-		NDBGPR_L1("%s: ntn-timestamp-valid-window = %d, (%u nsec)\n",
+			pdata->ntn_timestamp_valid_window = 4;
+			ret = 0; /* This is not a fatal error. */
+		} else {
+			NDBGPR_L1("%s: ntn-timestamp-valid-window = %d, (%u nsec)\n",
 				  __func__,
 				  pdata->ntn_timestamp_valid_window,
 				  pdata->ntn_timestamp_valid_window << 24);
+		}
+	} else {
+		NMSGPR_ALERT( "%s: Failed to get platform data for the device\n",__func__);
 	}
 
 #ifdef NTN_ENABLE_PCIE_MEM_ACCESS
@@ -892,14 +939,14 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 #endif
 
     /* issue clock enable to GMAC device */
-    hw_if->ntn_mac_clock_config(0x1);
+    hw_if->ntn_mac_clock_config(0x1, pdata);
     /* issue software reset to GMAC device */
-    hw_if->exit();
+    hw_if->exit(pdata);
 
 	//Assert TDM reset, in case if it is on.
-	reg_val = hw_if->ntn_reg_rd(0x1008, 0);
+	reg_val = hw_if->ntn_reg_rd(0x1008, 0, pdata);
 	reg_val |= (0x1<<6);
-	hw_if->ntn_reg_wr(0x1008, reg_val, 0);
+	hw_if->ntn_reg_wr(0x1008, reg_val, 0, pdata);
 
 	/* Enable MSI support: following commneted code just enables the one MSI interrupt. This is only kept for debugging purpose.*/
 #if 1
@@ -929,26 +976,34 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	dev->irq = pdev->irq;
         NDBGPR_L1( "Allocated IRQ Number = %d\n", dev->irq);
 
-	if (hw_if->ntn_boot_host_initiated()) {
+	if (hw_if->ntn_boot_host_initiated(pdata)) {
 		ret = DWC_ETH_QOS_load_fw(pdev);
 		if (ret) {
 			NMSGPR_ALERT("ERROR: Unable to load firmware\n");
 			goto err_load_fw_failed;
 		}
-	} else if (!hw_if->ntn_boot_from_flash_done()) {
+	} else if (!hw_if->ntn_boot_from_flash_done(pdata)) {
 		NMSGPR_ALERT("ERROR: Boot from flash failed\n");
-		ret = -EINVAL;
-		goto err_load_fw_failed;
+		/* eth interface need to comeup even if firmware is not available
+		 * in HW, hence do not return here. Please refer CR 1069885.
+		 */
 	} else {
 		NMSGPR_INFO("Boot from flash complete\n");
 	}
 
-	fw_ver_cap =
-	   hw_if->ntn_reg_rd((NTN_M3_DBG_CNT_START + NTN_M3_DBG_RSVD_OFST),
-						 PCIE_SRAM_BAR_NUM);
-	NMSGPR_INFO("DBG Resvd area: 0x%x\n", fw_ver_cap);
-	NMSGPR_INFO("NTN FW Version: %d.%d\n", (fw_ver_cap >> 12),
-				((fw_ver_cap >> 8) & 0xF));
+	pdata->fw_ver_cap = hw_if->read_fw_ver_features(pdata);
+	NMSGPR_INFO("DBG Resvd area: 0x%x\n", pdata->fw_ver_cap);
+	NMSGPR_INFO("NTN FW Version: %d.%d\n", (pdata->fw_ver_cap >> 12),
+				((pdata->fw_ver_cap >> 8) & 0xF));
+
+	/* Verify if IPA is supported in firmware */
+	pdata->ipa_enabled =
+		hw_if->ntn_fw_ipa_supported(pdata) && NTN_HOST_IPA_CAPABLE;
+	NMSGPR_INFO("NTN IPA enabled: %d\n", pdata->ipa_enabled);
+	if (pdata->ipa_enabled)
+		hw_if->enable_offload(pdata);
+	else
+		hw_if->disable_offload(pdata);
 
 	DWC_ETH_QOS_get_all_hw_features(pdata);
 	DWC_ETH_QOS_print_all_hw_features(pdata);
@@ -1061,28 +1116,6 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 		NMSGPR_ALERT( "carrier off till LINK is up\n");
 	}
 
-	/* Verify if IPA is supported in firmware */
-	pdata->ipa_enabled =
-		hw_if->ntn_fw_ipa_supported() && NTN_HOST_IPA_CAPABLE;
-
-	if (pdata->ipa_enabled) {
-		/* Configure IPA Related Stuff */
-		ret = ipa_register_ipa_ready_cb(DWC_ETH_QOS_ipa_ready_cb,
-						(void *)pdata);
-		if (ret < 0) {
-			if (ret == -EEXIST) {
-				NMSGPR_ALERT("IPA is ready %d\n", ret);
-				pdata->prv_ipa.ipa_ready = true;
-			} else {
-				NMSGPR_ERR("IPA ready registration failed %d\n", ret);
-				pdata->prv_ipa.ipa_ready = false;
-			}
-		} else if (ret == 0) {
-			NMSGPR_ALERT("IPA Not ready, cb registered successfully \n");
-			pdata->prv_ipa.ipa_ready = false;
-		}
-	}
-
 	return 0;
 
  err_out_netdev_failed:
@@ -1117,7 +1150,7 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	atomic_notifier_chain_unregister(&panic_notifier_list,
 					 &DWC_ETH_QOS_panic_blk);
     /* issue clock disable to GMAC device */
-    hw_if->ntn_mac_clock_config(0x0);
+    hw_if->ntn_mac_clock_config(0x0, pdata);
 
 	free_netdev(dev);
 	pci_set_drvdata(pdev, NULL);
@@ -1188,7 +1221,7 @@ static void DWC_ETH_QOS_remove(struct pci_dev *pdev)
 #endif
 
 	/* issue clock disable to GMAC device */
-    hw_if->ntn_mac_clock_config(0x0);
+    hw_if->ntn_mac_clock_config(0x0, pdata);
 
 	/* If NAPI is enabled, delete any references to the NAPI struct. */
 	for (i = 0; i < NTN_RX_DMA_CH_CNT; i++) {
@@ -1208,18 +1241,17 @@ static void DWC_ETH_QOS_remove(struct pci_dev *pdev)
 	/* Save the PCI link status and suspend it */
 	DWC_ETH_QOS_pci_suspend(pdev);
 
-	atomic_notifier_chain_unregister(&panic_notifier_list,
-					 &DWC_ETH_QOS_panic_blk);
 
 	pci_disable_msi(pdev);
 	pci_set_drvdata(pdev, NULL);
 
-	if ((void __iomem*)dwc_eth_ntn_reg_pci_base_addr != NULL)
-		pci_iounmap(pdev, (void __iomem *)dwc_eth_ntn_reg_pci_base_addr);
-	if ((void __iomem*)dwc_eth_ntn_SRAM_pci_base_addr_virt != NULL)
-		pci_iounmap(pdev, (void __iomem *)dwc_eth_ntn_SRAM_pci_base_addr_virt);
-	if ((void __iomem*)dwc_eth_ntn_FLASH_pci_base_addr != NULL)
-		pci_iounmap(pdev, (void __iomem *)dwc_eth_ntn_FLASH_pci_base_addr);
+	if((void __iomem*)pdata->dev->base_addr != NULL)
+        pci_iounmap(pdev, (void __iomem *)pdata->dev->base_addr);
+
+	if ((void __iomem*)pdata->dwc_eth_ntn_SRAM_pci_base_addr_virt != NULL)
+		pci_iounmap(pdev, (void __iomem *)pdata->dwc_eth_ntn_SRAM_pci_base_addr_virt);
+	if ((void __iomem*)pdata->dwc_eth_ntn_FLASH_pci_base_addr != NULL)
+		pci_iounmap(pdev, (void __iomem *)pdata->dwc_eth_ntn_FLASH_pci_base_addr);
 
 	pci_release_regions(pdev);
 	pci_disable_device(pdev);
@@ -1349,7 +1381,7 @@ static INT DWC_ETH_QOS_suspend(struct pci_dev *pdev, pm_message_t state)
 
 	if (pdata->hw_feat.rwk_sel && (pdata->wolopts & WAKE_UCAST)) {
 		pmt_flags |= DWC_ETH_QOS_REMOTE_WAKEUP;
-		hw_if->configure_rwk_filter(rwk_filter_values, 8);
+		hw_if->configure_rwk_filter(rwk_filter_values, 8, pdata);
 	}
 
 	if (pdata->hw_feat.mgk_sel && (pdata->wolopts & WAKE_MAGIC))
@@ -1412,7 +1444,7 @@ static INT DWC_ETH_QOS_resume(struct pci_dev *pdev)
 
 	/* Recover NTN in case whole chip was in reset */
 	if (pdata->pcierst_resx) {
-		if (hw_if->ntn_boot_host_initiated()) {
+		if (hw_if->ntn_boot_host_initiated(pdata)) {
 			DWC_ETH_QOS_load_fw(pdev);
 		}
 #ifdef NTN_ENABLE_PCIE_MEM_ACCESS
@@ -1450,6 +1482,8 @@ int DWC_ETH_QOS_init_module(void)
 		return ret;
 	}
 
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&DWC_ETH_QOS_panic_blk);
 	DBGPR( "<--DWC_ETH_QOS_init_module\n");
 
 	return ret;
@@ -1467,6 +1501,8 @@ void DWC_ETH_QOS_exit_module(void)
 {
 	DBGPR("-->DWC_ETH_QOS_exit_module\n");
 
+	atomic_notifier_chain_unregister(&panic_notifier_list,
+					 &DWC_ETH_QOS_panic_blk);
 	pci_unregister_driver(&DWC_ETH_QOS_pci_driver);
 
 	DBGPR( "<--DWC_ETH_QOS_exit_module\n");

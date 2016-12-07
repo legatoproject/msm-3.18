@@ -95,6 +95,6 @@ static INT DWC_ETH_QOS_resume(struct pci_dev *);
 #endif				/* end of CONFIG_PM */
 
 bool isMAC(char *s);
-static bool lookfor_macid(char *);
+static bool lookfor_macid(char *, USHORT mdio_bus_id);
 
 #endif
