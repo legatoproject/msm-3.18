@@ -1175,19 +1175,6 @@ static int ehci_hsic_reset(struct usb_hcd *hcd)
 	/* Disable streaming mode and select host mode */
 	writel_relaxed(0x13, USB_USBMODE);
 
-/* SWISTART */
-/* Fix the bug that device can't sleep if HSIC is enable but the not connect the HSIC chipset
- * Get the status of PORT_CONNECT bit after HSIC reset, if PORT_CONNECT bit is set[0],it means' that
- * there is no device connect to HSIC port,So return error and don't need register HSIC host driver any more
- */
-#ifdef CONFIG_SIERRA
-	if (!(readl_relaxed(USB_PORTSC)&PORT_CONNECT))
-	{
-		dev_err(mehci->dev, "%s:No device is present on any HSIC port\n",__func__);
-		return -ENXIO;
-	}
-#endif
-
 	return 0;
 }
 
