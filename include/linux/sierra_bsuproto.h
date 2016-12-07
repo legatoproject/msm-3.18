@@ -19,4 +19,5 @@
 extern uint64_t bsgetgpioflag(void);
 extern bool bsgethsicflag(void);
 extern bool bs_support_get(enum bsfeature feature);
+extern void bsseterrcount(unsigned int err_cnt);
 #endif
