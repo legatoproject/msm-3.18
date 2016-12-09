@@ -132,6 +132,26 @@ static char bus_clkname[USB_NUM_BUS_CLOCKS][20] = {"bimc_clk", "snoc_clk",
 						"pcnoc_clk"};
 static bool bus_clk_rate_set;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode);
+static int msm_otg_vbus_power(bool on)
+{
+	struct msm_otg *motg = the_msm_otg;
+
+	if (on) {
+		msm_otg_notify_host_mode(motg, on);
+		gpio_direction_output(motg->pdata->vbus_en_gpio, 1);
+	} else {
+		gpio_direction_output(motg->pdata->vbus_en_gpio, 0);
+		msm_otg_notify_host_mode(motg, on);
+	}
+
+	return 0;
+}
+#endif
+/* SWISTOP */
+
 static void dbg_inc(unsigned *idx)
 {
 	*idx = (*idx + 1) & (DEBUG_MAX_MSG-1);
@@ -2026,6 +2046,12 @@ static int msm_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 		dev_info(otg->phy->dev, "Host mode is not supported\n");
 		return -ENODEV;
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	motg->pdata->vbus_power = msm_otg_vbus_power;
+#endif
+/* SWISTOP */
 
 	if (!motg->pdata->vbus_power && host) {
 		vbus_otg = devm_regulator_get(motg->phy.dev, "vbus_otg");
@@ -4219,6 +4245,15 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	if (pdata->usb_id_gpio < 0)
 		pr_debug("usb_id_gpio is not available\n");
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	pdata->vbus_en_gpio =
+			of_get_named_gpio(node, "sierra,vbus-en-gpio", 0);
+	if (pdata->vbus_en_gpio < 0)
+		pr_debug("vbus_en_gpio is not available\n");
+#endif
+/* SWISTOP */
+
 	pdata->l1_supported = of_property_read_bool(node,
 				"qcom,hsusb-l1-supported");
 	pdata->enable_ahb2ahb_bypass = of_property_read_bool(node,
@@ -4748,6 +4783,25 @@ static int msm_otg_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "usb_add_phy failed\n");
 		goto free_async_irq;
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (gpio_is_valid(motg->pdata->vbus_en_gpio)) {
+		/* usb vbus-en-gpio request */
+		ret = gpio_request(motg->pdata->vbus_en_gpio,
+				"USB_VBUS_EN_GPIO");
+		if (ret) {
+			dev_err(&pdev->dev, "request usb vbus-en-gpio failed\n");
+			goto free_async_irq;
+		}
+	} else {
+		dev_err(&pdev->dev, "vbus-en-gpio %d is invalid\n",
+				motg->pdata->vbus_en_gpio);
+		goto free_async_irq;
+	}
+	gpio_direction_output(motg->pdata->vbus_en_gpio, 0);
+#endif
+/* SWISTOP */
 
 	if (motg->pdata->mode == USB_OTG &&
 		motg->pdata->otg_control == OTG_PMIC_CONTROL &&

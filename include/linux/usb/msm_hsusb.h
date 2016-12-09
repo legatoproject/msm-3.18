@@ -327,6 +327,11 @@ struct msm_otg_platform_data {
 	bool enable_streaming;
 	bool enable_axi_prefetch;
 	bool enable_sdp_typec_current_limit;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	int  vbus_en_gpio;
+#endif
+/* SWISTOP */
 };
 
 /* phy related flags */
