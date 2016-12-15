@@ -259,9 +259,11 @@ static int __die(const char *str, int err, struct pt_regs *regs)
     
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
-	/* clear smem er buffer,get ready to save error info*/
-	sierra_smem_errdump_save_start();
-	sierra_smem_errdump_save_regs(regs, tsk);
+	if (die_counter == 1) {
+		/* clear smem er buffer,get ready to save error info*/
+		sierra_smem_errdump_save_start();
+		sierra_smem_errdump_save_regs(regs, tsk);
+	}
 #endif /* SIERRA */    
 /*SWISTOP*/
 

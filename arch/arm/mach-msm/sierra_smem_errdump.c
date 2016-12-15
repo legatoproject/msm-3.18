@@ -50,7 +50,7 @@ void sierra_smem_errdump_save_start(void)
 {
         struct sER_DATA *errdatap = sierra_smem_get_dump_buf();
 
-        if ((!errdatap) || (errdatap->start_marker == ERROR_START_MARKER)) {
+        if (!errdatap) {
                 return;
         }
 
@@ -93,7 +93,7 @@ void sierra_smem_errdump_save_errstr(char *errstrp)
 {
         struct sER_DATA *errdatap = sierra_smem_get_dump_buf();
 
-        if ((!errdatap) || (errdatap->start_marker == ERROR_START_MARKER)) {
+        if (!errdatap) {
                 return;
         }
 
@@ -217,19 +217,19 @@ void sierra_smem_errdump_save_regs(void *registers, void *taskp)
         unsigned long *stackp;
         struct pt_regs *regs = (struct pt_regs *)registers;
 
-        if ((!errdatap) || (errdatap->start_marker == ERROR_START_MARKER)) {
+        if (!errdatap) {
                 return;
         }
 
         if (mutex_trylock(&errdump_lock)) {
                 for (i = 0; i < MAX_ARM_REGISTERS; i ++)
                         errdatap->registers[i] = ( uint32_t )regs->uregs[i];
-                
+
                 errdatap->cpsr = ( uint32_t )regs->ARM_cpsr;
                 errdatap->program_counter = ( uint32_t )regs->ARM_pc;
-                
+
                 stackp = ( uint32_t )regs->ARM_sp;
-                
+
                 for (i = 0; i < MAX_STACK_DATA; i++)
                         errdatap->stack_data[MAX_STACK_DATA - i - 1] = stackp[i];
 

@@ -136,14 +136,17 @@ static struct miscdevice sierra_smem_misc = {
 static void sierra_kmsg_dump_cb(struct kmsg_dumper *dumper,
                              enum kmsg_dump_reason reason)
 {
+        static int crash_counter = 0;
         char *buf,*str,*tmp,*er_base,*kmsgp;
         char error_string[ERROR_STRING_LEN];
         unsigned int len,stack_pre,stack_pos;
         struct sER_DATA *errdatap = (struct sER_DATA *)(smem_base +
                         BSMEM_ERR_OFFSET + BS_SMEM_ERR_DUMP_SIZE);
 
-        if ((!errdatap) || (errdatap->start_marker == ERROR_START_MARKER)) {
-                pr_err("%s:sierra smem already set kerne crash info\n",__func__);
+        crash_counter++;
+        if ((!errdatap) || (crash_counter > 1)) {
+                pr_err("%s:sierra smem already set kerne crash info,%d\n",
+                        __func__,crash_counter);
                 return;
         }
 
@@ -168,8 +171,8 @@ static void sierra_kmsg_dump_cb(struct kmsg_dumper *dumper,
                         buf = str - LKC_STR_EXTR_LEN;
         }
         else {
-                pr_err("%s:can't find the start point str(%s),len=%d,%x\n",
-                        LKC_PANIC_STR, len, buf, __func__);
+                pr_err("%s:can't find the start point str,len=%d\n",
+                        LKC_PANIC_STR, len);
                 strcpy(error_string, LKC_PANIC_STR);
                 /*if kmsg is bigger the smem buffer, get the last  kmsg*/
                 if (len > BS_SMEM_LKC_SIZE) {
@@ -199,7 +202,12 @@ static void sierra_kmsg_dump_cb(struct kmsg_dumper *dumper,
                 {
                         stack_pre = str - buf -15;
                         stack_pos = buf + len - tmp +15 -1;
+                        if (stack_pre > BS_SMEM_LKC_SIZE)
+                                stack_pre = BS_SMEM_LKC_SIZE;
                         memcpy(er_base, buf,stack_pre);
+                        /*make sure kmsg will not overlay SMEM */
+                        if ((stack_pre + stack_pos) > BS_SMEM_LKC_SIZE)
+                                stack_pos = BS_SMEM_LKC_SIZE - stack_pre;
                         memcpy(er_base+stack_pre, tmp - 15, stack_pos);
                         
                         /* add err string , most importantly set the marker;
