@@ -216,6 +216,13 @@ static void getap_multiplex_gpio(void)
 			gpio_ext_chip.mask |= 0x1ULL << i;
 		}
 	}
+	/*
+	 * customer has 46 standard GPIO.
+	 * The Linux Sysfs GPIO mask node:
+	 * if bit="1" means available, bit="0" means unavailable.
+	 *
+	 */
+	gpio_ext_chip.mask ^= 0x3FFFFFFFFFFF;
 }
 
 /**
