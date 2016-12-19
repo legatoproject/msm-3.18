@@ -183,6 +183,7 @@
 	qcom,hsusb-otg-phy-init-seq =
 		<0x44 0x80 0x30 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
 
+	qcom,hsusb-otg-mode = <3>; /* OTG mode */
 	qcom,usbid-gpio;
 	sierra,vbus-en-gpio = <&tlmm_pinmux 24 0>;
 	vbus_otg-supply;

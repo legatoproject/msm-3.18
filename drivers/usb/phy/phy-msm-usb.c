@@ -828,7 +828,15 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * Enable USB BAM if USB BAM is enabled already before block reset as
 	 * block reset also resets USB BAM registers.
 	 */
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/*if peripheral mode is disabled,then phy->otg->gadget will be NULL pointer*/
+	if (phy->otg->gadget)
+		msm_usb_bam_enable(CI_CTRL, phy->otg->gadget->bam2bam_func_enabled);
+#else
 	msm_usb_bam_enable(CI_CTRL, phy->otg->gadget->bam2bam_func_enabled);
+#endif
+/* SWISTOP */
 
 	return 0;
 }
@@ -2049,7 +2057,8 @@ static int msm_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	motg->pdata->vbus_power = msm_otg_vbus_power;
+	if ((motg->pdata->mode == USB_OTG) || (motg->pdata->mode == USB_HOST))
+		motg->pdata->vbus_power = msm_otg_vbus_power;
 #endif
 /* SWISTOP */
 
@@ -2268,6 +2277,14 @@ static void msm_otg_chg_check_timer_func(unsigned long data)
 {
 	struct msm_otg *motg = (struct msm_otg *) data;
 	struct usb_otg *otg = motg->phy.otg;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/*if peripheral mode is disabled,otg->gadget will be NULL pointer*/
+	if (!otg->gadget)
+		return;
+#endif
+/* SWISTOP */
 
 	if (atomic_read(&motg->in_lpm) ||
 		!test_bit(B_SESS_VLD, &motg->inputs) ||
@@ -4786,20 +4803,22 @@ static int msm_otg_probe(struct platform_device *pdev)
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	if (gpio_is_valid(motg->pdata->vbus_en_gpio)) {
-		/* usb vbus-en-gpio request */
-		ret = gpio_request(motg->pdata->vbus_en_gpio,
-				"USB_VBUS_EN_GPIO");
-		if (ret) {
-			dev_err(&pdev->dev, "request usb vbus-en-gpio failed\n");
+	if ((motg->pdata->mode == USB_OTG) || (motg->pdata->mode == USB_HOST)) {
+		if (gpio_is_valid(motg->pdata->vbus_en_gpio)) {
+			/* usb vbus-en-gpio request */
+			ret = gpio_request(motg->pdata->vbus_en_gpio,
+					"USB_VBUS_EN_GPIO");
+			if (ret) {
+				dev_err(&pdev->dev, "request usb vbus-en-gpio failed\n");
+				goto free_async_irq;
+			}
+		} else {
+			dev_err(&pdev->dev, "vbus-en-gpio %d is invalid\n",
+					motg->pdata->vbus_en_gpio);
 			goto free_async_irq;
 		}
-	} else {
-		dev_err(&pdev->dev, "vbus-en-gpio %d is invalid\n",
-				motg->pdata->vbus_en_gpio);
-		goto free_async_irq;
+		gpio_direction_output(motg->pdata->vbus_en_gpio, 0);
 	}
-	gpio_direction_output(motg->pdata->vbus_en_gpio, 0);
 #endif
 /* SWISTOP */
 
