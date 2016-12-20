@@ -368,20 +368,24 @@ enum bs_prod_family_e
  ************/
 enum bshwtype
 {
-  BSQCTMTP,                     /* Qualcomm MTP 9x30                       */
-  BSHWNONE,                     /* HW type NONE (Fuse has not been blown yet) */
-  BSAR7582,                     /* 0x02 - Automotive 7582                     */
-  BSAR7584,                     /* 0x03 - Automotive 7584                     */
-  BSAR7586,                     /* 0x04 - Automotive 7586                     */
-  BSAR7588,                     /* 0x05 - Automotive 7588                     */
-  BSAR8582,                     /* 0x06 - Automotive 8582                     */
-  BSAR7582_NC,                  /* 0x07 - Automotive 7582 without codec */
-  BSAR7584_NC,                  /* 0x08 - Automotive 7584 without codec */
-  BSAR7586_NC,                  /* 0x09 - Automotive 7586 without codec */
-  BSAR7588_NC,                  /* 0x0A - Automotive 7588 without codec */
-  BSAR8582_NC,                  /* 0x0B - Automotive 8582 without codec */
-  BSWP7601,                     /* 0x0C - WP7601                              */
-  BSWP7603,                     /* 0x0D - WP7603                              */
+  BSQCTMTP,                      /* Qualcomm MTP 9x30                          */
+  BSHWNONE,                      /* HW type NONE (Fuse has not been blown yet) */
+  BSAR7582,                      /* 0x02 - Automotive 7582                     */
+  BSAR7584,                      /* 0x03 - Automotive 7584                     */
+  BSAR7586,                      /* 0x04 - Automotive 7586                     */
+  BSAR7586_NB7_NB28,             /* 0x05 - Automotive 7586 for Ficosa          */
+  BSAR7588,                      /* 0x06 - Automotive 7588                     */
+  BSAR8582,                      /* 0x07 - Automotive 8582                     */
+  BSAR7582_NC,                   /* 0x08 - Automotive 7582 without codec       */
+  BSAR7584_NC,                   /* 0x09 - Automotive 7584 without codec       */
+  BSAR7586_NC_NB7,               /* 0x0A - Automotive 7586 without codec       */
+  BSAR7586_NC_NB7_NB28,          /* 0x0B - Automotive 7586 without codec       */
+  BSAR7588_NC,                   /* 0x0C - Automotive 7588 without codec       */
+  BSAR8582_NC,                   /* 0x0D - Automotive 8582 without codec       */
+  BSWP7601,                      /* 0x0E - WP7601                              */
+  BSWP7603,                      /* 0x0F - WP7603                              */
+  BSAR7584_NB28A,                /* 0x10 - Automotive 7584 without codec       */  
+
 
   /* Note: Add these marcos is just for AV module compiling.
      Need to re-write according to MDM9x40 hwtype later */

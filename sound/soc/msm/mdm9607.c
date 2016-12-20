@@ -209,9 +209,17 @@ static bool mdm_support_inter_codec(void)
 	/* if not a AR family ,assume it uses a internal codec*/
 	if (prod_family == BS_PROD_FAMILY_AR)
 	{
-		if ((prod_instance >= BSAR7582_NC) &&
-			(prod_instance <= BSAR8582_NC))
-		ret = false;
+		switch(prod_instance)
+		{
+			case BSAR7582_NC:
+			case BSAR7584_NC:
+			case BSAR7586_NC_NB7:
+			case BSAR7586_NC_NB7_NB28:
+			case BSAR7588_NC:
+			case BSAR8582_NC:
+				ret = false;
+				break;
+		}
 	}
 
 	pr_debug("hwconfig=%x,prod_family=%d,prod_instance=%d\n",
