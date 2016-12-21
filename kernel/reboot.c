@@ -16,6 +16,11 @@
 #include <linux/syscalls.h>
 #include <linux/syscore_ops.h>
 #include <linux/uaccess.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif
+/* SWISTOP */
 
 /*
  * this indicates whether you can reboot with ctrl-alt-del: the default is yes
@@ -220,6 +225,12 @@ void kernel_restart(char *cmd)
 		pr_emerg("Restarting system\n");
 	else
 		pr_emerg("Restarting system with command '%s'\n", cmd);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* clear error reset count */
+	bsseterrcount(0);
+#endif
+/* SWISTOP */
 	kmsg_dump(KMSG_DUMP_RESTART);
 	machine_restart(cmd);
 }
