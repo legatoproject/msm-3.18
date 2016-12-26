@@ -5356,6 +5356,13 @@ static int voice_cvs_stop_playback(struct voice_data *v)
 	return 0;
 
 fail:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Qualcomm solution for QTI9X28-763 from SR02737210 */
+	v->music_info.playing = 0;
+	v->music_info.force = 0;
+#endif
+/* SWISTOP */
 	return ret;
 }
 
