@@ -300,6 +300,7 @@
 #define DS_IMAGE_USERDATA_2                 (1 << 18)  /* Legato FRM of system 2 */
 #define DS_IMAGE_CUSTOMERAPP_1              (1 << 19)  /* 'customer0' partition which stores customer application of system 1 */
 #define DS_IMAGE_CUSTOMERAPP_2              (1 << 20)  /* 'customer1' partition which stores customer application of system 2 */
+#define DS_IMAGE_CUSTOMERAPP_3              (1 << 21)  /* 'customer2' partition which stores customer application of system 2 */
 #define DS_IMAGE_FLAG_NOT_SET               0xFFFFFFFFFFFFFFFF /* Used during parameter delivery if 'bad image flag' not set */
 
 /* Interlock between program refresh and normal SW update. 
