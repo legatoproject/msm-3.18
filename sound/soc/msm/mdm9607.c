@@ -211,7 +211,7 @@ static bool mdm_support_inter_codec(void)
 	{
 		switch(prod_instance)
 		{
-			case BSAR7582_NC:
+			case BSAR7582_NC_NB7:
 			case BSAR7584_NC:
 			case BSAR7586_NC_NB7:
 			case BSAR7586_NC_NB7_NB28:
