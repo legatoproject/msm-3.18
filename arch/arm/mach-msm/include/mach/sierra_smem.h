@@ -89,6 +89,14 @@
  * Must be sync with bsmem.c(in MPSS). 
  */
 #define BS_SMEM_CRC_SIZE                   0x0004   /* 4 bytes CRC value for each shared memory area */
+/* Note: total size must be less than 1MB(0x100000)
+ * (0x1000+0x4) + (0x400+0x4) + (0x1000+0x4) + (0x300+0x4) +
+ * (0x2000+0x4) + (0x400+0x4) + (0x400+0x4) + (0x400+0x4) +
+ * (0x814+0x4) + (0x10+0x4) + (0x20+0x4) + (0x20+0x4) +
+ * (0x20+0x4) + (0x10+0x4) + (0x1000+0x4) + (0x4C+0x4) +
+ * (0x5010+0x4) + (0x1000+0x4) + (0x8040+0x4)
+ * = 0x14C7C
+ */
 #define BS_SMEM_CWE_SIZE                   0x1000   /* 512 * 8 slots              */
 #define BS_SMEM_MSG_SIZE                   0x0400   /* 1 kB, fixed for expansion  */
 #define BS_SMEM_ERR_SIZE                   0x1000   /* (0x07F8 + 0x07F8 + 0x0010) */
@@ -108,6 +116,7 @@
 #define BS_SMEM_CR_SKU_SIZE                0x004C   /* 76 bytes for Cross SKU update */
 #define BS_SMEM_APP_DUMP_SIZE              0x5010   /* 2 KB*10 + 16  for app dump info */
 #define BS_SMEM_ELOG_SIZE                  0x1000   /* 4KB for EE log */
+#define BS_SMEM_EFS_RW_LOG_SIZE            0x8040   /* for EFS reading/writing log */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -127,6 +136,7 @@
 #define BSMEM_CR_SKU_OFFSET                (BSMEM_LKC_OFFSET + BS_SMEM_LKC_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_APP_DUMP_OFFSET              (BSMEM_CR_SKU_OFFSET + BS_SMEM_CR_SKU_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_ELOG_OFFSET                  (BSMEM_APP_DUMP_OFFSET + BS_SMEM_APP_DUMP_SIZE + BS_SMEM_CRC_SIZE)
+#define BSMEM_EFS_RW_LOG_OFFSET            (BSMEM_ELOG_OFFSET + BS_SMEM_ELOG_SIZE + BS_SMEM_CRC_SIZE)
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
