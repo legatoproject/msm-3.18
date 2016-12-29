@@ -207,3 +207,36 @@ void sierra_smem_errdump_save_frame(void *taskp, void *framedatap)
         /* else, reentry, don't save */
 }
 EXPORT_SYMBOL(sierra_smem_errdump_save_frame);
+
+/*
+ * save R0~R14,PC,CPSR, 32 bytes of stack,task address.
+ */
+void sierra_smem_errdump_save_regs(void *registers, void *taskp)
+{
+        struct sER_DATA *errdatap = sierra_smem_get_dump_buf();
+        int i;
+        unsigned long *stackp;
+        struct pt_regs *regs = (struct pt_regs *)registers;
+
+        if (!errdatap) {
+                return;
+        }
+
+        if (mutex_trylock(&errdump_lock)) {
+                for (i = 0; i < MAX_ARM_REGISTERS; i ++)
+                        errdatap->registers[i] = (uint32_t)regs->uregs[i];
+
+                errdatap->cpsr = (uint32_t)regs->ARM_cpsr;
+                errdatap->program_counter = (uint32_t)regs->ARM_pc;
+
+                stackp = (uint32_t)regs->ARM_sp;
+
+                for (i = 0; i < MAX_STACK_DATA; i++)
+                        errdatap->stack_data[MAX_STACK_DATA - i - 1] = stackp[i];
+
+                sprintf(errdatap->task_name, "%08X", (unsigned int)taskp);
+
+                mutex_unlock(&errdump_lock);
+        }
+}
+EXPORT_SYMBOL(sierra_smem_errdump_save_regs);
