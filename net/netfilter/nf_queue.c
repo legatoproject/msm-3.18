@@ -32,7 +32,9 @@ static const struct nf_queue_handler __rcu *queue_handler __read_mostly;
 void nf_register_queue_handler(const struct nf_queue_handler *qh)
 {
 	/* should never happen, we only have one queueing backend in kernel */
-	WARN_ON(rcu_access_pointer(queue_handler));
+	/* SWISTART */
+	/* WARN_ON(rcu_access_pointer(queue_handler)); */
+	/* SWISTOP */
 	rcu_assign_pointer(queue_handler, qh);
 }
 EXPORT_SYMBOL(nf_register_queue_handler);
