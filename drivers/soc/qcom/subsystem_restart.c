@@ -406,7 +406,7 @@ static struct device_attribute subsys_attrs[] = {
 	__ATTR(keep_alive, 0644, keep_alive_show, keep_alive_store),
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	__ATTR(firmware_load, 0644, NULL, firmware_load),
+	__ATTR(firmware_load, 0200, NULL, firmware_load),
 #endif
 /* SWISTOP */
 	__ATTR_NULL,
