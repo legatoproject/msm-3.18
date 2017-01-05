@@ -2080,6 +2080,13 @@ static int msm_spi_bam_init(struct msm_spi *dd)
 		bam_props.irq       = dd->bam.irq;
 		bam_props.manage    = SPS_BAM_MGR_DEVICE_REMOTE;
 		bam_props.summing_threshold = 0x10;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		bam_props.constrained_logging = true;
+		bam_props.logging_number = 1;
+		bam_props.ipc_loglevel = 4;
+#endif
+/* SWISTOP */
 
 		rc = sps_register_bam_device(&bam_props, &bam_handle);
 		if (rc) {
