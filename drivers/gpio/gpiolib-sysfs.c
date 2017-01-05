@@ -27,6 +27,10 @@ static DEFINE_MUTEX(sysfs_lock);
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 
+/* for RI PIN owner flag*/
+#define RI_OWNER_MODEM      0
+#define RI_OWNER_APP        1
+
 /* Product specific assignments in gpiolib_sysfs_init() */
 static struct ext_gpio_map *ext_gpio = NULL;
 static struct gpio_chip gpio_ext_chip = {
@@ -239,6 +243,39 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 static int gRmode = -1;
 extern int sierra_smem_get_factory_mode(void);
 
+static int gpio_ri = -1;
+
+/**
+ * gpio_sync_ri() - sync gpio RI function with riowner
+ * Context: After ext_gpio and gpio_ri have been set.
+ *
+ * Returns 1 if apps, 0 if modem, or -1 if RI not found.
+ */
+static int gpio_sync_ri(void)
+{
+	int ri_owner = -1;
+
+	if (gpio_ri >= 0) {
+		/* Check if RI gpio is owned by APP core
+		 * In this case, set that gpio for RI management
+		 * RI owner: 1 APP , 0 Modem. See AT!RIOWNER
+		 */
+		ri_owner = bsgetriowner();
+		if (RI_OWNER_APP == ri_owner) {
+			if (ext_gpio[gpio_ri].function != FUNCTION_UNALLOCATED) {
+				pr_debug("%s: RI owner is APP\n", __func__);
+				ext_gpio[gpio_ri].function = FUNCTION_UNALLOCATED;
+			}
+		} else {
+			if (ext_gpio[gpio_ri].function != FUNCTION_EMBEDDED_HOST) {
+				pr_debug("%s: RI owner is Modem\n", __func__);
+				ext_gpio[gpio_ri].function = FUNCTION_EMBEDDED_HOST;
+			}
+		}
+	}
+
+	return ri_owner;
+}
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
@@ -740,6 +777,7 @@ static ssize_t export_store(struct class *class,
 	gRmode = sierra_smem_get_factory_mode();
 	if(gRmode != 1)
 	{
+		gpio_sync_ri();
 		status = gpio = gpio_map_name_to_num(buf, &alias);
 		pr_debug("%s: sierra--find GPIO: %d \n", __func__, (int)gpio);
 	}
@@ -1205,6 +1243,7 @@ static int __init gpiolib_sysfs_init(void)
 #ifdef CONFIG_SIERRA
 	enum bshwtype hwtype;
 	enum bshwrev hwrev;
+	unsigned int gpio;
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
@@ -1251,6 +1290,17 @@ static int __init gpiolib_sysfs_init(void)
 	}
 
 	gpio_ext_chip.mask = bsgetgpioflag();
+
+	for (gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
+	{
+		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0)
+		{
+			gpio_ri = gpio;
+			gpio_sync_ri();
+			break;
+		}
+	}
+
 	getap_multiplex_gpio();
 	status = gpiochip_export(&gpio_ext_chip);
 

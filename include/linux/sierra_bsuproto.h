@@ -20,4 +20,5 @@ extern uint8_t bsgethwtype(void);
 extern uint8_t bsgethwrev(void);
 extern uint64_t bsgetgpioflag(void);
 extern void bsseterrcount(unsigned int err_cnt);
+extern int8_t bsgetriowner(void);
 #endif
