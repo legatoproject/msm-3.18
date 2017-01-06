@@ -1,6 +1,6 @@
 /* arch/arm/mach-msm/sierra_bscommon.c
  *
- * Copyright (C) 2013 Sierra Wireless, Inc
+ * Copyright (C) 2016 Sierra Wireless, Inc
  * Author: Alex Tan <atan@sierrawireless.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -125,3 +125,63 @@ bool bsgethsicflag(void)
 }
 EXPORT_SYMBOL(bsgethsicflag);
 
+/************
+ *
+ * Name:     bs_support_get
+ *
+ * Purpose:  To check if the hardware supports a particular feature
+ *
+ * Parms:    feature - feature to check
+ *
+ * Return:   TRUE if hardware supports this feature
+ *           FALSE otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    Use this function to keep hardware variant dependencies
+ *           in a central location.
+ *
+ ************/
+ bool bs_support_get(enum bsfeature feature)
+ {
+	bool supported = false;
+	uint32_t hwconfig;
+	uint8_t prod_family, prod_instance;
+
+	hwconfig = sierra_smem_get_hwconfig();
+	if (hwconfig == BC_MSG_HWCONFIG_INVALID) {
+		pr_err("sierra_smem_get_hwconfig invalid\n");
+		return supported;
+	}
+	prod_family  =  hwconfig & 0xff;
+	prod_instance  =  (hwconfig >> 8) & 0xff;
+
+	switch (feature) {
+	case BSFEATURE_INTERNALCODEC:
+			/* if not a AR family ,assume it doesn't support internal codec*/
+			if (prod_family == BS_PROD_FAMILY_AR) {
+				switch (prod_instance) {
+				case BSAR7582:
+				case BSAR7584:
+				case BSAR7586:
+				case BSAR7586_NB7_NB28:
+				case BSAR7588:
+				case BSAR8582:
+				case BSAR7584_NB28A:
+				case BSAR7582_NB13:
+					supported = true;
+					break;
+				}
+			}
+
+			pr_debug("hwconfig=%x, prod_family=%d, prod_instance=%d\n",
+				hwconfig, prod_family, prod_instance);
+		break;
+
+	default:
+		break;
+	}
+
+	return supported;
+ }
+EXPORT_SYMBOL(bs_support_get);

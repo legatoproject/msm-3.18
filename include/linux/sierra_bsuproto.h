@@ -1,6 +1,6 @@
 /* kernel/include/linux/sierra_bsuproto.h
  *
- * Copyright (C) 2013 Sierra Wireless, Inc
+ * Copyright (C) 2016 Sierra Wireless, Inc
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,4 +18,5 @@
 
 extern uint64_t bsgetgpioflag(void);
 extern bool bsgethsicflag(void);
+extern bool bs_support_get(enum bsfeature feature);
 #endif

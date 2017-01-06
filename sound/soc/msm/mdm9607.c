@@ -36,7 +36,7 @@
 #include "../codecs/wcd9306.h"
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-#include <mach/sierra_smem.h>
+#include <linux/sierra_bsudefs.h>
 #endif /* SIERRA */
 /* SWISTOP */
 
@@ -188,46 +188,6 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.enable_anc_mic_detect = false,
 	.hw_jack_type = FOUR_POLE_JACK,
 };
-
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-static bool mdm_support_inter_codec(void)
-{
-	bool ret = true;
-	uint32_t hwconfig;
-	uint8_t prod_family, prod_instance;
-
-	hwconfig = sierra_smem_get_hwconfig();
-	if (hwconfig == BC_MSG_HWCONFIG_INVALID)
-	{
-		pr_debug("sierra_smem_get_hwconfig invalid\n");
-		return ret;
-	}
-	prod_family  =  hwconfig & 0xff;
-	prod_instance  =  (hwconfig >> 8) & 0xff;
-
-	/* if not a AR family ,assume it uses a internal codec*/
-	if (prod_family == BS_PROD_FAMILY_AR)
-	{
-		switch(prod_instance)
-		{
-			case BSAR7582_NC_NB7:
-			case BSAR7584_NC:
-			case BSAR7586_NC_NB7:
-			case BSAR7586_NC_NB7_NB28:
-			case BSAR7588_NC:
-			case BSAR8582_NC:
-				ret = false;
-				break;
-		}
-	}
-
-	pr_debug("hwconfig=%x,prod_family=%d,prod_instance=%d\n",
-		hwconfig,prod_family,prod_instance);
-	return ret;
-}
-#endif /* SIERRA */
-/* SWISTOP */
 
 static void mdm_gpio_set_mux_ctl(struct mdm_machine_data *dt)
 {
@@ -438,7 +398,7 @@ done:
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	if (mdm_support_inter_codec() == false)
+	if (bs_support_get(BSFEATURE_INTERNALCODEC) == false)
 		return 0;
 	else
 		return ret;
@@ -2530,7 +2490,7 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 	/* if there is no internal codec connect to board, fill a dummy codec*/
-	if (mdm_support_inter_codec() == false)
+	if (bs_support_get(BSFEATURE_INTERNALCODEC) == false)
 		mdm_fill_dummy_codec(match->data);
 #endif
 /* SWISTOP */
