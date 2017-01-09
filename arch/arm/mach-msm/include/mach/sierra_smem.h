@@ -87,8 +87,18 @@
 #define ERDUMP_SAVE_CMD_END                0xFF0F
 #define ERDUMP_PROC_TYPE_APPS              0x41505053 /* "APPS" in ascii hex */
 
-/* Shared Memory Sub-region offsets */
-#define BS_SMEM_CRC_SIZE               0x0004   /* 4 bytes CRC value for each shared memory area */
+/* Shared Memory Sub-region offsets.
+ * Must be sync with bsmem.c(in MPSS). 
+ */
+#define BS_SMEM_CRC_SIZE                   0x0004   /* 4 bytes CRC value for each shared memory area */
+/* Note: total size must be less than 1MB(0x100000)
+ * (0x1000+0x4) + (0x400+0x4) + (0x1000+0x4) + (0x300+0x4) +
+ * (0x2000+0x4) + (0x400+0x4) + (0x400+0x4) + (0x400+0x4) +
+ * (0x814+0x4) + (0x10+0x4) + (0x20+0x4) + (0x20+0x4) +
+ * (0x20+0x4) + (0x10+0x4) + (0x1000+0x4) + (0x4C+0x4) +
+ * (0x5010+0x4) + (0x1000+0x4) + (0x8040+0x4)
+ * = 0x14C7C
+ */
 #define BS_SMEM_CWE_SIZE                   0x1000   /* 512 * 8 slots              */
 #define BS_SMEM_MSG_SIZE                   0x0400   /* 1 kB, fixed for expansion  */
 #define BS_SMEM_ERR_SIZE                   0x1000   /* (0x07F8 + 0x07F8 + 0x0010) */
@@ -100,15 +110,15 @@
 #define BS_SMEM_IM_SIZE                    0x0400   /* 1 KB */
 #define BS_SMEM_MIBIB_SIZE                 0x0814   /* 2KB + 20 bytes */
 #define BS_SMEM_MODE_SIZE                  0x0010   /* 16 bytes for mode switching */
-
 #define BS_SMEM_DSSD_SIZE                  0x0020   /* 32 bytes for dual system boot up */
-
+#define BS_SMEM_SECB_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 #define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
 #define BS_SMEM_PR_SW_SIZE                 0x0010   /* 16 bytes for interlock between program refresh and normal SW update */
-#define BS_SMEM_SECB_SIZE                  0x0080   /* 128 bytes for secure boot */
+#define BS_SMEM_LKC_SIZE                   0x1000   /* 4KB bytes for linux kernel crash msg */
 #define BS_SMEM_CR_SKU_SIZE                0x004C   /* 76 bytes for Cross SKU update */
 #define BS_SMEM_APP_DUMP_SIZE              0x5010   /* 2 KB*10 + 16  for app dump info */
-#define BS_SMEM_LKC_SIZE                   0x1000   /* 4KB bytes for linux kernel crash msg */
+#define BS_SMEM_ELOG_SIZE                  0x1000   /* 4KB for EE log */
+#define BS_SMEM_EFS_RW_LOG_SIZE            0x8040   /* for EFS reading/writing log */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -120,13 +130,15 @@
 #define BSMEM_IM_OFFSET                    (BSMEM_FWUP_OFFSET + BS_SMEM_FWUP_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MIBIB_OFFSET                 (BSMEM_IM_OFFSET + BS_SMEM_IM_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_COWORK_OFFSET                (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_DSSD_OFFSET                  (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_PR_SW_OFFSET                 (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_SECB_OFFSET                  (BSMEM_PR_SW_OFFSET + BS_SMEM_PR_SW_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_CR_SKU_OFFSET                (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_COWORK_OFFSET                (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_PR_SW_OFFSET                 (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_LKC_OFFSET                   (BSMEM_PR_SW_OFFSET + BS_SMEM_PR_SW_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_CR_SKU_OFFSET                (BSMEM_LKC_OFFSET + BS_SMEM_LKC_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_APP_DUMP_OFFSET              (BSMEM_CR_SKU_OFFSET + BS_SMEM_CR_SKU_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_LKC_OFFSET                   (BSMEM_APP_DUMP_OFFSET + BS_SMEM_APP_DUMP_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_ELOG_OFFSET                  (BSMEM_APP_DUMP_OFFSET + BS_SMEM_APP_DUMP_SIZE + BS_SMEM_CRC_SIZE)
+#define BSMEM_EFS_RW_LOG_OFFSET            (BSMEM_ELOG_OFFSET + BS_SMEM_ELOG_SIZE + BS_SMEM_CRC_SIZE)
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
@@ -643,42 +655,23 @@ struct __attribute__((packed)) bs_smem_mode_switch
 
 /************
  *
- * Name:     bs_sec_fuse_info_s
- *
- * Purpose:  secure boot related qfuse info
- *
- * Notes:    make sure uint32 fields is 4-byte aligned
- *
- *
- ************/
-struct __attribute__((packed)) bs_sec_fuse_info_s
-{
-  uint8_t        root_of_trust[32]; /**< sha256 hash of the root certificate */
-  uint64_t       msm_hw_id;             
-  uint32_t       serial_num;
-} ;
-
-
-/************
- *
  * Name:     bs_smem_secboot_info
  *
- * Purpose:  secboot SMEM structure containing secure boot qfuse info.
+ * Purpose:  secboot SMEM structure containing secure boot enable or not info.
  *
  * Members:  see below
  *
- * Notes:    make sure uint32 fields is 4-byte aligned
+ * Notes:    None
  *
  *
  ************/
 struct __attribute__((packed)) bs_smem_secboot_info
 {
-  uint32_t  magic_beg;                                    /* Beginning marker  */
-  uint32_t  auth_enable;                                  /* secboot auth enable flag */
-  struct bs_sec_fuse_info_s  fuse_info;                          /* secboot hw fuse info */
-  uint8_t   pad[BS_SMEM_SECB_SIZE - sizeof(struct bs_sec_fuse_info_s) - 4 *sizeof(uint32_t)]; /* padding zone */
-  uint32_t  magic_end;                                    /* Beginning marker  */
-  uint32_t  crc32;                                        /* crc32             */
+  uint32_t magic_beg;                                /* Beginning marker  */
+  uint32_t auth_enable;                              /* secboot auth enable flag */
+  uint32_t reseved[4];                               /* reseved for future usage */  
+  uint32_t magic_end;                                /* Beginning marker  */
+  uint32_t crc32;                                    /* crc32             */
 };
 
 
