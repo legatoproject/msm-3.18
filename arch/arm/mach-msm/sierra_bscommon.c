@@ -212,6 +212,21 @@ uint64_t bsgetgpioflag(void)
 }
 EXPORT_SYMBOL(bsgetgpioflag);
 
+/************
+ *
+ * Name:     bsseterrcount()
+ *
+ * Purpose:  Set error count
+ *
+ * Parms:    error count
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
 void bsseterrcount(unsigned int err_cnt)
 {
 	struct bc_smem_message_s *b2amsgp;
@@ -279,3 +294,82 @@ int8_t bsgetriowner(void)
 }
 
 EXPORT_SYMBOL(bsgetriowner);
+
+/************
+ *
+ * Name:     bsgetresettypeflag()
+ *
+ * Purpose:  Get reset type flag
+ *
+ * Parms:    none
+ *
+ * Return:   reset type flag
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint32_t bsgetresettypeflag()
+{
+	struct bc_smem_message_s *b2amsgp;
+	unsigned char *virtual_addr;
+	unsigned int reset_type_flag = 0;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (virtual_addr)
+	{
+	  /*  MODM mailbox */
+	  virtual_addr += BSMEM_MSG_MODM_MAILBOX_OFFSET;
+
+	  b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+	  if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
+		  b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
+		  (b2amsgp->version < BC_SMEM_MSG_CRC32_VERSION_MIN ||
+		   b2amsgp->crc32 == crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)))
+	  {
+		reset_type_flag = b2amsgp->in.brstsetflg;
+	  }
+	}
+
+	return reset_type_flag;
+}
+EXPORT_SYMBOL(bsgetresettypeflag);
+
+/************
+ *
+ * Name:     bssetresettype
+ *
+ * Purpose:  set reset type
+ *
+ * Parms:    reset type
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+void bssetresettype(unsigned int reset_type)
+{
+  struct bc_smem_message_s *b2amsgp;
+  unsigned char *virtual_addr;
+
+  virtual_addr = sierra_smem_base_addr_get();
+  if (virtual_addr)
+  {
+    /*  APPL mailbox */
+    virtual_addr += BSMEM_MSG_APPL_MAILBOX_OFFSET;
+    b2amsgp = (struct bc_smem_message_s *)virtual_addr;
+
+    b2amsgp->out.reset_type = reset_type;
+    b2amsgp->out.brstsetflg = BS_BCMSG_RTYPE_IS_SET;
+    b2amsgp->crc32 = crc32(~0, (void *)b2amsgp, BC_MSG_CRC_SZ);
+  }
+
+  return;
+}
+EXPORT_SYMBOL(bssetresettype);
+
