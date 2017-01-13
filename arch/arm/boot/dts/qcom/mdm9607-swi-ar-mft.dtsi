@@ -265,32 +265,6 @@
 				};
 			};
 		};
-
-		sdhc2_cd_pin {
-			sdc2_cd_on: cd_on {
-			    mux {
-				    pins = "gpio26";
-				    function = "gpio";
-			    };
-			    config {
-				    pins = "gpio26";
-				    drive-strength = <6>;/* 6 MA */
-				    bias-pull-down; /* PULL Down */
-			    };
-			};
-			sdc2_cd_off: cd_off {
-				mux {
-					pins = "gpio26";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio26";
-					drive-strength = <6>;/* 6 MA */
-					bias-pull-down; /* PULL Down */
-				};
-			};
-		};
-
 	};
 
 	sdcard_ext_vreg: sdcard_ext_vreg {
@@ -482,6 +456,17 @@
 	vdd-io-supply = <&mdm9607_l13>;
 	qcom,vdd-io-voltage-level = <1800000 2850000>;
 	qcom,vdd-io-current-level = <200 50000>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &tlmm_pinmux 26 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&tlmm_pinmux 26 0x1>;
 
 	pinctrl-names = "active", "sleep";
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
