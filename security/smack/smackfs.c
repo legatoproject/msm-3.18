@@ -1988,6 +1988,18 @@ static int smk_parse_label_list(char *data, struct list_head *list)
 	struct smack_known *skp;
 	struct smack_known_list_elem *sklep;
 
+#ifdef CONFIG_SIERRA
+/* Fix bug: Single label "-" Cannot successfully clear the labels in onlycap*/
+/*
+ * It is not right to add "-" to the onlycap label list.
+ * Single label "-" is only used to clear the SMACK label(s) in onlycap.
+ * So when the input is only a single label "-",not to add it to the
+ * lable list, just return and let the label list is empty.
+ */
+	int len = strlen(data);
+	if(len == 1 && data[0] == '-' )
+		return 0;
+#endif
 	while ((tok = strsep(&data, " ")) != NULL) {
 		if (!*tok)
 			continue;
