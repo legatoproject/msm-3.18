@@ -162,6 +162,8 @@
 };
 
 &i2c_4 {
+	/* reduce bus frequency as a workaround for MCU ROM boot loader */
+	qcom,clk-freq-out = <100000>;
 	status = "ok";
 };
 
