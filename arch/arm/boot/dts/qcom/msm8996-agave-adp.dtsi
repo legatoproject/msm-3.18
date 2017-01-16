@@ -544,10 +544,138 @@
 						&mdss_hdmi_cec_suspend>;
 };
 
-#include "msm8996-mdss-panels.dtsi"
+#include "msm8996-sde-display.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&sde_kms {
+	connectors = <&sde_hdmi &display_manager>;
+	gpus = <&msm_gpu>;
+	memory-region = <&cont_splash_mem>;
+	qcom,sde-plane-id-map {
+		qcom,sde-plane-id@0 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "rgb0", "rgb1";
+			qcom,plane-type = "primary";
+		};
+		qcom,sde-plane-id@1 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "vig0", "vig1";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@2 {
+			qcom,display-type = "primary";
+			qcom,plane-name = "cursor0", "cursor1";
+			qcom,plane-type = "cursor";
+		};
+		qcom,sde-plane-id@3 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "rgb2";
+			qcom,plane-type = "primary";
+		};
+		qcom,sde-plane-id@4 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "vig2";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@5 {
+			qcom,display-type = "secondary";
+			qcom,plane-name = "dma0";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@6 {
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "rgb3";
+			qcom,plane-type = "primary";
+		};
+		qcom,sde-plane-id@7 {
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "vig3";
+			qcom,plane-type = "overlay";
+		};
+		qcom,sde-plane-id@8 {
+			qcom,display-type = "tertiary";
+			qcom,plane-name = "dma1";
+			qcom,plane-type = "overlay";
+		};
+	};
+};
+
+&sde_hdmi {
+	status = "ok";
+	qcom,hdmi-tx-ddc-clk-gpio = <&tlmm 32 0>;
+	qcom,hdmi-tx-ddc-data-gpio = <&tlmm 33 0>;
+	qcom,hdmi-tx-hpd-gpio = <&tlmm 34 0>;
+	qcom,hdmi-tx-mux-en-gpio = <&tlmm 27 0>;
+	qcom,hdmi-tx-mux-sel-gpio = <&tlmm 83 0>;
+	qcom,hdmi-tx-mux-lpm-gpio = <&tlmm 85 0>;
+};
+
+&dsi_dual_sharp_video_1 {
+	/delete-property/ qcom,dsi-display-active;
+};
+
+&hdmi_display {
+	qcom,display-type = "primary";
+};
+
+&dsi_adv_7533_1 {
+	qcom,dsi-display-active;
+	qcom,display-type = "secondary";
+	qcom,dsi-panel = <&dsi_adv7533_1080p>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
+&dsi_adv_7533_2 {
+	qcom,dsi-display-active;
+	qcom,dsi-panel = <&dsi_adv7533_1080p>;
+
+	qcom,panel-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3300000>;
+			qcom,supply-max-voltage = <3300000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
 };
 
 &mdss_dsi {
@@ -873,7 +1001,7 @@
 				"msm-pcm-routing", "msm-compr-dsp",
 				"msm-pcm-loopback.1";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
-				<&dai_mi2s>, <&dai_mi2s_quat>,
+				<&dai_mi2s_sec>, <&dai_mi2s>, <&dai_mi2s_quat>,
 				<&afe_pcm_rx>, <&afe_pcm_tx>,
 				<&afe_proxy_rx>, <&afe_proxy_tx>,
 				<&incall_record_rx>, <&incall_record_tx>,
@@ -887,7 +1015,7 @@
 				<&dai_quat_tdm_tx_0>, <&dai_quat_tdm_tx_1>,
 				<&dai_quat_tdm_tx_2>, <&dai_quat_tdm_tx_3>;
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
-				"msm-dai-q6-hdmi.8",
+				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
 				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
 				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
@@ -919,6 +1047,8 @@
 
 	qcom,msm-dai-mi2s {
 		dai_mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&sec_mi2s_active &sec_mi2s_sd0_active
 				&sec_mi2s_sd1_active>;

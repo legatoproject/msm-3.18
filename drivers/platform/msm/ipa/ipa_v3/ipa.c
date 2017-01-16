@@ -208,7 +208,7 @@ struct ipa3_ioc_nat_alloc_mem32 {
 };
 #endif
 
-#define IPA_TZ_UNLOCK_ATTRIBUTE 0x0C0311
+#define IPA_TZ_UNLOCK_ATTRIBUTE 0xDEADBEEF
 #define TZ_MEM_PROTECT_REGION_ID 0x10
 
 struct tz_smmu_ipa_protect_region_iovec_s {
@@ -2088,7 +2088,7 @@ static int ipa3_q6_clean_q6_tables(void)
 
 	mem.size = IPA_HW_TBL_HDR_WIDTH;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,
-		&mem.phys_base, GFP_KERNEL);
+		&mem.phys_base, GFP_ATOMIC);
 	if (!mem.base) {
 		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
 		return -ENOMEM;
@@ -3899,6 +3899,38 @@ static int ipa3_gsi_pre_fw_load_init(void)
 	return 0;
 }
 
+static void ipa3_uc_is_loaded(void)
+{
+	IPADBG("\n");
+	complete_all(&ipa3_ctx->uc_loaded_completion_obj);
+}
+
+static enum gsi_ver ipa3_get_gsi_ver(enum ipa_hw_type ipa_hw_type)
+{
+	enum gsi_ver gsi_ver;
+
+	switch (ipa_hw_type) {
+	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
+		gsi_ver = GSI_VER_1_0;
+		break;
+	case IPA_HW_v3_5:
+		gsi_ver = GSI_VER_1_2;
+		break;
+	case IPA_HW_v3_5_1:
+		gsi_ver = GSI_VER_1_3;
+		break;
+	default:
+		IPAERR("No GSI version for ipa type %d\n", ipa_hw_type);
+		WARN_ON(1);
+		gsi_ver = GSI_VER_ERR;
+	}
+
+	IPADBG("GSI version %d\n", gsi_ver);
+
+	return gsi_ver;
+}
+
 /**
  * ipa3_post_init() - Initialize the IPA Driver (Part II).
  * This part contains all initialization which requires interaction with
@@ -3925,9 +3957,11 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 	int result;
 	struct sps_bam_props bam_props = { 0 };
 	struct gsi_per_props gsi_props;
+	struct ipa3_uc_hdlrs uc_hdlrs = { 0 };
 
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		memset(&gsi_props, 0, sizeof(gsi_props));
+		gsi_props.ver = ipa3_get_gsi_ver(resource_p->ipa_hw_type);
 		gsi_props.ee = resource_p->ee;
 		gsi_props.intr = GSI_INTR_IRQ;
 		gsi_props.irq = resource_p->transport_irq;
@@ -3999,6 +4033,9 @@ static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR(":ipa Uc interface init failed (%d)\n", -result);
 	else
 		IPADBG(":ipa Uc interface init ok\n");
+
+	uc_hdlrs.ipa_uc_loaded_hdlr = ipa3_uc_is_loaded;
+	ipa3_uc_register_handlers(IPA_HW_FEATURE_COMMON, &uc_hdlrs);
 
 	result = ipa3_wdi_init();
 	if (result)
@@ -4156,10 +4193,10 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
 		IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
-		if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_0)
-			result = ipa3_trigger_fw_loading_mdms();
-		else if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1)
+		if (ipa3_is_msm_device())
 			result = ipa3_trigger_fw_loading_msms();
+		else
+			result = ipa3_trigger_fw_loading_mdms();
 		/* No IPAv3.x chipsets that don't support FW loading */
 
 		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -4173,50 +4210,61 @@ static ssize_t ipa3_write(struct file *file, const char __user *buf,
 	return count;
 }
 
-static int ipa3_tz_unlock_reg(struct ipa3_context *ipa3_ctx)
+/**
+ * ipa3_tz_unlock_reg - Unlocks memory regions so that they become accessible
+ *	from AP.
+ * @reg_info - Pointer to array of memory regions to unlock
+ * @num_regs - Number of elements in the array
+ *
+ * Converts the input array of regions to a struct that TZ understands and
+ * issues an SCM call.
+ * Also flushes the memory cache to DDR in order to make sure that TZ sees the
+ * correct data structure.
+ *
+ * Returns: 0 on success, negative on failure
+ */
+int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
 {
 	int i, size, ret, resp;
 	struct tz_smmu_ipa_protect_region_iovec_s *ipa_tz_unlock_vec;
 	struct tz_smmu_ipa_protect_region_s cmd_buf;
 
-	if (ipa3_ctx && ipa3_ctx->ipa_tz_unlock_reg_num > 0) {
-		size = ipa3_ctx->ipa_tz_unlock_reg_num *
-			sizeof(struct tz_smmu_ipa_protect_region_iovec_s);
-		ipa_tz_unlock_vec = kzalloc(PAGE_ALIGN(size), GFP_KERNEL);
-		if (ipa_tz_unlock_vec == NULL)
-			return -ENOMEM;
-
-		for (i = 0; i < ipa3_ctx->ipa_tz_unlock_reg_num; i++) {
-			ipa_tz_unlock_vec[i].input_addr =
-				ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr ^
-				(ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr &
-				0xFFF);
-			ipa_tz_unlock_vec[i].output_addr =
-				ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr ^
-				(ipa3_ctx->ipa_tz_unlock_reg[i].reg_addr &
-				0xFFF);
-			ipa_tz_unlock_vec[i].size =
-				ipa3_ctx->ipa_tz_unlock_reg[i].size;
-			ipa_tz_unlock_vec[i].attr = IPA_TZ_UNLOCK_ATTRIBUTE;
-		}
-
-		/* pass physical address of command buffer */
-		cmd_buf.iovec_buf = virt_to_phys((void *)ipa_tz_unlock_vec);
-		cmd_buf.size_bytes = size;
-
-		/* flush cache to DDR */
-		__cpuc_flush_dcache_area((void *)ipa_tz_unlock_vec, size);
-		outer_flush_range(cmd_buf.iovec_buf, cmd_buf.iovec_buf + size);
-
-		ret = scm_call(SCM_SVC_MP, TZ_MEM_PROTECT_REGION_ID, &cmd_buf,
-				sizeof(cmd_buf), &resp, sizeof(resp));
-		if (ret) {
-			IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
-			kfree(ipa_tz_unlock_vec);
-			return -EFAULT;
-		}
-		kfree(ipa_tz_unlock_vec);
+	if (reg_info ==  NULL || num_regs == 0) {
+		IPAERR("Bad parameters\n");
+		return -EFAULT;
 	}
+
+	size = num_regs * sizeof(struct tz_smmu_ipa_protect_region_iovec_s);
+	ipa_tz_unlock_vec = kzalloc(PAGE_ALIGN(size), GFP_KERNEL);
+	if (ipa_tz_unlock_vec == NULL)
+		return -ENOMEM;
+
+	for (i = 0; i < num_regs; i++) {
+		ipa_tz_unlock_vec[i].input_addr = reg_info[i].reg_addr ^
+			(reg_info[i].reg_addr & 0xFFF);
+		ipa_tz_unlock_vec[i].output_addr = reg_info[i].reg_addr ^
+			(reg_info[i].reg_addr & 0xFFF);
+		ipa_tz_unlock_vec[i].size = reg_info[i].size;
+		ipa_tz_unlock_vec[i].attr = IPA_TZ_UNLOCK_ATTRIBUTE;
+	}
+
+	/* pass physical address of command buffer */
+	cmd_buf.iovec_buf = virt_to_phys((void *)ipa_tz_unlock_vec);
+	cmd_buf.size_bytes = size;
+
+	/* flush cache to DDR */
+	__cpuc_flush_dcache_area((void *)ipa_tz_unlock_vec, size);
+	outer_flush_range(cmd_buf.iovec_buf, cmd_buf.iovec_buf + size);
+
+	ret = scm_call(SCM_SVC_MP, TZ_MEM_PROTECT_REGION_ID, &cmd_buf,
+		       sizeof(cmd_buf), &resp, sizeof(resp));
+	if (ret) {
+		IPAERR("scm call SCM_SVC_MP failed: %d\n", ret);
+		kfree(ipa_tz_unlock_vec);
+		return -EFAULT;
+	}
+	kfree(ipa_tz_unlock_vec);
+
 	return 0;
 }
 
@@ -4324,7 +4372,10 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 
 	/* unlock registers for uc */
-	ipa3_tz_unlock_reg(ipa3_ctx);
+	result = ipa3_tz_unlock_reg(ipa3_ctx->ipa_tz_unlock_reg,
+				    ipa3_ctx->ipa_tz_unlock_reg_num);
+	if (result)
+		IPAERR("Failed to unlock memory region using TZ\n");
 
 	/* default aggregation parameters */
 	ipa3_ctx->aggregation_type = IPA_MBIM_16;
@@ -4716,6 +4767,7 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	INIT_LIST_HEAD(&ipa3_ctx->ipa_ready_cb_list);
 
 	init_completion(&ipa3_ctx->init_completion_obj);
+	init_completion(&ipa3_ctx->uc_loaded_completion_obj);
 
 	/*
 	 * For GSI, we can't register the GSI driver yet, as it expects
@@ -5080,7 +5132,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 				ipa_tz_unlock_reg[pos++];
 			ipa_drv_res->ipa_tz_unlock_reg[i].size =
 				ipa_tz_unlock_reg[pos++];
-			IPADBG("tz unlock reg %d: addr 0x%pa size %d\n", i,
+			IPADBG("tz unlock reg %d: addr 0x%pa size %llu\n", i,
 				&ipa_drv_res->ipa_tz_unlock_reg[i].reg_addr,
 				ipa_drv_res->ipa_tz_unlock_reg[i].size);
 		}

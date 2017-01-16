@@ -17,7 +17,7 @@
 #include "msm8909-pm8916.dtsi"
 #include "msm8909-pm8916-mtp.dtsi"
 #include "apq8009-audio-external_codec.dtsi"
-#include "apq8009w-memory.dtsi"
+#include "apq8009-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8009 WCD9326 MTP";

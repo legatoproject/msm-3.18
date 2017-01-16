@@ -277,7 +277,7 @@ static struct sk_buff *gbam_alloc_skb_from_pool(struct gbam_port *port)
 		skb = alloc_skb(bam_mux_rx_req_size + BAM_MUX_HDR, GFP_ATOMIC);
 
 		if (!skb) {
-			pr_err("%s: alloc skb failed\n", __func__);
+			pr_err_ratelimited("%s: alloc skb failed\n", __func__);
 			goto alloc_exit;
 		}
 
@@ -462,7 +462,8 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 		ret = usb_ep_queue(ep, req, GFP_ATOMIC);
 		spin_lock(&port->port_lock_dl);
 		if (ret) {
-			pr_err("%s: usb epIn failed with %d\n", __func__, ret);
+			pr_err_ratelimited("%s: usb epIn failed with %d\n",
+					 __func__, ret);
 			list_add(&req->list, &d->tx_idle);
 			dev_kfree_skb_any(skb);
 			break;
@@ -1385,7 +1386,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	usb_bam_alloc_fifos(d->usb_bam_type, d->src_connection_idx);
 	usb_bam_alloc_fifos(d->usb_bam_type, d->dst_connection_idx);
-	gadget->bam2bam_func_enabled = true;
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	/* check if USB cable is disconnected or not */
@@ -2353,6 +2353,12 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 exit:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 	return ret;
+}
+
+void gbam_data_flush_workqueue(void)
+{
+	pr_debug("%s(): Flushing workqueue\n", __func__);
+	flush_workqueue(gbam_wq);
 }
 
 int gbam_setup(unsigned int no_bam_port)

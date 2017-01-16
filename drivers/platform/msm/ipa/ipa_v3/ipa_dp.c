@@ -766,6 +766,30 @@ static void ipa3_transport_irq_cmd_ack(void *user1, int user2)
 }
 
 /**
+ * ipa3_transport_irq_cmd_ack_free - callback function which will be
+ * called by SPS/GSI driver after an immediate command is complete.
+ * This function will also free the completion object once it is done.
+ * @tag_comp: pointer to the completion object
+ * @ignored: parameter not used
+ *
+ * Complete the immediate commands completion object, this will release the
+ * thread which waits on this completion object (ipa3_send_cmd())
+ */
+static void ipa3_transport_irq_cmd_ack_free(void *tag_comp, int ignored)
+{
+	struct ipa3_tag_completion *comp = tag_comp;
+
+	if (!comp) {
+		IPAERR("comp is NULL\n");
+		return;
+	}
+
+	complete(&comp->comp);
+	if (atomic_dec_return(&comp->cnt) == 0)
+		kfree(comp);
+}
+
+/**
  * ipa3_send_cmd - send immediate commands
  * @num_desc:	number of descriptors within the desc struct
  * @descr:	descriptor structure
@@ -791,6 +815,7 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 			IPA_CLIENT_APPS_CMD_PROD);
 		return -EFAULT;
 	}
+
 	sys = ipa3_ctx->ep[ep_idx].sys;
 	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
 
@@ -824,6 +849,91 @@ int ipa3_send_cmd(u16 num_desc, struct ipa3_desc *descr)
 		}
 		wait_for_completion(&desc->xfer_done);
 	}
+
+bail:
+		IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
+		return result;
+}
+
+/**
+ * ipa3_send_cmd_timeout - send immediate commands with limited time
+ *	waiting for ACK from IPA HW
+ * @num_desc:	number of descriptors within the desc struct
+ * @descr:	descriptor structure
+ * @timeout:	millisecond to wait till get ACK from IPA HW
+ *
+ * Function will block till command gets ACK from IPA HW or timeout.
+ * Caller needs to free any resources it allocated after function returns
+ * The callback in ipa3_desc should not be set by the caller
+ * for this function.
+ */
+int ipa3_send_cmd_timeout(u16 num_desc, struct ipa3_desc *descr, u32 timeout)
+{
+	struct ipa3_desc *desc;
+	int i, result = 0;
+	struct ipa3_sys_context *sys;
+	int ep_idx;
+	int completed;
+	struct ipa3_tag_completion *comp;
+
+	for (i = 0; i < num_desc; i++)
+		IPADBG("sending imm cmd %d\n", descr[i].opcode);
+
+	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	if (-1 == ep_idx) {
+		IPAERR("Client %u is not mapped\n",
+			IPA_CLIENT_APPS_CMD_PROD);
+		return -EFAULT;
+	}
+
+	comp = kzalloc(sizeof(*comp), GFP_ATOMIC);
+	if (!comp) {
+		IPAERR("no mem\n");
+		return -ENOMEM;
+	}
+	init_completion(&comp->comp);
+
+	/* completion needs to be released from both here and in ack callback */
+	atomic_set(&comp->cnt, 2);
+
+	sys = ipa3_ctx->ep[ep_idx].sys;
+	IPA_ACTIVE_CLIENTS_INC_SIMPLE();
+
+	if (num_desc == 1) {
+		if (descr->callback || descr->user1)
+			WARN_ON(1);
+
+		descr->callback = ipa3_transport_irq_cmd_ack_free;
+		descr->user1 = comp;
+		if (ipa3_send_one(sys, descr, true)) {
+			IPAERR("fail to send immediate command\n");
+			kfree(comp);
+			result = -EFAULT;
+			goto bail;
+		}
+	} else {
+		desc = &descr[num_desc - 1];
+
+		if (desc->callback || desc->user1)
+			WARN_ON(1);
+
+		desc->callback = ipa3_transport_irq_cmd_ack_free;
+		desc->user1 = comp;
+		if (ipa3_send(sys, num_desc, descr, true)) {
+			IPAERR("fail to send multiple immediate command set\n");
+			kfree(comp);
+			result = -EFAULT;
+			goto bail;
+		}
+	}
+
+	completed = wait_for_completion_timeout(
+		&comp->comp, msecs_to_jiffies(timeout));
+	if (!completed)
+		IPADBG("timeout waiting for imm-cmd ACK\n");
+
+	if (atomic_dec_return(&comp->cnt) == 0)
+		kfree(comp);
 
 bail:
 	IPA_ACTIVE_CLIENTS_DEC_SIMPLE();
@@ -1591,6 +1701,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	struct ipa3_sys_context *sys;
 	int src_ep_idx;
 	int num_frags, f;
+	struct ipa_gsi_ep_config *gsi_ep;
 
 	if (unlikely(!ipa3_ctx)) {
 		IPAERR("IPA3 driver was not initialized\n");
@@ -1600,23 +1711,6 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	if (skb->len == 0) {
 		IPAERR("packet size is 0\n");
 		return -EINVAL;
-	}
-
-	num_frags = skb_shinfo(skb)->nr_frags;
-	if (num_frags) {
-		/* 1 desc for tag to resolve status out-of-order issue;
-		 * 1 desc is needed for the linear portion of skb;
-		 * 1 desc may be needed for the PACKET_INIT;
-		 * 1 desc for each frag
-		 */
-		desc = kzalloc(sizeof(*desc) * (num_frags + 3), GFP_ATOMIC);
-		if (!desc) {
-			IPAERR("failed to alloc desc array\n");
-			goto fail_mem;
-		}
-	} else {
-		memset(_desc, 0, 3 * sizeof(struct ipa3_desc));
-		desc = &_desc[0];
 	}
 
 	/*
@@ -1655,6 +1749,37 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		goto fail_gen;
 	}
 
+	num_frags = skb_shinfo(skb)->nr_frags;
+	/*
+	 * make sure TLV FIFO supports the needed frags.
+	 * 2 descriptors are needed for IP_PACKET_INIT and TAG_STATUS.
+	 * 1 descriptor needed for the linear portion of skb.
+	 */
+	gsi_ep = ipa3_get_gsi_ep_info(src_ep_idx);
+	if (gsi_ep && (num_frags + 3 > gsi_ep->ipa_if_tlv)) {
+		if (skb_linearize(skb)) {
+			IPAERR("Failed to linear skb with %d frags\n",
+				num_frags);
+			goto fail_gen;
+		}
+		num_frags = 0;
+	}
+	if (num_frags) {
+		/* 1 desc for tag to resolve status out-of-order issue;
+		 * 1 desc is needed for the linear portion of skb;
+		 * 1 desc may be needed for the PACKET_INIT;
+		 * 1 desc for each frag
+		 */
+		desc = kzalloc(sizeof(*desc) * (num_frags + 3), GFP_ATOMIC);
+		if (!desc) {
+			IPAERR("failed to alloc desc array\n");
+			goto fail_gen;
+		}
+	} else {
+		memset(_desc, 0, 3 * sizeof(struct ipa3_desc));
+		desc = &_desc[0];
+	}
+
 	if (dst_ep_idx != -1) {
 		/* SW data path */
 		cmd.destination_pipe_index = dst_ep_idx;
@@ -1662,7 +1787,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			IPA_IMM_CMD_IP_PACKET_INIT, &cmd, true);
 		if (unlikely(!cmd_pyld)) {
 			IPAERR("failed to construct ip_packet_init imm cmd\n");
-			goto fail_gen;
+			goto fail_mem;
 		}
 
 		/* the tag field will be populated in ipa3_send() function */
@@ -1731,7 +1856,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		if (num_frags == 0) {
 			if (ipa3_send(sys, 2, desc, true)) {
 				IPAERR("fail to send skb %p HWP\n", skb);
-				goto fail_gen;
+				goto fail_mem;
 			}
 		} else {
 			for (f = 0; f < num_frags; f++) {
@@ -1748,7 +1873,7 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 			if (ipa3_send(sys, num_frags + 2, desc, true)) {
 				IPAERR("fail to send skb %p num_frags %u HWP\n",
 					skb, num_frags);
-				goto fail_gen;
+				goto fail_mem;
 			}
 		}
 		IPA_STATS_INC_CNT(ipa3_ctx->stats.tx_hw_pkts);
@@ -1762,10 +1887,10 @@ int ipa3_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 
 fail_send:
 	ipahal_destroy_imm_cmd(cmd_pyld);
-fail_gen:
+fail_mem:
 	if (num_frags)
 		kfree(desc);
-fail_mem:
+fail_gen:
 	return -EFAULT;
 }
 
@@ -4064,7 +4189,7 @@ static uint64_t pointer_to_tag_wa(struct ipa3_tx_pkt_wrapper *tx_pkt)
 {
 	u16 temp;
 	/* Add the check but it might have throughput issue */
-	if (ipa3_ctx->ipa_hw_type == IPA_HW_v3_1) {
+	if (ipa3_is_msm_device()) {
 		temp = (u16) (~((unsigned long) tx_pkt &
 			0xFFFF000000000000) >> 48);
 		if (temp) {

@@ -689,7 +689,6 @@ static void ffs_user_copy_worker(struct work_struct *work)
 
 	usb_ep_free_request(io_data->ep, io_data->req);
 
-	io_data->kiocb->private = NULL;
 	if (io_data->read)
 		kfree(io_data->iovec);
 	kfree(io_data->buf);
@@ -716,10 +715,13 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 	ssize_t ret, data_len = -EINVAL;
 	int halt;
 	size_t extra_buf_alloc = 0;
+	bool first_read = false;
 
 	pr_debug("%s: len %zu, read %d\n", __func__, io_data->len,
 			io_data->read);
 
+retry:
+	first_read = false;
 	if (atomic_read(&epfile->error))
 		return -ENODEV;
 
@@ -753,6 +755,11 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 			if (ret < 0)
 				goto error;
 		}
+		/*
+		 * set if function eps are not enabled for the first
+		 * epfile_read
+		 */
+		first_read = true;
 		if (!ep) {
 			ret = -ENODEV;
 			goto error;
@@ -942,6 +949,18 @@ static ssize_t ffs_epfile_io(struct file *file, struct ffs_io_data *io_data)
 					ret = ep->status;
 				else
 					ret = -ENODEV;
+				/* do wait again if func eps are not enabled */
+				if (io_data->read && first_read && (ret < 0)) {
+					pr_debug("%s: waiting for the online state\n",
+						 __func__);
+					ret = 0;
+					kfree(data);
+					spin_unlock_irq(&epfile->ffs->eps_lock);
+					mutex_unlock(&epfile->mutex);
+					atomic_set(&epfile->error, 0);
+					goto retry;
+				}
+
 				spin_unlock_irq(&epfile->ffs->eps_lock);
 
 				if (io_data->read && ret > 0) {

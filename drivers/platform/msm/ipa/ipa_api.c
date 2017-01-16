@@ -2454,6 +2454,12 @@ const char *ipa_get_version_string(enum ipa_hw_type ver)
 	case IPA_HW_v3_1:
 		str = "3.1";
 		break;
+	case IPA_HW_v3_5:
+		str = "3.5";
+		break;
+	case IPA_HW_v3_5_1:
+		str = "3.5.1";
+		break;
 	default:
 		str = "Invalid version";
 		break;
@@ -2512,6 +2518,8 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 		break;
 	case IPA_HW_v3_0:
 	case IPA_HW_v3_1:
+	case IPA_HW_v3_5:
+	case IPA_HW_v3_5_1:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
 		break;
@@ -2749,6 +2757,34 @@ int ipa_tear_down_uc_offload_pipes(int ipa_ep_idx_ul,
 
 	return ret;
 }
+
+/**
+ * ipa_tz_unlock_reg() - Allow AP access to memory regions controlled by TZ
+ */
+int ipa_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_tz_unlock_reg, reg_info, num_regs);
+
+	return ret;
+}
+
+/**
+ * ipa_get_pdev() - return a pointer to IPA dev struct
+ *
+ * Return value: a pointer to IPA dev struct
+ *
+ */
+struct device *ipa_get_pdev(void)
+{
+	struct device *ret;
+
+	IPA_API_DISPATCH_RETURN_PTR(ipa_get_pdev);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_pdev);
 
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,

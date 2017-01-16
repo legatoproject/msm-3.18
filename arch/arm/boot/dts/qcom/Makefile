@@ -59,6 +59,7 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996pro-v1.1-pmi8996-pmk8001-mtp.dtb \
 	apq8096pro-auto-cdp.dtb \
 	apq8096pro-v1.1-auto-adp.dtb \
+	apq8096pro-v1.1-auto-adp-lite.dts \
 	apq8096pro-liquid.dtb \
 	apq8096pro-v1.1-auto-cdp.dtb \
 	apq8096pro-v1.1-pmi8994-cdp.dtb \
@@ -160,6 +161,12 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-v1.1-nand-mtp.dtb \
 	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb
 
+dtb-$(CONFIG_ARCH_SDXHEDGEHOG) += sdxhedgehog-emmc-cdp.dtb \
+	sdxhedgehog-emmc-mtp.dtb \
+	sdxhedgehog-nand-cdp.dtb \
+	sdxhedgehog-nand-mtp.dtb \
+	sdxhedgehog-nand-dualwifi-mtp.dtb
+
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
 	msm8937-pmi8937-cdp.dtb \
@@ -190,14 +197,18 @@ dtb-$(CONFIG_ARCH_MSM8917) += msm8917-rumi.dtb \
 	msm8917-pmi8937-rcm.dtb \
 	msm8917-pmi8950-rcm.dtb \
 	msm8917-qgp-tmo.dtb \
-	msm8917-pmi8937-qrd-sku5.dtb
+	msm8917-pmi8937-qrd-sku5.dtb \
+	apq8017-pmi8937-cdp-wcd-rome.dtb \
+	apq8017-pmi8950-cdp-wcd-rome.dtb
 
 dtb-$(CONFIG_ARCH_MSM8920) += msm8920-pmi8937-cdp.dtb \
 	msm8920-pmi8937-mtp.dtb \
 	msm8920-pmi8950-cdp.dtb \
 	msm8920-pmi8950-mtp.dtb \
 	msm8920-pmi8937-rcm.dtb \
-	msm8920-pmi8950-rcm.dtb
+	msm8920-pmi8950-rcm.dtb \
+	msm8920-pmi8940-qrd-sku7.dtb \
+	msm8920-pmi8950-ext-codec-cdp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8940) += msm8940-pmi8937-cdp.dtb \
 	msm8940-pmi8937-mtp.dtb \

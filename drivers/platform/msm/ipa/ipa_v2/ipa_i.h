@@ -137,7 +137,7 @@
 
 #define IPA_HW_TABLE_ALIGNMENT(start_ofst) \
 	(((start_ofst) + 127) & ~127)
-#define IPA_RT_FLT_HW_RULE_BUF_SIZE	(128)
+#define IPA_RT_FLT_HW_RULE_BUF_SIZE	(256)
 
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE 8
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT(start_ofst) \
@@ -1845,4 +1845,5 @@ int ipa_ntn_init(void);
 int ipa2_get_ntn_stats(struct IpaHwStatsNTNInfoData_t *stats);
 int ipa2_register_ipa_ready_cb(void (*ipa_ready_cb)(void *),
 				void *user_data);
+struct device *ipa2_get_pdev(void);
 #endif /* _IPA_I_H_ */
