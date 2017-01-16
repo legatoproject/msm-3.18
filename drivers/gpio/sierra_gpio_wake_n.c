@@ -93,6 +93,11 @@ static int wake_n_probe(struct platform_device *pdev)
 		goto release_gpio;
 	}
 
+	if (gpio_pull_up(gpio_to_desc(wake_n_pdata.gpio))) {
+		pr_err("%s: failed to set GPIO wake_N to pull-up\n", __func__);
+		goto release_gpio;
+	}
+
 	wake_n_pdata.irq = gpio_to_irq(wake_n_pdata.gpio);
 	if(wake_n_pdata.irq < 0){
 		pr_err("%s: no IRQ associated with GPIO%d\n", __func__,
