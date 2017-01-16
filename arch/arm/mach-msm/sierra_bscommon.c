@@ -443,3 +443,51 @@ int8_t bs_uart_fun_get (uint uart_num)
 	}
 }
 EXPORT_SYMBOL(bs_uart_fun_get);
+
+/************
+ *
+ * Name:     bsgetresintimer()
+ *
+ * Purpose:  Returns the resin timer
+ *
+ * Parms:    none
+ *
+ * Return:   resin timer
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+struct bs_resin_timer bsgetresintimer(void)
+{
+	struct bscoworkmsg *mp;
+	unsigned char *virtual_addr;
+	struct bs_resin_timer result = {0};
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (virtual_addr) {
+	virtual_addr += BSMEM_COWORK_OFFSET;
+
+	mp = (struct bscoworkmsg *)virtual_addr;
+
+	if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+		mp->magic_end == BS_SMEM_COWORK_MAGIC_END ) {
+			/* doube check CRC */
+			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE)) {
+				/*get resin timer*/
+				result.s1_timer = mp->bsresintimer[0];
+				result.s2_timer = mp->bsresintimer[1];
+			} else {
+				printk(KERN_ERR"sierra:-%s-failed: crc error", __func__);
+			}
+			} else {
+				printk(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
+		}
+	} else {
+		printk(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
+	}
+
+	return result;
+}
+EXPORT_SYMBOL(bsgetresintimer);

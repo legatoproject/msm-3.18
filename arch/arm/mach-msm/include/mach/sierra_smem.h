@@ -500,6 +500,22 @@ enum bshwtype
 };
 
 /* Structures */
+/*************
+ *
+ * Name:     bs_resin_timer
+ *
+ * Purpose:  Contains resin timer
+ *
+ * Members:  see below
+ *
+ * Notes:
+ *
+ **************/
+struct __attribute__((packed)) bs_resin_timer
+{
+  uint8_t s1_timer;
+  uint8_t s2_timer;
+};
 
 /*************
  *
