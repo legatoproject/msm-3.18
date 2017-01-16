@@ -75,6 +75,7 @@ int gpiod_direction_output_raw(struct gpio_desc *desc, int value);
 #ifdef CONFIG_SIERRA
 int gpio_pull_up(struct gpio_desc *desc);
 int gpio_pull_down(struct gpio_desc *desc);
+int gpio_set_pull(struct gpio_desc *desc, int type);
 #endif
 /* SWISTOP */
 

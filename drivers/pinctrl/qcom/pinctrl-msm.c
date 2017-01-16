@@ -490,6 +490,46 @@ static int msm_gpio_pull_up(struct gpio_chip *chip, unsigned offset)
 	return 0;
 }
 
+static int msm_gpio_set_pull(struct gpio_chip *chip,
+				  unsigned offset,
+				  int pull_type)
+{
+	const struct msm_pingroup *g;
+	struct msm_pinctrl *pctrl = container_of(chip, struct msm_pinctrl, chip);
+	unsigned long flags;
+	u32 val;
+	int	status = 0;
+
+	g = &pctrl->soc->groups[offset];
+
+	spin_lock_irqsave(&pctrl->lock, flags);
+
+	val = readl(pctrl->regs + g->ctl_reg);
+	val &= ~MSM_GPIO_PULL_MASK;
+	switch (pull_type) {
+	case MSM_GPIO_NO_PULL:
+		val |=  MSM_GPIO_NO_PULL;
+		break;
+	case MSM_GPIO_PULL_DOWN:
+		val |=  MSM_GPIO_PULL_DOWN;
+		break;
+	case MSM_GPIO_PULL_KEEPER:
+		val |=  MSM_GPIO_PULL_KEEPER;
+		break;
+	case MSM_GPIO_PULL_UP:
+		val |=  MSM_GPIO_PULL_UP;
+		break;
+	default:
+		status = -1;
+		break;
+	}
+	writel(val, pctrl->regs + g->ctl_reg);
+
+	spin_unlock_irqrestore(&pctrl->lock, flags);
+
+	return 0;
+}
+
 #endif
 /* SWISTOP */
 
@@ -597,6 +637,7 @@ static struct gpio_chip msm_gpio_template = {
 #ifdef CONFIG_SIERRA
 	.pull_up          = msm_gpio_pull_up,
 	.pull_down        = msm_gpio_pull_down,
+	.set_pull         = msm_gpio_set_pull,
 #endif
 /* SWISTOP */
 	.get              = msm_gpio_get,

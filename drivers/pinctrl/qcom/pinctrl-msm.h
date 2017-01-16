@@ -17,8 +17,10 @@ struct pinctrl_pin_desc;
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
+#define MSM_GPIO_NO_PULL		0x0
 #define MSM_GPIO_PULL_DOWN		0x1
-#define MSM_GPIO_PULL_UP			0x3
+#define MSM_GPIO_PULL_KEEPER		0x2
+#define MSM_GPIO_PULL_UP		0x3
 #define MSM_GPIO_PULL_MASK		0x3
 #endif
 /* SWISTOP */
