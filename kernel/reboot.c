@@ -19,6 +19,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_bsudefs.h>
+#include <mach/sierra_smem.h>
 #endif
 /* SWISTOP */
 
@@ -229,6 +230,12 @@ void kernel_restart(char *cmd)
 #ifdef CONFIG_SIERRA
 	/* clear error reset count */
 	bsseterrcount(0);
+
+	/* set linux reset type */
+	if(bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR)
+	{
+		bssetresettype(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
+	}
 #endif
 /* SWISTOP */
 	kmsg_dump(KMSG_DUMP_RESTART);
