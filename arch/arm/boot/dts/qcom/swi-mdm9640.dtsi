@@ -37,6 +37,13 @@
 				label = "sierra_smem";
 			};
 		};
+
+        peripheral2_mem: peripheral2_region@0x87d00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x87d00000 0x1000000>;
+			label = "peripheral2_mem";
+		};
 	};
 };
 
