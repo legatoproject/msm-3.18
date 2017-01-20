@@ -18,6 +18,14 @@ enum transport_type {
 	USB_GADGET_XPORT_UNDEF,
 	USB_GADGET_XPORT_TTY,
 	USB_GADGET_XPORT_SMD,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Adding new XPORT type to differentiate from DS 
+ * which is also SMD 
+ */
+	USB_GADGET_XPORT_SMDNMEA,
+#endif
+/* SWISTOP */
 	USB_GADGET_XPORT_QTI,
 	USB_GADGET_XPORT_BAM2BAM,
 	USB_GADGET_XPORT_BAM2BAM_IPA,
@@ -38,6 +46,15 @@ static char *xport_to_str(enum transport_type t)
 		return "TTY";
 	case USB_GADGET_XPORT_SMD:
 		return "SMD";
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Adding new XPORT type to differentiate from DS 
+ * which is also SMD 
+ */
+	case USB_GADGET_XPORT_SMDNMEA:
+		return "SMDNMEA";
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_QTI:
 		return "QTI";
 	case USB_GADGET_XPORT_BAM2BAM:
@@ -70,6 +87,12 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_TTY;
 	if (!strncasecmp("SMD", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMD;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (!strncasecmp("SMDNMEA", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_SMDNMEA;
+#endif
+/* SWISTOP */
 	if (!strncasecmp("QTI", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_QTI;
 	if (!strncasecmp("BAM", name, XPORT_STR_LEN) ||

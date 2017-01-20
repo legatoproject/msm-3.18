@@ -91,6 +91,12 @@ static unsigned int no_smd_ports;
 static unsigned int no_hsic_sports;
 static unsigned int nr_ports;
 static unsigned int gser_next_free_port;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* flag indicating whether NMEA is before the Modem interface in order */
+bool   nmea_first  = false;
+#endif
+/* SWISTOP */
 
 static struct port_info {
 	enum transport_type	transport;
@@ -342,7 +348,22 @@ int gport_setup(struct usb_configuration *c)
 	if (no_char_bridge_ports)
 		gbridge_setup(c->cdev->gadget, no_char_bridge_ports);
 	if (no_smd_ports)
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* If the NMEA port is first, do not call the standard gsmd_setup().
+ * Instead, call gsmdnmea_setup which puts NMEA port before DS port.
+ */
+	{
+		if (nmea_first) {
+			ret = gsmdnmea_setup(c->cdev->gadget,no_smd_ports);
+		} else {
+			ret = gsmd_setup(c->cdev->gadget, no_smd_ports);
+		}
+	}
+#else
 		ret = gsmd_setup(c->cdev->gadget, no_smd_ports);
+#endif
+/* SWISTOP */
 	if (no_hsic_sports) {
 		port_idx = ghsic_data_setup(no_hsic_sports, USB_GADGET_SERIAL);
 		if (port_idx < 0)
@@ -390,6 +411,11 @@ static int gport_connect(struct f_gser *gser)
 		gserial_connect(&gser->port, port_num);
 		break;
 	case USB_GADGET_XPORT_SMD:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+#endif
+/* SWISTOP */
 		gsmd_connect(&gser->port, port_num);
 		break;
 	case USB_GADGET_XPORT_CHAR_BRIDGE:
@@ -434,6 +460,11 @@ static int gport_disconnect(struct f_gser *gser)
 		gserial_disconnect(&gser->port);
 		break;
 	case USB_GADGET_XPORT_SMD:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+#endif
+/* SWISTOP */
 		gsmd_disconnect(&gser->port, port_num);
 		break;
 	case USB_GADGET_XPORT_CHAR_BRIDGE:
@@ -632,6 +663,11 @@ static void gser_suspend(struct usb_function *f)
 
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_SMD:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 		gsmd_suspend(&gser->port, port_num);
 		break;
 	default:
@@ -661,6 +697,11 @@ static void gser_resume(struct usb_function *f)
 
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_SMD:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 		gsmd_resume(&gser->port, port_num);
 		break;
 	default:
@@ -1133,12 +1174,28 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	gser->port.func.free_func = gser_free;
 	gser->transport		= gserial_ports[opts->port_num].transport;
 	/* We support only three ports for now */
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Comment only: The order below is important. It must match the order defined
+	 * in udgetserialstr(). (UD_NMEA_MODEM_NAME)
+	 * Since the NMEA and modem ports are both of type smd, this order must also
+	 * match smd_pi in U_smd.c.
+	 */
+	if (gser->transport == USB_GADGET_XPORT_SMD)
+		gser->port.func.name = "modem";
+	else if (gser->transport == USB_GADGET_XPORT_SMDNMEA)
+		gser->port.func.name = "nmea";
+	else
+		gser->port.func.name = "modem2";
+#else
 	if (opts->port_num == 0)
 		gser->port.func.name = "modem";
 	else if (opts->port_num == 1)
 		gser->port.func.name = "nmea";
 	else
 		gser->port.func.name = "modem2";
+#endif
+/* SWISTOP */
 	gser->port.func.setup = gser_setup;
 	gser->port.func.suspend = gser_suspend;
 	gser->port.func.resume = gser_resume;
@@ -1190,6 +1247,19 @@ int gserial_init_port(int port_num, const char *name,
 		gserial_ports[port_num].client_port_num = no_smd_ports;
 		no_smd_ports++;
 		break;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+		gserial_ports[port_num].client_port_num = no_smd_ports;
+		if (no_smd_ports){
+			nmea_first  = false;
+		} else {
+			nmea_first  = true;
+		}
+		no_smd_ports++;
+		break;
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_CHAR_BRIDGE:
 		no_char_bridge_ports++;
 		break;

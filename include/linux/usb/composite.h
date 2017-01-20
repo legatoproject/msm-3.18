@@ -258,7 +258,14 @@ int usb_get_func_interface_id(struct usb_function *func);
 int config_ep_by_speed(struct usb_gadget *g, struct usb_function *f,
 			struct usb_ep *_ep);
 
+/* SWISTART */
+/* supported interfaces are more than 16 */
+#ifndef SIERRA_CONFIG
 #define	MAX_CONFIG_INTERFACES		16	/* arbitrary; max 255 */
+#else
+#define	MAX_CONFIG_INTERFACES		32	/* arbitrary; max 255 */
+#endif
+/* SWISTOP */
 
 /**
  * struct usb_configuration - represents one gadget configuration

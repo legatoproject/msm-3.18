@@ -247,11 +247,28 @@ static char manufacturer_string[256];
 static char product_string[256];
 static char serial_string[256];
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Add support for Vendor Specific Strings, indicies into the string table */
+#define STRING_PRINUM_IDX	241
+#define STRING_PRIVER_IDX	243
+
+static char pri_number_string[256];
+static char pri_revision_string[256];
+#endif
+/* SWISTOP */
+
 /* String Table */
 static struct usb_string strings_dev[] = {
 	[STRING_MANUFACTURER_IDX].s = manufacturer_string,
 	[STRING_PRODUCT_IDX].s = product_string,
 	[STRING_SERIAL_IDX].s = serial_string,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{STRING_PRINUM_IDX, pri_number_string, },
+	{STRING_PRIVER_IDX, pri_revision_string, },
+#endif
+/* SWISTOP */
 	{  }			/* end of list */
 };
 
@@ -260,8 +277,25 @@ static struct usb_gadget_strings stringtab_dev = {
 	.strings	= strings_dev,
 };
 
+/* SWISTART */
+/* from case 00984853 */
+/* Win8 MBIM driver will ask for Manufacturer and product string with invalid lang ID 0x0000 */
+#ifdef CONFIG_SIERRA
+static struct usb_gadget_strings stringtab_dev1 = {
+	.language	= 0x0000,	/* unspecified */
+	.strings	= strings_dev,
+};
+#endif /* SIERRA */
+/* SWISTOP */
+
 static struct usb_gadget_strings *dev_strings[] = {
 	&stringtab_dev,
+/* SWISTART */
+/* from case 00984853 */
+#ifdef CONFIG_SIERRA
+	&stringtab_dev1,
+#endif /* SIERRA */
+/* SWISTOP */
 	NULL,
 };
 
@@ -3353,6 +3387,80 @@ static ssize_t remote_wakeup_store(struct device *pdev,
 	return size;
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t self_powered_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	struct android_dev *dev = dev_get_drvdata(pdev);
+	struct android_configuration *conf;
+
+	if (dev->configs_num == 0)
+		return 0;
+	conf = list_entry(dev->configs.next,
+					  struct android_configuration,
+					  list_item);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			!!(conf->usb_config.bmAttributes &
+				USB_CONFIG_ATT_SELFPOWER));
+}
+
+static ssize_t self_powered_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	struct android_dev *dev = dev_get_drvdata(pdev);
+	struct android_configuration *conf;
+	int enable = 0;
+
+	sscanf(buff, "%d", &enable);
+
+	pr_debug("android_usb: %s self_powered\n",
+			enable ? "ON" : "OFF");
+
+	list_for_each_entry(conf, &dev->configs, list_item)
+	if (enable)
+		conf->usb_config.bmAttributes |= USB_CONFIG_ATT_SELFPOWER;
+	else
+		conf->usb_config.bmAttributes &= ~USB_CONFIG_ATT_SELFPOWER;
+
+	return size;
+}
+
+static ssize_t swi_mtu_show(struct device *pdev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n",swi_mtu);
+}
+
+static ssize_t swi_mtu_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	int mtu = 0;
+
+	sscanf(buff, "%d", &mtu);
+
+	pr_info("android_usb: MTU = %d\n",
+			mtu);
+	swi_mtu = mtu;
+	
+	return size;
+}
+
+int swi_usb_iSerialnumber_get(void)
+{
+	if (strlen(serial_string) == 0)
+	{
+		return 0;
+	}
+	else
+	{
+		return device_desc.iSerialNumber;
+	}
+}
+#endif /* SIERRA */
+/* SWISTOP */
+
 static ssize_t
 functions_show(struct device *pdev, struct device_attribute *attr, char *buf)
 {
@@ -3688,6 +3796,12 @@ DESCRIPTOR_ATTR(bDeviceProtocol, "%d\n")
 DESCRIPTOR_STRING_ATTR(iManufacturer, manufacturer_string)
 DESCRIPTOR_STRING_ATTR(iProduct, product_string)
 DESCRIPTOR_STRING_ATTR(iSerial, serial_string)
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+DESCRIPTOR_STRING_ATTR(iPriNumber, pri_number_string)
+DESCRIPTOR_STRING_ATTR(iPriRevision, pri_revision_string)
+#endif
+/* SWISTOP */
 
 static DEVICE_ATTR(functions, S_IRUGO | S_IWUSR, functions_show,
 						 functions_store);
@@ -3705,6 +3819,15 @@ static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
 static DEVICE_ATTR(remote_wakeup, S_IRUGO | S_IWUSR,
 		remote_wakeup_show, remote_wakeup_store);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static DEVICE_ATTR(self_powered, S_IRUGO | S_IWUSR,
+		self_powered_show, self_powered_store);
+static DEVICE_ATTR(swi_mtu, S_IRUGO | S_IWUSR,
+		swi_mtu_show, swi_mtu_store);
+#endif /* SIERRA */
+/* SWISTOP */
+
 static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_idVendor,
 	&dev_attr_idProduct,
@@ -3715,6 +3838,14 @@ static struct device_attribute *android_usb_attributes[] = {
 	&dev_attr_iManufacturer,
 	&dev_attr_iProduct,
 	&dev_attr_iSerial,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	&dev_attr_iPriNumber,
+	&dev_attr_iPriRevision,
+	&dev_attr_self_powered,
+	&dev_attr_swi_mtu,
+#endif
+/* SWISTOP */
 	&dev_attr_functions,
 	&dev_attr_enable,
 	&dev_attr_pm_qos,
@@ -3786,11 +3917,16 @@ static int android_bind(struct usb_composite_dev *cdev)
 	strings_dev[STRING_PRODUCT_IDX].id = id;
 	device_desc.iProduct = id;
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+	/* These Strings are now updated from SMEM */
 	/* Default strings - should be updated by userspace */
 	strlcpy(manufacturer_string, "Android",
 		sizeof(manufacturer_string) - 1);
 	strlcpy(product_string, "Android", sizeof(product_string) - 1);
 	strlcpy(serial_string, "0123456789ABCDEF", sizeof(serial_string) - 1);
+#endif
+/* SWISTOP */
 
 	id = usb_string_id(cdev);
 	if (id < 0)

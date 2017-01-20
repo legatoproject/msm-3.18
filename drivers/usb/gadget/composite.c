@@ -23,6 +23,12 @@
 #include <linux/usb/msm_hsusb.h>
 #include <asm/unaligned.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/usb/sierra/sierra_usb.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
 #include "u_os_desc.h"
 #define SSUSB_GADGET_VBUS_DRAW 900 /* in mA */
 #define SSUSB_GADGET_VBUS_DRAW_UNITS 8
@@ -366,11 +372,35 @@ int usb_interface_id(struct usb_configuration *config,
 	unsigned id = config->next_interface_id;
 
 	if (id < MAX_CONFIG_INTERFACES) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* Obtain Interface Number Desired 
+		 * Allow existing next_interface_id to continue counting
+		 * That is used elsewhere for total number of interfaces in configuration
+		 */
+		unsigned swi_id;
+		swi_id = swi_usb_get_interface_number( function->name, config );
+		if(swi_id == UD_INVALID_INTERFACE)
+		{
+			/* fall back to use sequencial interface number */
+			swi_id = id;
+		}
+		config->interface[swi_id] = function;
+		if (function->intf_id < 0)
+		{
+			function->intf_id = swi_id;
+		}
+		config->next_interface_id = id + 1;
+		pr_info("name:%s, interface id:%d, id:%d\n", function->name, swi_id, id);
+		return swi_id;
+#else
 		config->interface[id] = function;
 		if (function->intf_id < 0)
 			function->intf_id = id;
 		config->next_interface_id = id + 1;
 		return id;
+#endif /* SIERRA */
+/* SWISTOP */
 	}
 	return -ENODEV;
 }
@@ -670,9 +700,33 @@ static int bos_desc(struct usb_composite_dev *cdev)
 	usb_ext->bLength = USB_DT_USB_EXT_CAP_SIZE;
 	usb_ext->bDescriptorType = USB_DT_DEVICE_CAPABILITY;
 	usb_ext->bDevCapabilityType = USB_CAP_TYPE_EXT;
+/* SWISTART */
+/* Disable USB 2.0 LPM support */
+#ifndef CONFIG_SIERRA
 	usb_ext->bmAttributes = cpu_to_le32(USB_LPM_SUPPORT);
+#else
+	usb_ext->bmAttributes = 0;
+#endif
+/* SWISTOP */
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	if (gadget_is_superspeed(cdev->gadget)) {
+#else
+	/* only report superspeed capability descriptor when: 
+	 * - device support SS and currently in SS
+	 * - device support SS and currently in HS but has the
+	 *   NV feature set 
+	 * If device support SS and currently in HS with no NV set, 
+	 * will not report the descriptor to workaround the warning:
+	 * "This device can perform faster" on Windows OS
+	 * This may violate USB3.0 spec to report all other speeds even in HS
+	 */
+	if (gadget_is_superspeed(cdev->gadget) &&
+	   ((cdev->gadget->speed == USB_SPEED_SUPER) ||
+	   (swi_usb_features_get() & UD_FEATURE_BIT_SS_CAPABILITY_DESC_EN))) {
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 		/*
 		 * The Superspeed USB Capability descriptor shall be
 		 * implemented by all SuperSpeed devices.
@@ -809,8 +863,16 @@ static int set_config(struct usb_composite_dev *cdev,
 		struct usb_function	*f = c->interface[tmp];
 		struct usb_descriptor_header **descriptors;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* Our Interface numbers are not sequential, allow continuing when one is not used */
+		if (!f)
+			continue;
+#else
 		if (!f)
 			break;
+#endif /* SIERRA */
+/* SWISTOP */
 
 		/*
 		 * Record which endpoints are used by the function. This is used
@@ -1640,6 +1702,14 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		switch (w_value >> 8) {
 
 		case USB_DT_DEVICE:
+/* SWISTART */
+/* Set Serial Number index to 0 if it's NULL string according USB spec,
+ * otherwise a yellow bang will be observed on Win8.1 and Win10.
+ */
+#ifdef CONFIG_SIERRA
+			cdev->desc.iSerialNumber = swi_usb_iSerialnumber_get();
+#endif
+/* SWISTOP */
 			cdev->desc.bNumConfigurations =
 				count_configs(cdev, USB_DT_DEVICE);
 			if (cdev->desc.bNumConfigurations == 0) {
