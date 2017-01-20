@@ -119,6 +119,7 @@
 #define BS_SMEM_APP_DUMP_SIZE              0x5010   /* 2 KB*10 + 16  for app dump info */
 #define BS_SMEM_ELOG_SIZE                  0x1000   /* 4KB for EE log */
 #define BS_SMEM_EFS_RW_LOG_SIZE            0x8040   /* for EFS reading/writing log */
+#define BS_SMEM_FTUR_CNFG_SIZE             0x10d    /* 269 bytes for reliability feature configuration*/
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -139,6 +140,8 @@
 #define BSMEM_APP_DUMP_OFFSET              (BSMEM_CR_SKU_OFFSET + BS_SMEM_CR_SKU_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_ELOG_OFFSET                  (BSMEM_APP_DUMP_OFFSET + BS_SMEM_APP_DUMP_SIZE + BS_SMEM_CRC_SIZE)
 #define BSMEM_EFS_RW_LOG_OFFSET            (BSMEM_ELOG_OFFSET + BS_SMEM_ELOG_SIZE + BS_SMEM_CRC_SIZE)
+#define BSMEM_FTUR_CNFG_OFFSET             (BSMEM_EFS_RW_LOG_OFFSET + BS_SMEM_FTUR_CNFG_SIZE + BS_SMEM_CRC_SIZE)
+
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
@@ -322,6 +325,8 @@
 #define CROSS_SKU_SMEM_MAGIC_END            0x43524F45U  /* "CROE" in ASCII */
 
 #define NV_SWI_PRODUCT_SKU_SIZE  32
+#define CNFG_FTUR_SIZE  255
+
 
 /* Bitmask for bsfunctions of BS_SMEM_REGION_COWORK */
 #define BSFUNCTIONS_HSIC 0x00000001
@@ -783,6 +788,28 @@ struct __attribute__((packed)) cross_sku_smem_s
   char     ProductSKU[NV_SWI_PRODUCT_SKU_SIZE];  /* Product SKU */
   uint32_t magic_end;                            /* End Marker */
   uint32_t crc32;                                /* CRC32 of above fields */
+};
+
+/************
+ *
+ * Name:     cnfg_feature_smem_s
+ *
+ * Purpose:  reliability configuration feature structure
+ *
+ * Notes:    Structure store reliability feature configuration data.
+ * 
+ *           It should be initialized in SBL, then SBL and modem will refer it 
+ *           for configuring corresponding reliability feature.
+ *
+ ************/
+struct __attribute__((packed)) cnfg_feature_smem_s
+{
+  uint32_t magic_beg;                       /* Beginning marker */
+  uint8_t  dump_mode;                        /* RAM memory dump mode */
+  uint8_t  version;                         /* Configuration data version */
+  uint8_t  cnfg_parameter[CNFG_FTUR_SIZE];  /* reliability feature configuration data */
+  uint32_t magic_end;                       /* End Marker */
+  uint32_t crc32;                           /* CRC32 of above fields */
 };
 
 void sierra_smem_errdump_save_start(void);
