@@ -22,4 +22,5 @@ extern bool bs_support_get(enum bsfeature feature);
 extern void bsseterrcount(unsigned int err_cnt);
 extern uint32_t bsgetresettypeflag(void);
 extern void bssetresettype(unsigned int reset_type);
+extern int8_t bsgetriowner(void);
 #endif
