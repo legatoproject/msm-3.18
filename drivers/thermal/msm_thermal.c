@@ -75,6 +75,13 @@
 #define HOTPLUG_RETRY_INTERVAL_MS 100
 #define UIO_VERSION "1.0"
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+#define MSM_THERMAL_POLLMS_MIN    100  /* 100ms */
+#define MSM_THERMAL_POLLMS_MAX    5000 /* 5000ms */
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
+
 #define VALIDATE_AND_SET_MASK(_node, _key, _mask, _cpu) \
 	do { \
 		if (of_property_read_bool(_node, _key)) \
@@ -7192,6 +7199,18 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(node, key, &data.poll_ms);
 	if (ret)
 		goto fail;
+
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	if (data.poll_ms < MSM_THERMAL_POLLMS_MIN) {
+		pr_info("the poll interval is too small (%u), use the default min value\n", data.poll_ms);
+		data.poll_ms = MSM_THERMAL_POLLMS_MIN;
+	} else if (data.poll_ms > MSM_THERMAL_POLLMS_MAX) {
+		pr_info("the poll interval is too large (%u), use the default max value\n", data.poll_ms);
+		data.poll_ms = MSM_THERMAL_POLLMS_MAX;
+	}
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
 
 	key = "qcom,limit-temp";
 	ret = of_property_read_u32(node, key, &data.limit_temp_degC);
