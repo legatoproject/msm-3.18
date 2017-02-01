@@ -331,7 +331,11 @@
 
 /* Disable the the codec dts */
 &i2c_4 {
-	wcd9xxx_codec@0d {
+	wcd9xxx_tomtom_codec@0d{
+		status = "disabled";
+	};
+
+	wcd9xxx_tapan_codec@0d{
 		status = "disabled";
 	};
 
