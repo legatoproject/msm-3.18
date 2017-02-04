@@ -18,10 +18,15 @@
 
 extern uint64_t bsgetgpioflag(void);
 extern bool bsgethsicflag(void);
-extern bool bs_support_get(enum bsfeature feature);
 extern void bsseterrcount(unsigned int err_cnt);
 extern uint32_t bsgetresettypeflag(void);
 extern void bssetresettype(unsigned int reset_type);
 extern int8_t bsgetriowner(void);
 extern bool bs_product_is_ar8582(void);
+
+extern enum bshwtype bs_hwtype_get(void);
+extern enum bs_prod_family_e bs_prod_family_get (void);
+extern bool bs_support_get (enum bsfeature feature);
+extern int8_t bs_uart_fun_get (uint uart_num);
+
 #endif
