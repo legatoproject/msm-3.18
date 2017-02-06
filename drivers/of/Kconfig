@@ -33,8 +33,10 @@ config OF_PROMTREE
 
 # Hardly any platforms need this.  It is safe to select, but only do so if you
 # need it.
+# SWISTART
 config OF_DYNAMIC
-	bool
+	def_bool y
+# SWISTOP
 
 config OF_ADDRESS
 	def_bool y

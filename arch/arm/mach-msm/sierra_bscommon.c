@@ -347,3 +347,47 @@ int8_t bsgetriowner(void)
 
 EXPORT_SYMBOL(bsgetriowner);
 
+/************
+ *
+ * Name:     bs_product_is_ar8582
+ *
+ * Purpose:  To check if product is AR8582
+ *
+ * Parms:    none
+ *
+ * Return:   TRUE if product is AR8582
+ *           FALSE otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+bool bs_product_is_ar8582(void)
+{
+	bool ret = false;
+	uint32_t hwconfig;
+	uint8_t prod_family, prod_instance;
+
+	hwconfig = sierra_smem_get_hwconfig();
+	if (hwconfig == BC_MSG_HWCONFIG_INVALID) {
+		pr_err("sierra_smem_get_hwconfig invalid\n");
+		return ret;
+	}
+	prod_family = hwconfig & 0xff;
+	prod_instance = (hwconfig >> 8) & 0xff;
+
+	if (prod_family == BS_PROD_FAMILY_AR) {
+		switch (prod_instance) {
+		case BSAR8582:
+		case BSAR8582_NC:
+			ret = true;
+			break;
+		default:
+			break;
+		}
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(bs_product_is_ar8582);

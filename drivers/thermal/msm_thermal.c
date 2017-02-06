@@ -49,6 +49,11 @@
 #include <linux/suspend.h>
 #include <linux/uaccess.h>
 #include <linux/uio_driver.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_THERMAL
@@ -197,6 +202,12 @@ static int tsens_scaling_factor = SENSOR_SCALING_FACTOR;
 static LIST_HEAD(devices_list);
 static LIST_HEAD(thresholds_list);
 static int mitigation = 1;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static bool pa2_removed = false;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
@@ -478,6 +489,12 @@ static ssize_t thermal_config_debugfs_write(struct file *file,
 				pr_debug("Remove voting to %s\n", #name);     \
 		}                                                             \
 	} while (0)
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define PA2_NAME_STRING "qcom,sensor-information-6"
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static void uio_init(struct platform_device *pdev)
 {
@@ -7167,10 +7184,32 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	int ret = 0;
 	char *key = NULL;
 	struct device_node *node = pdev->dev.of_node;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	struct device_node *cur = NULL;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	struct msm_thermal_data data;
 
 	if (!mitigation)
 		return ret;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Delete device_node of PA2 sensor for AR8582,
+	   disabling device registeration of PA2 for AR8582*/
+	cur = node->child;
+	while (cur && !pa2_removed) {
+		if (bs_product_is_ar8582() && !strcmp(cur->name, PA2_NAME_STRING)) {
+			of_detach_node(cur);
+			pa2_removed = true;
+			pr_debug("%s , %d : delete pa2\n", __func__, __LINE__);
+			break;
+		}
+		cur = cur->allnext;
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	memset(&data, 0, sizeof(struct msm_thermal_data));
 	data.pdev = pdev;
