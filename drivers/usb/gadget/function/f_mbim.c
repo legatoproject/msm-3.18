@@ -527,11 +527,6 @@ static struct {
 	},
 };
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-int swi_mtu = 0;
-#endif /* SIERRA */
-/* SWISTOP */
 static inline int mbim_lock(atomic_t *excl)
 {
 	if (atomic_inc_return(excl) == 1) {
@@ -1535,33 +1530,6 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	event->wIndex = cpu_to_le16(mbim->ctrl_id);
 	event->wLength = cpu_to_le16(0);
 
-/* SWISTART */
-/* Update wMaxSegmentSize from NV. swi_mtu is retrieved from shared memory.
-* See ud_set_mtu_from_nv() in uduser_boot.c for more information.
-*
-* According to the latest MBIM spec, we should just use QCT default values:
-* MBIM v1.0 Errata 1 section 6.4: wMaxSegmentSize shall not be used for IP MTU. 
-* For configuring IP MTU use either MBIM extended functional descriptor or IP
-* MTU handling MBIM_CID_IP_CONFIGURATION
-*
-* The value is being updated due to a limitation of the Windows 8 MSFT driver
-* and MBIM v1.0. The guidance from MFST for MBIM v1.0 was to update
-* wMaxSegmentSize to match the MTU.
-* Windows 8 has not been updated to support Errata 1.
-*
-* Windows 8.1 and greater conforms to Errata 1; however, this change is still
-* necessary to remain compatible with Windows 8 AND no adverse effects have
-* been observed on Windows 8.1 or greater
-*/
-#ifdef CONFIG_SIERRA
-	/* update MaxSegmentSize */
-	if (swi_mtu > 0)
-	{
-		mbim_desc.wMaxSegmentSize = cpu_to_le16(swi_mtu);
-	}
-#endif /* SIERRA */
-/* SWISTOP */
-
 	/* copy descriptors, and track endpoint copies */
 	f->fs_descriptors = usb_copy_descriptors(mbim_fs_function);
 	if (!f->fs_descriptors)
@@ -1896,11 +1864,6 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 			!dev->function.func_wakeup_allowed) {
 		dev->cpkt_drop_cnt++;
 		pr_err("drop ctrl pkt of len %zu\n", count);
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-		mbim_unlock(&dev->write_excl);
-#endif
-/* SWISTOP */
 		return -ENOTSUPP;
 	}
 

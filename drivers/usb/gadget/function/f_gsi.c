@@ -58,6 +58,12 @@ struct usb_gsi_debugfs {
 
 static struct usb_gsi_debugfs debugfs;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int swi_mtu = 0;
+#endif /* SIERRA */
+/* SWISTOP */
+
 static void ipa_disconnect_handler(struct gsi_data_port *d_port);
 static int gsi_ctrl_send_notification(struct f_gsi *gsi);
 static int gsi_alloc_trb_buffer(struct f_gsi *gsi);
@@ -3008,6 +3014,33 @@ static int gsi_bind(struct usb_configuration *c, struct usb_function *f)
 		info.notify_buf_len = sizeof(struct usb_cdc_notification);
 		mbim_gsi_desc.wMaxSegmentSize = cpu_to_le16(0x800);
 
+/* SWISTART */
+/* Update wMaxSegmentSize from NV. swi_mtu is retrieved from shared memory.
+ * See ud_set_mtu_from_nv() in uduser_boot.c for more information.
+ *
+ * According to the latest MBIM spec, we should just use QCT default values:
+ * MBIM v1.0 Errata 1 section 6.4: wMaxSegmentSize shall not be used for IP MTU. 
+ * For configuring IP MTU use either MBIM extended functional descriptor or IP
+ * MTU handling MBIM_CID_IP_CONFIGURATION
+ *
+ * The value is being updated due to a limitation of the Windows 8 MSFT driver
+ * and MBIM v1.0. The guidance from MFST for MBIM v1.0 was to update
+ * wMaxSegmentSize to match the MTU.
+ * Windows 8 has not been updated to support Errata 1.
+ *
+ * Windows 8.1 and greater conforms to Errata 1; however, this change is still
+ * necessary to remain compatible with Windows 8 AND no adverse effects have
+ * been observed on Windows 8.1 or greater
+ */
+#ifdef CONFIG_SIERRA
+/* update MaxSegmentSize. It must not be smaller than 2048(0x800) according to mbim spec */
+		if (swi_mtu > 0x800)
+		{
+			mbim_gsi_desc.wMaxSegmentSize = cpu_to_le16(swi_mtu);
+		}
+#endif /* SIERRA */
+/* SWISTOP */
+
 		/*
 		 * If MBIM is bound in a config other than the first, tell
 		 * Windows about it by returning the num as a string in the
@@ -3217,6 +3250,15 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	case IPA_USB_MBIM:
 		gsi->function.name = "mbim";
 		gsi->function.strings = mbim_gsi_strings;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* initialize ntb_input_size to default value,
+ * because sierra driver didn't set it in USB_CDC_SET_NTB_INPUT_SIZE
+ * which cause MBIM_OPEN failed on Win7 laptop
+ */
+		gsi->d_port.ntb_info.ntb_input_size = MBIM_NTB_DEFAULT_IN_SIZE;
+#endif
+/* SWISTOP */
 		break;
 	case IPA_USB_DIAG:
 		gsi->function.name = "dpl";
