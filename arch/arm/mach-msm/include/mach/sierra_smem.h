@@ -96,8 +96,8 @@
  * (0x2000+0x4) + (0x400+0x4) + (0x400+0x4) + (0x400+0x4) +
  * (0x814+0x4) + (0x10+0x4) + (0x20+0x4) + (0x20+0x4) +
  * (0x20+0x4) + (0x10+0x4) + (0x1000+0x4) + (0x4C+0x4) +
- * (0x5010+0x4) + (0x1000+0x4) + (0x8040+0x4)
- * = 0x14C7C
+ * (0x5010+0x4) + (0x1000+0x4) + (0x8040+0x4) + (0x10d+0x4) + (0x40+0x4)
+ * = 0x14DD1
  */
 #define BS_SMEM_CWE_SIZE                   0x1000   /* 512 * 8 slots              */
 #define BS_SMEM_MSG_SIZE                   0x0400   /* 1 kB, fixed for expansion  */
@@ -112,14 +112,15 @@
 #define BS_SMEM_MODE_SIZE                  0x0010   /* 16 bytes for mode switching */
 #define BS_SMEM_DSSD_SIZE                  0x0020   /* 32 bytes for dual system boot up */
 #define BS_SMEM_SECB_SIZE                  0x0020   /* 32 bytes for dual system boot up */
-#define BS_SMEM_COWORK_SIZE                0x0020   /* 32 bytes for co-work msg */
+#define BS_SMEM_ABANDON_SIZE               0x0020   /* Abandon 32 bytes for co-work msg */
 #define BS_SMEM_PR_SW_SIZE                 0x0010   /* 16 bytes for interlock between program refresh and normal SW update */
 #define BS_SMEM_LKC_SIZE                   0x1000   /* 4KB bytes for linux kernel crash msg */
 #define BS_SMEM_CR_SKU_SIZE                0x004C   /* 76 bytes for Cross SKU update */
 #define BS_SMEM_APP_DUMP_SIZE              0x5010   /* 2 KB*10 + 16  for app dump info */
 #define BS_SMEM_ELOG_SIZE                  0x1000   /* 4KB for EE log */
 #define BS_SMEM_EFS_RW_LOG_SIZE            0x8040   /* for EFS reading/writing log */
-#define BS_SMEM_FTUR_CNFG_SIZE             0x10d    /* 269 bytes for reliability feature configuration*/
+#define BS_SMEM_FTUR_CNFG_SIZE             0x010d   /* 269 bytes for reliability feature configuration*/
+#define BS_SMEM_COWORK_SIZE                0x0040   /* 64 bytes for co-work msg */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -133,15 +134,15 @@
 #define BSMEM_MODE_OFFSET                  (BSMEM_MIBIB_OFFSET + BS_SMEM_MIBIB_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_DSSD_OFFSET                  (BSMEM_MODE_OFFSET + BS_SMEM_MODE_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_SECB_OFFSET                  (BSMEM_DSSD_OFFSET + BS_SMEM_DSSD_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_COWORK_OFFSET                (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
-#define BSMEM_PR_SW_OFFSET                 (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_ABANDON_OFFSET               (BSMEM_SECB_OFFSET + BS_SMEM_SECB_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_PR_SW_OFFSET                 (BSMEM_ABANDON_OFFSET + BS_SMEM_ABANDON_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_LKC_OFFSET                   (BSMEM_PR_SW_OFFSET + BS_SMEM_PR_SW_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_CR_SKU_OFFSET                (BSMEM_LKC_OFFSET + BS_SMEM_LKC_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_APP_DUMP_OFFSET              (BSMEM_CR_SKU_OFFSET + BS_SMEM_CR_SKU_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_ELOG_OFFSET                  (BSMEM_APP_DUMP_OFFSET + BS_SMEM_APP_DUMP_SIZE + BS_SMEM_CRC_SIZE)
 #define BSMEM_EFS_RW_LOG_OFFSET            (BSMEM_ELOG_OFFSET + BS_SMEM_ELOG_SIZE + BS_SMEM_CRC_SIZE)
-#define BSMEM_FTUR_CNFG_OFFSET             (BSMEM_EFS_RW_LOG_OFFSET + BS_SMEM_FTUR_CNFG_SIZE + BS_SMEM_CRC_SIZE)
-
+#define BSMEM_FTUR_CNFG_OFFSET             (BSMEM_EFS_RW_LOG_OFFSET + BS_SMEM_EFS_RW_LOG_SIZE + BS_SMEM_CRC_SIZE)
+#define BSMEM_COWORK_OFFSET                (BSMEM_FTUR_CNFG_OFFSET + BS_SMEM_FTUR_CNFG_SIZE + BS_SMEM_CRC_SIZE )
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
@@ -220,8 +221,8 @@
 #define BS_SMEM_MODE_SZ            (sizeof(struct bs_smem_mode_switch))
 #define BS_MODE_CRC_SIZE           (BS_SMEM_MODE_SZ - sizeof(uint32_t))
 
-/* bccoworkmsg CRC32 field*/
-#define BS_SMEM_COWORK_SZ            (sizeof(struct bccoworkmsg))
+/* bscoworkmsg CRC32 field*/
+#define BS_SMEM_COWORK_SZ            (sizeof(struct bscoworkmsg))
 #define BS_COWORK_CRC_SIZE           (BS_SMEM_COWORK_SZ - sizeof(uint32_t))
 
 /* 32-bit random magic numbers - written to indicate that message
@@ -721,7 +722,7 @@ struct __attribute__((packed)) ds_smem_message_s
 
 /*************
  *
- * Name:     bccoworkmsg - Coopertive work message structure
+ * Name:     bscoworkmsg - Coopertive work message structure
  *
  * Purpose:  To provide a structure to share the resoure assigned state .
  *
@@ -734,17 +735,18 @@ struct __attribute__((packed)) ds_smem_message_s
  *              RAM that is never initialized by boot loader at startup.
  *
  *************/
-struct __attribute__((packed)) bccoworkmsg
+struct __attribute__((packed)) bscoworkmsg
 {
   uint32_t magic_beg;        /* Magic ending flag */
-  uint32_t bcgpioflag[2];       /* external gpio owner flag. */
-  uint8_t  bcuartfun[2];     /* UART1 and UART2 function */
-  uint8_t  bcriowner;        /* RI owner */
-  uint8_t  bcsleepind;       /* Sleep inidcation function */
-  uint8_t  bcresettype;      /* reset type */
-  uint8_t  bcreserved[2];  /*The unused memory,we need struct ends on a 32 bit boundary*/
-  uint8_t  bcbootquiet;    /* indicate whether bootquiet */
-  uint32_t bcfunctions;      /* indicate whether HSIC is enabled or not */
+  uint32_t bsgpioflag[2];    /* external gpio owner flag. */
+  uint8_t  bsuartfun[2];     /* UART1 and UART2 function */
+  uint8_t  bsriowner;        /* RI owner */
+  uint8_t  bssleepind;       /* Sleep inidcation function */
+  uint8_t  bsresettype;      /* reset type */
+  uint8_t  bsbootquiet;      /* indicate whether bootquiet is enabled or not */
+  uint8_t  bsresintimer[2];  /* S1, S2 timer for HW reset */
+  uint32_t bsfunctions;      /* bitmask for functions configured by modem side(ex. HISC) */
+  uint32_t bsreserved[8];       /* The unused memory */
   uint32_t magic_end;        /* Magic ending flag */
   uint32_t crc32;            /* CRC32 of above fields */
 };

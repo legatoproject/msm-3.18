@@ -72,6 +72,9 @@ static struct ext_gpio_map ext_gpio_ar[]={
 	{"44", -1,FUNCTION_EMBEDDED_HOST},
 	{"45", -1,FUNCTION_EMBEDDED_HOST},
 	{"46", 59,FUNCTION_EMBEDDED_HOST},
+	{"47", 51,FUNCTION_UNALLOCATED},
+	{"48", 25,FUNCTION_UNALLOCATED},
+	{"49", 58,FUNCTION_UNALLOCATED},
 	{"M1", 1020,FUNCTION_UNALLOCATED},
 	{"M2", 1021,FUNCTION_UNALLOCATED},
 	{"M3", 1023,FUNCTION_UNALLOCATED},
@@ -224,12 +227,13 @@ static void getap_multiplex_gpio(void)
 		}
 	}
 	/*
-	 * customer has 46 standard GPIO.
+	 * customer has 49 standard GPIO.
 	 * The Linux Sysfs GPIO mask node:
 	 * if bit="1" means available, bit="0" means unavailable.
 	 *
 	 */
-	gpio_ext_chip.mask ^= 0x3FFFFFFFFFFF;
+	gpio_ext_chip.mask &= 0x01FFFFFFFFFFFF;
+	gpio_ext_chip.mask ^= 0x01FFFFFFFFFFFF;
 }
 
 /**
