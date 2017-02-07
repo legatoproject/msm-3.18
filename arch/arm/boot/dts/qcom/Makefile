@@ -159,7 +159,8 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-v1.1-nand-cdp.dtb \
 	mdmcalifornium-v1.1-emmc-mtp.dtb \
 	mdmcalifornium-v1.1-nand-mtp.dtb \
-	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb
+	mdmcalifornium-v1.1-nand-dualwifi-mtp.dtb \
+	mdmcalifornium-v1.1-nand-ccard.dtb
 
 dtb-$(CONFIG_ARCH_SDXHEDGEHOG) += sdxhedgehog-emmc-cdp.dtb \
 	sdxhedgehog-emmc-mtp.dtb \
@@ -238,6 +239,8 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 	apq8053-rcm.dtb \
 	msm8953-ext-codec-rcm.dtb \
 	apq8053-cdp.dtb \
+	apq8053-ipc.dtb \
+	msm8953-ipc.dtb \
 	apq8053-mtp.dtb \
 	apq8053-ext-audio-mtp.dtb \
 	apq8053-ext-codec-rcm.dtb \

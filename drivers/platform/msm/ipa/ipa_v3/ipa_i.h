@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1230,6 +1230,7 @@ struct ipa3_context {
 	wait_queue_head_t msg_waitq;
 	enum ipa_hw_type ipa_hw_type;
 	enum ipa3_hw_mode ipa3_hw_mode;
+	bool ipa_config_is_mhi;
 	bool use_ipa_teth_bridge;
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
@@ -2019,4 +2020,5 @@ bool ipa3_is_msm_device(void);
 int ipa3_tz_unlock_reg(struct ipa_tz_unlock_reg_info *reg_info, u16 num_regs);
 struct device *ipa3_get_pdev(void);
 void ipa3_enable_dcd(void);
+void ipa3_disable_prefetch(enum ipa_client_type client);
 #endif /* _IPA3_I_H_ */

@@ -25,6 +25,11 @@
 		qcom,torch-source = <&pmi8937_torch0 &pmi8937_torch1>;
 		qcom,switch-source = <&pmi8937_switch>;
 	};
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&tlmm 129 0>; /* BT_EN */
+	};
 };
 
 /* delete all PMI nodes */
@@ -86,4 +91,42 @@
 	qcom,camera@0 {
 		status = "disabled";
 	};
+};
+
+&sdhc_2 {
+	/* device core power supply */
+	/delete-property/vdd-supply;
+	/delete-property/qcom,vdd-voltage-level;
+	/delete-property/qcom,vdd-current-level;
+
+	/* device communication power supply */
+	vdd-io-supply = <&pm8917_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	qcom,core_3_0v_support;
+	qcom,nonremovable;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on
+			&sdc2_wlan_gpio_active>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off
+			&sdc2_wlan_gpio_sleep>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+		1 &intc 0 221 0
+		2 &tlmm 124 0x4>;
+	interrupt-names = "hc_irq", "pwr_irq", "sdiowakeup_irq";
+
+	/delete-property/cd-gpios;
+	/delete-property/qcom,devfreq,freq-table;
+
+	status = "ok";
+
 };
