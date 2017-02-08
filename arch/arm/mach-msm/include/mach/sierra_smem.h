@@ -409,7 +409,7 @@ enum bshwtype
   BSAR7586_NB7_NB28,            /* 0x05 - Automotive 7586 for Ficosa          */
   BSAR7588,                     /* 0x06 - Automotive 7588                     */
   BSAR8582,                     /* 0x07 - Automotive 8582                     */
-  BSAR7582_NC_NB7,              /* 0x08 - Automotive 7582 without codec       */
+  BSAR7582_NC_NB7_NB13,         /* 0x08 - Automotive 7582 without codec       */
   BSAR7584_NC,                  /* 0x09 - Automotive 7584 without codec       */
   BSAR7586_NC_NB7,              /* 0x0A - Automotive 7586 without codec       */
   BSAR7586_NC_NB7_NB28,         /* 0x0B - Automotive 7586 without codec       */
