@@ -107,7 +107,7 @@ bool bsgethsicflag(void)
 	 		/* doube check CRC */
 			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE)) {
 				/*get HSIC flag*/
-				result = (mp->bcfunctions)?1:0;
+				result = (mp->bcfunctions & BSFUNCTIONS_HSIC)? 1: 0;
 			} else {
 				printk(KERN_ERR"sierra:-%s-failed: crc error", __func__);
 				return 0;

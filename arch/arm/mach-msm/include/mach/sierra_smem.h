@@ -323,6 +323,9 @@
 
 #define NV_SWI_PRODUCT_SKU_SIZE  32
 
+/* Bitmask for bsfunctions of BS_SMEM_REGION_COWORK */
+#define BSFUNCTIONS_HSIC 0x00000001
+#define BSFUNCTIONS_SERVICEPINDISABLE (0x00000001 << 1)
 
 /************
  *
