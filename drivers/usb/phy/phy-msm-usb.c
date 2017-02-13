@@ -846,7 +846,9 @@ static void msm_otg_kick_sm_work(struct msm_otg *motg)
 	if (atomic_read(&motg->in_lpm))
 		motg->resume_pending = true;
 
-	if (atomic_read(&motg->pm_suspended)) {
+	/* For device mode, resume now. Let pm_resume handle other cases */
+	if (atomic_read(&motg->pm_suspended) &&
+			motg->phy.state != OTG_STATE_B_SUSPEND) {
 		motg->sm_work_pending = true;
 	} else if (!motg->sm_work_pending) {
 		/* process event only if previous one is not pending */
