@@ -119,8 +119,9 @@
 #define BS_SMEM_APP_DUMP_SIZE              0x5010   /* 2 KB*10 + 16  for app dump info */
 #define BS_SMEM_ELOG_SIZE                  0x1000   /* 4KB for EE log */
 #define BS_SMEM_EFS_RW_LOG_SIZE            0x8040   /* for EFS reading/writing log */
-#define BS_SMEM_FTUR_CNFG_SIZE             0x010d   /* 269 bytes for reliability feature configuration*/
+#define BS_SMEM_FTUR_CNFG_SIZE             0x0110   /* 272 bytes for reliability feature configuration*/
 #define BS_SMEM_COWORK_SIZE                0x0040   /* 64 bytes for co-work msg */
+#define BS_SMEM_ERESTORE_SIZE              0x0010   /* 16 byte for EFS restore info */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -143,6 +144,7 @@
 #define BSMEM_EFS_RW_LOG_OFFSET            (BSMEM_ELOG_OFFSET + BS_SMEM_ELOG_SIZE + BS_SMEM_CRC_SIZE)
 #define BSMEM_FTUR_CNFG_OFFSET             (BSMEM_EFS_RW_LOG_OFFSET + BS_SMEM_EFS_RW_LOG_SIZE + BS_SMEM_CRC_SIZE)
 #define BSMEM_COWORK_OFFSET                (BSMEM_FTUR_CNFG_OFFSET + BS_SMEM_FTUR_CNFG_SIZE + BS_SMEM_CRC_SIZE )
+#define BSMEM_EFS_RESTORE_OFFSET           (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE)
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
@@ -806,12 +808,14 @@ struct __attribute__((packed)) cross_sku_smem_s
  ************/
 struct __attribute__((packed)) cnfg_feature_smem_s
 {
-  uint32_t magic_beg;                       /* Beginning marker */
-  uint8_t  dump_mode;                        /* RAM memory dump mode */
-  uint8_t  version;                         /* Configuration data version */
-  uint8_t  cnfg_parameter[CNFG_FTUR_SIZE];  /* reliability feature configuration data */
-  uint32_t magic_end;                       /* End Marker */
-  uint32_t crc32;                           /* CRC32 of above fields */
+  uint32_t magic_beg;                        /* Beginning marker */
+  uint8_t  dump_mode;                        /* RAM memory dump mode. We already have a NV
+                                                item to configure dump mode, so we should mange it separately */  
+  uint8_t  version;                          /* Configuration data version */
+  uint8_t  cnfg_parameter[CNFG_FTUR_SIZE];   /* Reliability feature configuration data */ 
+  uint8_t  reserved[3];                      /* reserved */
+  uint32_t magic_end;                        /* End Marker */
+  uint32_t crc32;                            /* CRC32 of above fields */
 };
 
 void sierra_smem_errdump_save_start(void);
