@@ -117,6 +117,7 @@
 #define BS_SMEM_APP_DUMP_SIZE              0x5010   /* 2 KB*10 + 16  for app dump info */
 #define BS_SMEM_ELOG_SIZE                  0x1000   /* 4KB for EE log */
 #define BS_SMEM_EFS_RW_LOG_SIZE            0x8040   /* for EFS reading/writing log */
+#define BS_SMEM_FTUR_CNFG_SIZE             0x0110   /* 272 bytes for reliability feature configuration*/
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -137,6 +138,7 @@
 #define BSMEM_APP_DUMP_OFFSET              (BSMEM_CR_SKU_OFFSET + BS_SMEM_CR_SKU_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_ELOG_OFFSET                  (BSMEM_APP_DUMP_OFFSET + BS_SMEM_APP_DUMP_SIZE + BS_SMEM_CRC_SIZE)
 #define BSMEM_EFS_RW_LOG_OFFSET            (BSMEM_ELOG_OFFSET + BS_SMEM_ELOG_SIZE + BS_SMEM_CRC_SIZE)
+#define BSMEM_FTUR_CNFG_OFFSET             (BSMEM_EFS_RW_LOG_OFFSET + BS_SMEM_EFS_RW_LOG_SIZE + BS_SMEM_CRC_SIZE)
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
