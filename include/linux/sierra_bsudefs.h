@@ -66,5 +66,42 @@ enum bshwrev
   BSHWREVUNKNOWN = 0xFF
 };
 
+/************
+ *
+ * Name:     bsuartfunc
+ *
+ * Purpose:  Enumerated list of different functions supported by App processor
+ *
+ * Members:  BSUARTFUNC_DISABLED  - UART disabled
+ *           BSUARTFUNC_AT - UART reserved for AT service
+ *           BSUARTFUNC_DM - UART reserved for DM service
+ *           BSUARTFUNC_NMEA - UART reserved for NMEA service
+ *           BSUARTFUNC_CONSOLE - UART reserved for CONSOLE service
+ *           BSUARTFUNC_APP - UART open for all application usage
+ *
+ * Notes:    None
+ *
+ ************/
+enum bsuartfunc
+{
+  BSUARTFUNC_DISABLED = 0,
+  BSUARTFUNC_AT       = 1,
+  BSUARTFUNC_DM       = 2,
+  BSUARTFUNC_NMEA     = 4,
+  BSUARTFUNC_CONSOLE  = 16,
+  BSUARTFUNC_APP      = 17,
+};
+
+/************
+ *
+ * Members:  BS_UART1_LINE - line number of UART1
+ *           BS_UART2_LINE - line number of UART2
+ *
+ * Notes:    None
+ *
+ ************/
+#define BS_UART1_LINE  0
+#define BS_UART2_LINE  1
+
 #include "sierra_bsuproto.h"
 #endif
