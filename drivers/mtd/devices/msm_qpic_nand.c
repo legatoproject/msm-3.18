@@ -3265,6 +3265,11 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	struct flash_partition_entry *pentry;
 	char *delimiter = ":";
 	void *temp_ptable = NULL;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	uint32_t mtd_num;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	pr_info("Parsing partition table info from SMEM\n");
 	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
@@ -3335,6 +3340,26 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 			i, pentry->name, pentry->offset, pentry->length,
 			pentry->attr);
 	}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	mtd_num = ptable.numparts;
+	for (i = 0; i < ptable.numparts; i++) {
+		if (!strcmp("mibib", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+		if (!strcmp("efs2", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+	}
+	*nr_parts = mtd_num;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	pr_info("SMEM partition table found: ver: %d len: %d\n",
 		ptable.version, ptable.numparts);
 	return 0;
