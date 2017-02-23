@@ -507,7 +507,13 @@ static int mdm_sec_mi2s_startup(struct snd_pcm_substream *substream)
 err:
 	afe_enable_lpass_core_shared_clock(SECONDARY_I2S_RX, CLOCK_OFF);
 done:
-	return ret;
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
+		return 0;
+#else
+		return ret;
+#endif /* SIERRA */
+/* SWISTOP */
 }
 
 static struct snd_soc_ops mdm_mi2s_be_ops = {
@@ -846,11 +852,6 @@ static int mdm_mclk_event(struct snd_soc_dapm_widget *w,
 static int mdm_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-/* SWISTART */
-#ifdef CONFIG_SIERRA_AUDIO_CONFIG
-	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-#endif
-/* SWISTOP */
 	struct snd_soc_card *card = rtd->card;
 	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
@@ -995,11 +996,59 @@ static int mdm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 			goto done;
 		}
 	}
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
+	/*
+	* This sets the CONFIG PARAMETER WS_SRC.
+	* 1 means internal clock master mode.
+	* 0 means external clock slave mode.
+	*/
+	pr_debug("startup sec auxpcm: sec_auxpcm_mode = %d\n", pdata->sec_auxpcm_mode);
+	if (pdata->sec_auxpcm_mode == 1) {
+		ret = mdm_sec_mi2s_clk_ctl(rtd, true, mdm_mi2s_rate);
+		if (ret < 0) {
+			pr_err("%s clock enable failed\n", __func__);
+			goto err;
+		}
+	} else if (pdata->sec_auxpcm_mode == 0) {
+		/*
+		* Disable bit clk in slave mode for QC codec.
+		* Enable only mclk.
+		*/
+		ret = mdm_sec_mi2s_clk_ctl(rtd, true, 0);
+		if (ret < 0) {
+			pr_err("%s clock disable failed\n", __func__);
+			goto err;
+		}
+	} else {
+		pr_err("%s: Invalid auxpcm mi2s mode\n", __func__);
+		atomic_dec(&sec_aux_ref_count);
+		ret = -EINVAL;
+	}
+#endif
+/* SWISTOP */
 err:
 	afe_enable_lpass_core_shared_clock(SECONDARY_I2S_RX, CLOCK_OFF);
 done:
 	return ret;
 }
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
+static void mdm_sec_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int ret;
+
+	pr_debug("mdm_sec_auxpcm_shutdown, sec_aux_ref_count=%d\n", sec_aux_ref_count);
+	atomic_dec_return(&sec_aux_ref_count);
+
+	ret = mdm_sec_mi2s_clk_ctl(rtd, false, 0);
+	if (ret < 0)
+		pr_err("%s: Clock disable failed\n", __func__);
+}
+#endif
+/* SWISTOP */
 
 static struct snd_soc_ops mdm_auxpcm_be_ops = {
 	.startup = mdm_auxpcm_startup,
@@ -1012,6 +1061,11 @@ static struct snd_soc_ops mdm_auxpcm_be_ops = {
 
 static struct snd_soc_ops mdm_sec_auxpcm_be_ops = {
 	.startup = mdm_sec_auxpcm_startup,
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
+	.shutdown = mdm_sec_auxpcm_shutdown,
+#endif
+/* SWISTOP */
 };
 
 static int mdm_auxpcm_rate_get(struct snd_kcontrol *kcontrol,
