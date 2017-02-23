@@ -940,11 +940,11 @@ static void mdm_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	int ret;
 
 	pr_debug("mdm_auxpcm_shutdown, aux_ref_count=%d\n", aux_ref_count);
-	if (atomic_dec_return(&aux_ref_count) == 0) {
-		ret = mdm_mi2s_clk_ctl(rtd, false, 0);
-		if (ret < 0)
-			pr_err("%s: Clock disable failed\n", __func__);
-	}
+	atomic_dec_return(&aux_ref_count);
+
+	ret = mdm_mi2s_clk_ctl(rtd, false, 0);
+	if (ret < 0)
+		pr_err("%s: Clock disable failed\n", __func__);
 }
 #endif
 /* SWISTOP */
