@@ -29,6 +29,12 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/qpnp/power-on.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#include <linux/sierra_bsuproto.h>
+#endif
+/* SWISTOP */
 
 #define CREATE_MASK(NUM_BITS, POS) \
 	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
@@ -947,6 +953,9 @@ static void bark_work_func(struct work_struct *work)
 		input_sync(pon->pon_input);
 		enable_irq(cfg->bark_irq);
 	} else {
+/* SWISTART */
+/* We use s2 timer for resin bark reset, so not disable s2 reset */
+#ifndef CONFIG_SIERRA
 		/* disable reset */
 		rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 				QPNP_PON_S2_CNTL_EN, 0);
@@ -955,6 +964,8 @@ static void bark_work_func(struct work_struct *work)
 				"Unable to configure S2 enable\n");
 			goto err_return;
 		}
+#endif
+/* SWISTOP */
 		/* re-arm the work */
 		schedule_delayed_work(&pon->bark_work, QPNP_KEY_STATUS_DELAY);
 	}
@@ -978,6 +989,9 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 		goto err_exit;
 	}
 
+/* SWISTART */
+/* We use s2 timer for resin bark reset, so not disable s2 reset */
+#ifndef CONFIG_SIERRA
 	/* disable reset */
 	rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
 					QPNP_PON_S2_CNTL_EN, 0);
@@ -985,6 +999,8 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
 		goto err_exit;
 	}
+#endif
+/* SWISTOP */
 
 	/* report the key event */
 	input_report_key(pon->pon_input, cfg->key_code, 1);
@@ -1222,12 +1238,23 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 	struct qpnp_pon_config *cfg;
 	u8 pmic_type;
 	u8 revid_rev4;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	struct bs_resin_timer resintimer = {0};
+#endif
+/* SWISTOP */
 
 	if (!pon->num_pon_config) {
 		dev_dbg(&pon->spmi->dev, "num_pon_config: %d\n",
 			pon->num_pon_config);
 		return 0;
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	resintimer = bsgetresintimer();
+#endif
+/* SWISTOP */
 
 	/* iterate through the list of pon configs */
 	for_each_available_child_of_node(pon->spmi->dev.of_node, pp) {
@@ -1442,6 +1469,65 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 					"Unable to read s1-timer\n");
 				return rc;
 			}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+			switch (resintimer.s1_timer) {
+			case 0:
+				cfg->s1_timer = 0;
+				break;
+			case 1:
+				cfg->s1_timer = 32;
+				break;
+			case 2:
+				cfg->s1_timer = 56;
+				break;
+			case 3:
+				cfg->s1_timer = 80;
+				break;
+			case 4:
+				cfg->s1_timer = 128;
+				break;
+			case 5:
+				cfg->s1_timer = 184;
+				break;
+			case 6:
+				cfg->s1_timer = 272;
+				break;
+			case 7:
+				cfg->s1_timer = 408;
+				break;
+			case 8:
+				cfg->s1_timer = 608;
+				break;
+			case 9:
+				cfg->s1_timer = 904;
+				break;
+			case 10:
+				cfg->s1_timer = 1352;
+				break;
+			case 11:
+				cfg->s1_timer = 2048;
+				break;
+			case 12:
+				cfg->s1_timer = 3072;
+				break;
+			case 13:
+				cfg->s1_timer = 4480;
+				break;
+			case 14:
+				cfg->s1_timer = 6720;
+				break;
+			case 15:
+				cfg->s1_timer = 10256;
+				break;
+			default:
+				cfg->s1_timer = 10256;
+				break;
+			}
+#endif
+/* SWISTOP */
+
 			if (cfg->s1_timer > QPNP_PON_S1_TIMER_MAX) {
 				dev_err(&pon->spmi->dev,
 					"Incorrect S1 debounce time\n");
@@ -1454,11 +1540,57 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 					"Unable to read s2-timer\n");
 				return rc;
 			}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+			switch (resintimer.s2_timer) {
+			case 0:
+				cfg->s2_timer = 0;
+				break;
+			case 1:
+				cfg->s2_timer = 10;
+				break;
+			case 2:
+				cfg->s2_timer = 50;
+				break;
+			case 3:
+				cfg->s2_timer = 100;
+				break;
+			case 4:
+				cfg->s2_timer = 250;
+				break;
+			case 5:
+				cfg->s2_timer = 500;
+				break;
+			case 6:
+				cfg->s2_timer = 1000;
+				break;
+			case 7:
+				cfg->s2_timer = 2000;
+				break;
+			default:
+				cfg->s2_timer = 2000;
+				break;
+			}
+#endif
+/* SWISTOP */
+
 			if (cfg->s2_timer > QPNP_PON_S2_TIMER_MAX) {
 				dev_err(&pon->spmi->dev,
 					"Incorrect S2 debounce time\n");
 				return -EINVAL;
 			}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+			if ((cfg->s1_timer + cfg->s2_timer) > 8000)
+			{
+				cfg->s1_timer = 6720;
+				cfg->s2_timer = 1000;
+			}
+#endif
+/* SWISTOP */
+
 			rc = of_property_read_u32(pp, "qcom,s2-type",
 							&cfg->s2_type);
 			if (rc) {
