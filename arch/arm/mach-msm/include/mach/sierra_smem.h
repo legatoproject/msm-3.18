@@ -462,10 +462,9 @@ struct __attribute__((packed)) bsmsg_mailbox_s
   uint32_t hwconfig;                     /* hardware configuration */
   void   * usbdescp;                     /* USB descriptor pointer */
   uint64_t clr_flags;                    /* flags to clear, only used in outbox */
-  uint32_t errdump_flg;                  /* flag to indicate if enter into dump mode. */
   uint32_t reset_type;                   /* the type to indicate the module reset reason. */
   uint32_t brstsetflg;                   /* the flag to indicate the module reset reason is set. */
-  /*** End of message version 1 (48 bytes) ***/
+  /*** End of message version 1 (44 bytes) ***/
 
   /*** New fields may be added here.  Do not modify previous fields ***/
 };
