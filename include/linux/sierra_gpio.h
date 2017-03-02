@@ -21,8 +21,9 @@ struct ext_gpio_map{
 	unsigned function;
 };
 
-/* customer has 30 standard GPIO + PM GPIO1-4*/
+/* customer has 50 standard GPIO + PM GPIO1-4*/
 #define NR_EXT_GPIOS_AR ARRAY_SIZE(ext_gpio_ar)
-#define NR_EXT_GPIOS_MFT ARRAY_SIZE(ext_gpio_mft)
+#define NR_EXT_GPIOS_AR_REV4 ARRAY_SIZE(ext_gpio_ar)
+#define NR_EXT_GPIOS_MFT ARRAY_SIZE(ext_gpio_ar7594_rev4)
 
 #endif /* __LINUX_SIERRA_GPIO_H */

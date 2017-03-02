@@ -47,7 +47,6 @@ static struct ext_gpio_map ext_gpio_ar[]={
 		{"7", 82, FUNCTION_UNALLOCATED},
 		{"8", 34, FUNCTION_UNALLOCATED},
 		{"9", 30, FUNCTION_UNALLOCATED},
-		{"10",43, FUNCTION_UNALLOCATED},
 		{"11",90, FUNCTION_UNALLOCATED},
 	/* GPIO12 as SPI1_CS1 */
 		{"12", 68,FUNCTION_EMBEDDED_HOST},
@@ -75,6 +74,8 @@ static struct ext_gpio_map ext_gpio_ar[]={
 		{"33", 23,FUNCTION_UNALLOCATED},
 		{"34", 7, FUNCTION_UNALLOCATED},
 		{"35", 6, FUNCTION_UNALLOCATED},
+		{"36", 5, FUNCTION_EMBEDDED_HOST},
+		{"37", 4, FUNCTION_EMBEDDED_HOST},
 		{"47", 89,FUNCTION_UNALLOCATED},
 		{"48", 87,FUNCTION_UNALLOCATED},
 		{"49", 80,FUNCTION_UNALLOCATED},
@@ -125,6 +126,8 @@ static struct ext_gpio_map ext_gpio_ar7594_rev4[]={
 		{"33", 23,FUNCTION_UNALLOCATED},
 		{"34", 7, FUNCTION_UNALLOCATED},
 		{"35", 6, FUNCTION_UNALLOCATED},
+		{"36", 5, FUNCTION_EMBEDDED_HOST},
+		{"37", 4, FUNCTION_EMBEDDED_HOST},
 		{"47", 89,FUNCTION_UNALLOCATED},
 		{"48", 87,FUNCTION_UNALLOCATED},
 		{"49", 80,FUNCTION_UNALLOCATED},
@@ -1262,7 +1265,7 @@ static int __init gpiolib_sysfs_init(void)
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 	/* Assign product specific GPIO mapping */
-	gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
+	gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR_REV4;
 	ext_gpio = ext_gpio_ar7594_rev4;
 	hwtype = bsgethwtype();
 	hwrev = bsgethwrev();
@@ -1272,28 +1275,33 @@ static int __init gpiolib_sysfs_init(void)
 			if (hwrev < BSHWREV2)
 			{
 				ext_gpio = ext_gpio_ar;
+				gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 			}
 			break;
 		case BSAR7594:
 			if (hwrev < BSHWREV4)
 			{
 				ext_gpio = ext_gpio_ar;
+				gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 			}
 			break;
 		case BSAR7596:
 			if (hwrev < BSHWREV3)
 			{
 				ext_gpio = ext_gpio_ar;
+				gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 			}
 			break;
 		case BSAR7598:
 			if (hwrev < BSHWREV2)
 			{
 				ext_gpio = ext_gpio_ar;
+				gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 			}
 			break;
 		default:
 			pr_err( "%s: No sysfs entries for gpio on unsupported product type:%d.\n", __func__, hwtype);
+			gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR_REV4;
 			ext_gpio = ext_gpio_ar7594_rev4;
 			break;
 	}
