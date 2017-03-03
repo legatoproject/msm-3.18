@@ -13,7 +13,7 @@
 
 /dts-v1/;
 
-#include "mdm9607-swi-ar.dtsi"
+#include "mdm9607-swi-ar-cust.dtsi"
 
 / {
 	model = "Sierra Wireless, Inc. MDM 9607 AR series";
