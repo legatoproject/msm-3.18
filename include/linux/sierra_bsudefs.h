@@ -19,22 +19,29 @@
 
 enum bshwtype
 {
-	BSQCTMTP,						/* Qualcomm MTP 9x30 */
-	BSHWNONE,						/* HW type NONE (Fuse has not been blown yet) */
-	BSAR7582,						/* 0x02 - Automotive 7582 */
-	BSAR7584,						/* 0x03 - Automotive 7584 */
-	BSAR7586,						/* 0x04 - Automotive 7586 */
-	BSAR7588,						/* 0x05 - Automotive 7588 */
-	BSAR8582,						/* 0x06 - Automotive 8582 */
-	BSAR7582_NC,				/* 0x07 - Automotive 7582 without codec */
-	BSAR7584_NC,				/* 0x08 - Automotive 7584 without codec */
-	BSAR7586_NC,				/* 0x09 - Automotive 7586 without codec */
-	BSAR7588_NC,				/* 0x0A - Automotive 7588 without codec */
-	BSAR8582_NC,				/* 0x0B - Automotive 8582 without codec */
-	BSWP7601,						/* 0x0C - WP7601 */
-	BSWP7603,						/* 0x0D - WP7603 */
-	BSHWUNKNOWN,				/* Unknown HW */
-	BSHWINVALID = 0xFF	/* Invalid HW */
+	BSQCTMTP,               /* Qualcomm MTP 9x30 */
+	BSHWNONE,               /* HW type NONE (Fuse has not been blown yet) */
+	BSAR7582,               /* 0x02 - Automotive 7582 */
+	BSAR7584,               /* 0x03 - Automotive 7584 */
+	BSAR7586,               /* 0x04 - Automotive 7586 */
+	BSAR7588,               /* 0x05 - Automotive 7588 */
+	BSAR8582,               /* 0x06 - Automotive 8582 */
+	BSAR7582_NC,            /* 0x07 - Automotive 7582 without codec */
+	BSAR7584_NC,            /* 0x08 - Automotive 7584 without codec */
+	BSAR7586_NC,            /* 0x09 - Automotive 7586 without codec */
+	BSAR7588_NC,            /* 0x0A - Automotive 7588 without codec */
+	BSAR8582_NC,            /* 0x0B - Automotive 8582 without codec */
+	BSWP7601,               /* 0x0C - WP7601 */
+	BSWP7603,               /* 0x0D - WP7603 */
+	BSWP7601_1,             /* 0x0E - WP7601-1 */
+	BSWP7603_1,             /* 0x0F - WP7603-1 */
+	BSWP7605,               /* 0x10 - WP7605  */
+	BSWP7605_1,             /* 0x11 - WP7605-1 */
+	BSWP7607,               /* 0x12 - WP7607 */
+	BSWP7607_1,             /* 0x13 - WP7607-1 */
+	BSWP7607_2,             /* 0x14 - WP7607-2 */
+	BSHWUNKNOWN,            /* Unknown HW */
+	BSHWINVALID = 0xFF      /* Invalid HW */
 };
 
 /************
