@@ -265,31 +265,6 @@
 			};
 		};
 
-		sdhc2_cd_pin {
-			sdc2_cd_on: cd_on {
-			    mux {
-				    pins = "gpio26";
-				    function = "gpio";
-			    };
-			    config {
-				    pins = "gpio26";
-				    drive-strength = <6>;/* 6 MA */
-				    bias-pull-down; /* PULL Down */
-			    };
-			};
-			sdc2_cd_off: cd_off {
-				mux {
-					pins = "gpio26";
-					function = "gpio";
-				};
-				config {
-					pins = "gpio26";
-					drive-strength = <6>;/* 6 MA */
-					bias-pull-down; /* PULL Down */
-				};
-			};
-		};
-
 	};
 
 	sdcard_ext_vreg: sdcard_ext_vreg {
@@ -500,11 +475,10 @@
 	qcom,vdd-io-current-level = <200 50000>;
 
 	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
 
 	status = "ok";
-
 };
 
 /* AR758x ADC configuration */
