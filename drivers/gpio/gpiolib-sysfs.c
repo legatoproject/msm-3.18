@@ -47,6 +47,7 @@ static struct ext_gpio_map ext_gpio_ar[]={
 		{"7", 82, FUNCTION_UNALLOCATED},
 		{"8", 34, FUNCTION_UNALLOCATED},
 		{"9", 30, FUNCTION_UNALLOCATED},
+		{"10",-1, FUNCTION_EMBEDDED_HOST},
 		{"11",90, FUNCTION_UNALLOCATED},
 	/* GPIO12 as SPI1_CS1 */
 		{"12", 68,FUNCTION_EMBEDDED_HOST},
@@ -76,6 +77,15 @@ static struct ext_gpio_map ext_gpio_ar[]={
 		{"35", 6, FUNCTION_UNALLOCATED},
 		{"36", 5, FUNCTION_EMBEDDED_HOST},
 		{"37", 4, FUNCTION_EMBEDDED_HOST},
+		{"38", -1,FUNCTION_EMBEDDED_HOST},
+		{"39", -1,FUNCTION_EMBEDDED_HOST},
+		{"40", -1,FUNCTION_EMBEDDED_HOST},
+		{"41", -1,FUNCTION_EMBEDDED_HOST},
+		{"42", -1,FUNCTION_EMBEDDED_HOST},
+		{"43", -1,FUNCTION_EMBEDDED_HOST},
+		{"44", -1,FUNCTION_EMBEDDED_HOST},
+		{"45", -1,FUNCTION_EMBEDDED_HOST},
+		{"46", -1,FUNCTION_EMBEDDED_HOST},
 		{"47", 89,FUNCTION_UNALLOCATED},
 		{"48", 87,FUNCTION_UNALLOCATED},
 		{"49", 80,FUNCTION_UNALLOCATED},
@@ -128,6 +138,15 @@ static struct ext_gpio_map ext_gpio_ar7594_rev4[]={
 		{"35", 6, FUNCTION_UNALLOCATED},
 		{"36", 5, FUNCTION_EMBEDDED_HOST},
 		{"37", 4, FUNCTION_EMBEDDED_HOST},
+		{"38", -1,FUNCTION_EMBEDDED_HOST},
+		{"39", -1,FUNCTION_EMBEDDED_HOST},
+		{"40", -1,FUNCTION_EMBEDDED_HOST},
+		{"41", -1,FUNCTION_EMBEDDED_HOST},
+		{"42", -1,FUNCTION_EMBEDDED_HOST},
+		{"43", -1,FUNCTION_EMBEDDED_HOST},
+		{"44", -1,FUNCTION_EMBEDDED_HOST},
+		{"45", -1,FUNCTION_EMBEDDED_HOST},
+		{"46", -1,FUNCTION_EMBEDDED_HOST},
 		{"47", 89,FUNCTION_UNALLOCATED},
 		{"48", 87,FUNCTION_UNALLOCATED},
 		{"49", 80,FUNCTION_UNALLOCATED},
@@ -161,7 +180,7 @@ static void getap_multiplex_gpio(void)
 	{
 		if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
 		{
-			gpio_ext_chip.mask |= 0x1 << i;
+			gpio_ext_chip.mask |= 0x1ULL << i;
 		}
 	}
 	/**
@@ -205,7 +224,8 @@ static int gpio_map_name_to_num(const char *buf, bool *alias)
 			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
 			{
 				/* the multi-function GPIO is used as another feature, cannot export */
-				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				if((FUNCTION_EMBEDDED_HOST == ext_gpio[i].function) ||
+					!(gpio_ext_chip.mask & (0x1ULL << i)))
 				{
 					return -1;
 				}
@@ -240,7 +260,8 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 		{
 			if(gpio_num == ext_gpio[i].gpio_num)
 			{
-				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				if((FUNCTION_EMBEDDED_HOST == ext_gpio[i].function) ||
+					!(gpio_ext_chip.mask & (0x1ULL << i)))
 				{
 					return NULL;
 				}

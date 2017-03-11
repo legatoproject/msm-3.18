@@ -161,7 +161,7 @@ uint64_t bsgetgpioflag(void)
 {
 	struct bscoworkmsg *mp;
 	unsigned char *virtual_addr;
-	uint64_t result = 0;
+	uint64_t result = 0x0003ffffffffffff;
 
 	virtual_addr = sierra_smem_base_addr_get();
 	if (virtual_addr)
@@ -183,19 +183,16 @@ uint64_t bsgetgpioflag(void)
 			else
 			{
 				pr_err(KERN_ERR"sierra:-%s-failed: crc error", __func__);
-				return 0;
 			}
 		}
 		else
 		{
 			pr_err(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
-			return 0;
 		}
 	}
 	else
 	{
 		pr_err(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
-		return 0;
 	}
 
 	return result;
