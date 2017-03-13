@@ -28,6 +28,7 @@
 #include <linux/debugfs.h>
 #include <linux/vmalloc.h>
 #include <asm/arch_timer.h>
+#include <linux/sched.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/trace_thermal.h>
