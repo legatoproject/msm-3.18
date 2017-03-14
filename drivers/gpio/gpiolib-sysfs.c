@@ -227,14 +227,14 @@ static void getap_multiplex_gpio(void)
 			gpio_ext_chip.mask |= 0x1ULL << i;
 		}
 	}
-	/*
-	 * customer has 49 standard GPIO.
+	/**
+	 * customer has 50 standard GPIO.
 	 * The Linux Sysfs GPIO mask node:
 	 * if bit="1" means available, bit="0" means unavailable.
 	 *
 	 */
-	gpio_ext_chip.mask &= 0x01FFFFFFFFFFFF;
-	gpio_ext_chip.mask ^= 0x01FFFFFFFFFFFF;
+	gpio_ext_chip.mask &= 0x03FFFFFFFFFFFF;
+	gpio_ext_chip.mask ^= 0x03FFFFFFFFFFFF;
 }
 
 /**
@@ -268,7 +268,8 @@ static int gpio_map_name_to_num(const char *buf, bool *alias)
 			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
 			{
 				/* the multi-function GPIO is used as another feature, cannot export */
-				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				if((FUNCTION_EMBEDDED_HOST == ext_gpio[i].function) ||
+					!(gpio_ext_chip.mask & (0x1ULL << i)))
 				{
 					return -1;
 				}
@@ -303,7 +304,8 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 		{
 			if(gpio_num == ext_gpio[i].gpio_num)
 			{
-				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				if((FUNCTION_EMBEDDED_HOST == ext_gpio[i].function) ||
+					!(gpio_ext_chip.mask & (0x1ULL << i)))
 				{
 					return NULL;
 				}
