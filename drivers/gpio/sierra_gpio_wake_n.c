@@ -2,7 +2,7 @@
  *
  * $Id$
  *
- * Filename:  gpio_wake_n.c
+ * Filename:  sierra_gpio_wake_n.c
  *
  * Purpose:
  *
@@ -20,9 +20,6 @@
 #include <linux/of_gpio.h>
 #include <linux/sierra_gpio.h>
 
-#define NUM_WAKE_GPIOS 1
-#define DRIVER_NAME "wake-n_gpio"
-
 struct wake_n_pdata {
 	int gpio;
 	char name[64];
@@ -30,8 +27,92 @@ struct wake_n_pdata {
 	struct wakeup_source ws;
 	struct platform_device *pdev;
 	struct work_struct check_work;
+	spinlock_t lock;
 } wake_n_pdata;
 
+static RAW_NOTIFIER_HEAD(wake_chain);
+
+/************
+ *
+ * Name:     sierra_gpio_wake_notifier_register
+ *
+ * Purpose:  register notifier block pointer
+ *
+ * Parms:    nb - notifier block pointer
+ *
+ * Return:   0 if success
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ ************/
+int __ref sierra_gpio_wake_notifier_register(struct notifier_block *nb)
+{
+	int ret = 0;
+
+	pr_info("%s", __func__);
+	spin_lock(&wake_n_pdata.lock);
+	ret = raw_notifier_chain_register(&wake_chain, nb);
+	spin_unlock(&wake_n_pdata.lock);
+	return ret;
+}
+EXPORT_SYMBOL(sierra_gpio_wake_notifier_register);
+
+/************
+ *
+ * Name:     sierra_gpio_wake_notifier_unregister
+ *
+ * Purpose:  unregister the notifier block pointer
+ *
+ * Parms:    nb - notifier block pointer
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ ************/
+void __ref sierra_gpio_wake_notifier_unregister(struct notifier_block *nb)
+{
+	spin_lock(&wake_n_pdata.lock);
+	raw_notifier_chain_unregister(&wake_chain, nb);
+	spin_unlock(&wake_n_pdata.lock);
+}
+EXPORT_SYMBOL(sierra_gpio_wake_notifier_unregister);
+
+/************
+ *
+ * Name:     wake_notify
+ *
+ * Purpose:  notify the registered module when wake
+ *
+ * Parms:    none
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ ************/
+static int wake_notify(void)
+{
+	int ret;
+
+	ret = raw_notifier_call_chain(&wake_chain, 0, NULL);
+	return notifier_to_errno(ret);
+}
+
+/************
+ *
+ * Name:     gpio_check_and_wake
+ *
+ * Purpose:  check specfic gpio and trigger the wake notifier action
+ *
+ * Parms:    work - work queue pointer
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ ************/
 static void gpio_check_and_wake(struct work_struct *work)
 {
 	int err, gpioval;
@@ -43,16 +124,39 @@ static void gpio_check_and_wake(struct work_struct *work)
 	sprintf(event, "STATE=%s", (gpioval ? "SLEEP" : "WAKEUP"));
 	pr_info("%s: %s %s\n", __func__, w->name, event);
 
-	envp[0] = event;
-	envp[1] = NULL;
-	kobject_get(&w->pdev->dev.kobj);
-	if ((err = kobject_uevent_env(&w->pdev->dev.kobj, KOBJ_CHANGE, envp)))
-		pr_debug("%s: error %d signaling uevent\n", __func__, err);
-	kobject_put(&w->pdev->dev.kobj);
+	if (wake_chain.head != NULL) {
+		if (0 == gpioval)
+		{
+			wake_notify();
+		}
+	} else {
+		envp[0] = event;
+		envp[1] = NULL;
+		kobject_get(&w->pdev->dev.kobj);
+		if ((err = kobject_uevent_env(&w->pdev->dev.kobj, KOBJ_CHANGE, envp)))
+		{
+			pr_err("%s: error %d signaling uevent\n", __func__, err);
+		}
+		kobject_put(&w->pdev->dev.kobj);
+	}
 	if (gpioval)
 		__pm_relax(&w->ws);
 }
 
+/************
+ *
+ * Name:     gpio_wake_input_irq_handler
+ *
+ * Purpose:  gpio intterrupt handler
+ *
+ * Parms:    irq - interrupt id
+ *           dev_id - device pointer
+ *
+ * Return:   IRQ_HANDLED
+ *
+ * Abort:    none
+ *
+ ************/
 static irqreturn_t gpio_wake_input_irq_handler(int irq, void *dev_id)
 {
 	struct wake_n_pdata *w = (struct wake_n_pdata*)dev_id;
@@ -69,10 +173,9 @@ static irqreturn_t gpio_wake_input_irq_handler(int irq, void *dev_id)
 static int wake_n_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct device_node *np = pdev->dev.of_node;
 
 	dev_info(&pdev->dev, "wake_n probe\n");
-
-	struct device_node *np = pdev->dev.of_node;
 
 	wake_n_pdata.gpio = of_get_named_gpio(np, "wake-n-gpio", 0);
 	if (!gpio_is_valid(wake_n_pdata.gpio))
@@ -99,10 +202,12 @@ static int wake_n_probe(struct platform_device *pdev)
 			wake_n_pdata.gpio);
 		goto release_gpio;
 	}
+	spin_lock_init(&wake_n_pdata.lock);
 
 	ret = request_irq(wake_n_pdata.irq, gpio_wake_input_irq_handler,
-                      IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-                      wake_n_pdata.name, &wake_n_pdata);
+			IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			wake_n_pdata.name, &wake_n_pdata);
+
 	if (ret) {
 		pr_err("%s: request_irq failed for GPIO%d (IRQ%d)\n", __func__,
 			wake_n_pdata.gpio, wake_n_pdata.irq);
@@ -139,7 +244,7 @@ static int wake_n_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id sierra_gpio_wake_n[] = {
+static const struct of_device_id sierra_gpio_wake_n_table[] = {
 	{ .compatible = "sierra,gpio_wake_n" },
 	{},
 };
@@ -147,9 +252,9 @@ MODULE_DEVICE_TABLE(of, sierra_gpio_wake_n);
 
 static struct platform_driver wake_n_driver = {
 	.driver = {
-		.name = DRIVER_NAME,
+		.name = "sierra_gpio_wake_n",
 		.owner = THIS_MODULE,
-		.of_match_table=of_match_ptr(sierra_gpio_wake_n),
+		.of_match_table = sierra_gpio_wake_n_table,
 		},
 	.probe = wake_n_probe,
 	.remove = wake_n_remove,
@@ -160,12 +265,14 @@ static int __init wake_n_init(void)
 	return platform_driver_register(&wake_n_driver);
 }
 
+/* init early so consumer modules can complete system boot */
+subsys_initcall(wake_n_init);
+
 static void __exit wake_n_exit(void)
 {
 	platform_driver_unregister(&wake_n_driver);
 }
 
-module_init(wake_n_init);
 module_exit(wake_n_exit);
 
 MODULE_LICENSE("GPL v2");
