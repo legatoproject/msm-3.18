@@ -279,12 +279,6 @@
 	status = "ok";
 };
 
-&modem_adsp_mem {
-        compatible = "removed-dma-pool";
-        no-map-fixup;
-        reg = <0x82a00000 0x5000000>;
-};
-
 &pm8019_mpps {
 	/* MPP1 */
 	mpp@a000 {
