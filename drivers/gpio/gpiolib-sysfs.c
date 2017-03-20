@@ -1313,14 +1313,6 @@ static int __init gpiolib_sysfs_init(void)
 	if (status < 0)
 		return status;
 
-	/* Scan and register the gpio_chips which registered very
-	 * early (e.g. before the class_register above was called).
-	 *
-	 * We run before arch_initcall() so chip->dev nodes can have
-	 * registered, and so arch_initcall() can always gpio_export().
-	 */
-	spin_lock_irqsave(&gpio_lock, flags);
-
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 	/* Assign product specific GPIO mapping */
@@ -1352,8 +1344,23 @@ static int __init gpiolib_sysfs_init(void)
 	}
 	set_gpio_bit_mask();
 	status = gpiochip_export(&gpio_ext_chip);
+
+	/* we move sierra code away from gpio_lock here because the code
+	 * don't acquire a mutex or spin lock.
+	 *
+	 * __might_sleep() will dump out the error stack if sleeping function
+	 *  is called from invaid context(spin_lock). e.g. bsreadhwconfig()
+	 */
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
+
+	/* Scan and register the gpio_chips which registered very
+	 * early (e.g. before the class_register above was called).
+	 *
+	 * We run before arch_initcall() so chip->dev nodes can have
+	 * registered, and so arch_initcall() can always gpio_export().
+	 */
+	spin_lock_irqsave(&gpio_lock, flags);
 
 	list_for_each_entry(chip, &gpio_chips, list) {
 		if (chip->exported)
