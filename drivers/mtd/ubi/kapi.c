@@ -130,6 +130,11 @@ struct ubi_volume_desc *ubi_open_volume(int ubi_num, int vol_id, int mode)
 	struct ubi_volume_desc *desc;
 	struct ubi_device *ubi;
 	struct ubi_volume *vol;
+#ifdef CONFIG_SIERRA
+	int  str_len, vol_len;
+	char vol_str[MAX_INPUT_STR_LEN]={0};
+	char *pos_start;
+#endif
 
 	dbg_gen("open device %d, volume %d, mode %d", ubi_num, vol_id, mode);
 
@@ -202,6 +207,39 @@ struct ubi_volume_desc *ubi_open_volume(int ubi_num, int vol_id, int mode)
 	desc->mode = mode;
 
 	mutex_lock(&ubi->ckvol_mutex);
+
+#ifdef CONFIG_SIERRA
+	/*
+	 * To make sure the data is not corrupted, UBI driver will check crc for all the data
+	 * in the static UBI volumes at the first time open, but it will make boot up time
+	 * longer.
+	 *
+	 * For some special purpose we don't want to check the data crc for the UBI volumes.
+	 * E.g Some of the UBI volumes are protecting by Dm-verity and it is faster then UBI.
+	 *     for saving the boot up time disable the UBI crc checking is required.
+	 *
+	 * If the UBI volumes that don't want to be checked data crc, then add it to the
+	 * list "CONFIG_UBI_VOLS_NOT_CHK_CRC". Here will skip checking crc for it.
+	 *
+	 */
+	if (!vol->checked && vol->vol_type == UBI_STATIC_VOLUME) {
+		str_len = strlen(CONFIG_UBI_VOLS_NOT_CHK_CRC);
+		if(str_len > MAX_INPUT_STR_LEN){
+			ubi_warn(ubi, "Strings on CONFIG_UBI_VOLS_NOT_CHK_CRC is too long.");
+		}
+		else if( str_len > 0 ){
+			sprintf(vol_str,"%s",CONFIG_UBI_VOLS_NOT_CHK_CRC);
+			vol_len = strlen(vol->name);
+			pos_start = strstr(vol_str,vol->name);
+			if((pos_start)&&( *(pos_start + vol_len) == ' '
+							|| *(pos_start + vol_len) == '\0'
+							|| *(pos_start + vol_len) == ','
+							|| *(pos_start + vol_len) == ';')){
+				vol->checked = 1;
+			}
+		}
+	}
+#endif
 	if (!vol->checked) {
 		/* This is the first open - check the volume */
 		err = ubi_check_volume(ubi, vol_id);
