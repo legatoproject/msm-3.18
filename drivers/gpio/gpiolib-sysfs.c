@@ -210,23 +210,14 @@ static struct gpio_chip gpio_ext_chip = {
 		.base   = 1,
 };
 /**
- * getap_multiplex_gpio() - set the gpio multiplexing bit in AP
+ * set_gpio_bit_mask() - set the gpio bit mask in AP
  *
  *
  * Returns nothing
  *
  */
-static void getap_multiplex_gpio(void)
+static void set_gpio_bit_mask(void)
 {
-	int i;
-
-	for(i = 0; i < gpio_ext_chip.ngpio; i++)
-	{
-		if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
-		{
-			gpio_ext_chip.mask |= 0x1ULL << i;
-		}
-	}
 	/**
 	 * customer has 50 standard GPIO.
 	 * The Linux Sysfs GPIO mask node:
@@ -268,8 +259,7 @@ static int gpio_map_name_to_num(const char *buf, bool *alias)
 			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
 			{
 				/* the multi-function GPIO is used as another feature, cannot export */
-				if((FUNCTION_EMBEDDED_HOST == ext_gpio[i].function) ||
-					!(gpio_ext_chip.mask & (0x1ULL << i)))
+				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
 				{
 					return -1;
 				}
@@ -304,8 +294,7 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 		{
 			if(gpio_num == ext_gpio[i].gpio_num)
 			{
-				if((FUNCTION_EMBEDDED_HOST == ext_gpio[i].function) ||
-					!(gpio_ext_chip.mask & (0x1ULL << i)))
+				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
 				{
 					return NULL;
 				}
@@ -1293,6 +1282,15 @@ static int __init gpiolib_sysfs_init(void)
 
 	for (gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
 	{
+		if (gpio_ext_chip.mask & (0x1ULL << gpio))
+		{
+			ext_gpio[gpio].function = FUNCTION_EMBEDDED_HOST;
+		}
+		else
+		{
+			ext_gpio[gpio].function = FUNCTION_UNALLOCATED;
+
+		}
 		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0)
 		{
 			gpio_ri = gpio;
@@ -1300,8 +1298,7 @@ static int __init gpiolib_sysfs_init(void)
 			break;
 		}
 	}
-
-	getap_multiplex_gpio();
+	set_gpio_bit_mask();
 	status = gpiochip_export(&gpio_ext_chip);
 
 	/* we move sierra code away from gpio_lock here because the code
