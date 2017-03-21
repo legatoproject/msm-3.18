@@ -1886,7 +1886,7 @@ static int smack_file_receive(struct file *file)
 	if (file->f_mode & FMODE_WRITE)
 		may |= MAY_WRITE;
 
-	rc = smk_curacc(smk_of_inode(inode), may, &ad);
+	rc = smk_curacc(file->f_security, may, &ad);
 	rc = smk_bu_file(file, may, rc);
 	return rc;
 }
