@@ -103,4 +103,13 @@ config MTD_UBI_BLOCK
 
 	   If in doubt, say "N".
 
+config UBI_VOLS_NOT_CHK_CRC
+	string "Don't check CRC for these static UBI volumes"
+	help
+	   To make sure the data is not corrupted, UBI driver will check
+	   crc for all the data in the static UBI volumes at the first
+	   time open, but it will make boot up time longer. Here pass the
+	   UBI volume(s) name to UBI driver which is(are) expected not to
+	   check data crc.
+
 endif # MTD_UBI

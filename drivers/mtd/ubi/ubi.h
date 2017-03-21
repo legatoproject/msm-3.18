@@ -43,6 +43,11 @@
 
 #include "ubi-media.h"
 
+#ifdef CONFIG_SIERRA
+/* Maximum string length pass from "CONFIG_UBI_VOLS_NOT_CHK_CRC" */
+#define MAX_INPUT_STR_LEN 512
+#endif
+
 /* Maximum number of supported UBI devices */
 #define UBI_MAX_DEVICES 32
 
