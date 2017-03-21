@@ -1,7 +1,7 @@
 /*
  * u_uac1.c -- ALSA audio utilities for Gadget stack
  *
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  * Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
  * Copyright (C) 2008 Analog Devices, Inc
  *
@@ -699,12 +699,7 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
-/* SWISTART */
-/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
-#ifdef CONFIG_SIERRA
 	snd->card = NULL;
-#endif
-/* SWISTOP */
 
 	/* Close PCM playback device and setup substream */
 	snd = &gau->playback;
@@ -712,12 +707,7 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
-/* SWISTART */
-/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
-#ifdef CONFIG_SIERRA
 	snd->card = NULL;
-#endif
-/* SWISTOP */
 
 	/* Close PCM capture device and setup substream */
 	snd = &gau->capture;
@@ -725,12 +715,7 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
-/* SWISTART */
-/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
-#ifdef CONFIG_SIERRA
 	snd->card = NULL;
-#endif
-/* SWISTOP */
 
 	return 0;
 }
