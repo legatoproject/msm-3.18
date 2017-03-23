@@ -23,6 +23,11 @@
 #include <linux/sysrq.h>
 #include <linux/init.h>
 #include <linux/nmi.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsuproto.h>
+#endif
+/* SWISTOP */
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/exception.h>
@@ -75,6 +80,15 @@ void __weak panic_smp_self_stop(void)
  */
 void panic(const char *fmt, ...)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		kernel_power_off();
+	}
+#endif
+/* SWISTOP */
+
 	static DEFINE_SPINLOCK(panic_lock);
 	static char buf[1024];
 	va_list args;

@@ -14,6 +14,11 @@
  */
 
 #include "msm_qpic_nand.h"
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsuproto.h>
+#endif
+/* SWISTOP */
 
 #define QPIC_BAM_DEFAULT_IPC_LOGLVL 2
 
@@ -2173,6 +2178,16 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	} *dma_buffer;
 	struct msm_nand_rw_cmd_desc *cmd_list = NULL;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		err = -EPERM;
+		return err;
+	}
+#endif
+/* SWISTOP */
+
 	memset(&rw_params, 0, sizeof(struct msm_nand_rw_params));
 	err = msm_nand_validate_mtd_params(mtd, false, to, ops, &rw_params);
 	if (err)
@@ -2456,6 +2471,16 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 		struct msm_nand_sps_cmd cmd[total_cnt];
 		uint32_t flash_status;
 	} *dma_buffer;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		err = -EPERM;
+		return err;
+	}
+#endif
+/* SWISTOP */
 
 	if (mtd->writesize == PAGE_SIZE_2K)
 		page = instr->addr >> 11;
