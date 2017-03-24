@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -820,13 +820,14 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	struct msm_vfe_sof_info *master_sof_info = NULL;
 	int32_t time, master_time, delta;
 	uint32_t sof_incr = 0;
+	uint32_t master_last_slave_diff = 0;
+	uint32_t last_curr_diff = 0;
 	unsigned long flags;
 
+	spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock, flags);
 	if (vfe_dev->axi_data.src_info[frame_src].frame_id == 0)
 		msm_isp_update_dual_HW_ms_info_at_start(vfe_dev, frame_src,
 			ts);
-
-	spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock, flags);
 	dual_hw_type =
 		vfe_dev->axi_data.src_info[frame_src].dual_hw_type;
 	ms_type =
@@ -868,6 +869,25 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 		 */
 		vfe_dev->axi_data.src_info[frame_src].frame_id =
 			master_sof_info->frame_id + sof_incr;
+		/* handle frame id out of sync */
+		if (sof_incr) {
+			last_curr_diff =
+			vfe_dev->axi_data.src_info[frame_src].frame_id -
+			vfe_dev->ms_frame_id;
+			master_last_slave_diff = master_sof_info->frame_id -
+				vfe_dev->ms_frame_id;
+			if (last_curr_diff > 1 &&
+				master_last_slave_diff == 1) {
+				pr_err("%s: frame id %d out of sync !!!\n",
+				__func__,
+				vfe_dev->axi_data.src_info[frame_src].
+				frame_id - sof_incr);
+				vfe_dev->axi_data.src_info[frame_src].
+				frame_id = master_sof_info->frame_id;
+			}
+		}
+		vfe_dev->ms_frame_id =
+			vfe_dev->axi_data.src_info[frame_src].frame_id;
 	} else {
 		if (frame_src == VFE_PIX_0) {
 			vfe_dev->axi_data.src_info[frame_src].frame_id +=
@@ -897,7 +917,6 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 		} else
 			vfe_dev->axi_data.src_info[frame_src].frame_id++;
 	}
-
 	sof_info = vfe_dev->axi_data.src_info[frame_src].
 		dual_hw_ms_info.sof_info;
 	if (dual_hw_type == DUAL_HW_MASTER_SLAVE &&
@@ -911,6 +930,35 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	}
 	spin_unlock_irqrestore(&vfe_dev->common_data->common_dev_data_lock,
 		flags);
+}
+
+static void msm_isp_update_pd_stats_idx(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src)
+{
+	struct msm_vfe_axi_stream *pd_stream_info = NULL;
+	uint32_t pingpong_status = 0, pingpong_bit = 0;
+	struct msm_isp_buffer *done_buf = NULL;
+
+	if (frame_src < VFE_RAW_0 || frame_src >  VFE_RAW_2)
+		return;
+
+	pd_stream_info = &(vfe_dev->common_data->dual_vfe_res->
+		axi_data[vfe_dev->pdev->id]->
+		stream_info[RDI_INTF_0 + frame_src - VFE_RAW_0]);
+
+	if (pd_stream_info && (pd_stream_info->state == ACTIVE) &&
+		(pd_stream_info->rdi_input_type ==
+		MSM_CAMERA_RDI_PDAF)) {
+		pingpong_status = vfe_dev->hw_info->vfe_ops.axi_ops.
+					get_pingpong_status(vfe_dev);
+		pingpong_bit = ((pingpong_status >>
+			pd_stream_info->wm[0]) & 0x1);
+		done_buf = pd_stream_info->buf[pingpong_bit];
+		if (done_buf)
+			vfe_dev->pd_buf_idx = done_buf->buf_idx;
+		else
+			vfe_dev->pd_buf_idx = 0xF;
+	}
 }
 
 void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
@@ -1010,6 +1058,12 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 					&event_data.u.sof_info);
 			}
 		}
+		/*
+		 * Get and store the buf idx for PD stats
+		 * this is to send the PD stats buffer address
+		 * in BF stats done.
+		 */
+		msm_isp_update_pd_stats_idx(vfe_dev, frame_src);
 		break;
 
 	default:
@@ -1173,7 +1227,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		return -EINVAL;
 	}
 
-	stream_info->memory_input = stream_cfg_cmd->memory_input;
+	stream_info->rdi_input_type = stream_cfg_cmd->rdi_input_type;
 	vfe_dev->reg_update_requested &=
 		~(BIT(SRC_TO_INTF(stream_info->stream_src)));
 
@@ -1836,10 +1890,8 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
 				if (vfe_id != vfe_dev->pdev->id)
 					spin_lock_irqsave(
-						&dual_vfe_res->
-						axi_data[vfe_id]->
-						stream_info[stream_idx].
-						lock, flags);
+						&vfe_dev->common_data->
+						common_dev_axi_lock, flags);
 
 				if (buf)
 					vfe_dev->hw_info->vfe_ops.axi_ops.
@@ -1868,10 +1920,8 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 				}
 				if (vfe_id != vfe_dev->pdev->id)
 					spin_unlock_irqrestore(
-						&dual_vfe_res->
-						axi_data[vfe_id]->
-						stream_info[stream_idx].
-						lock, flags);
+						&vfe_dev->common_data->
+						common_dev_axi_lock, flags);
 			}
 		} else {
 			if (buf)
@@ -2530,7 +2580,6 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	struct msm_vfe_src_info *src_info = NULL;
 	uint32_t vfe_id = 0;
-	unsigned long flags;
 
 	if (stream_src >= VFE_SRC_MAX) {
 		pr_err("%s: Error! Invalid src %u\n", __func__, stream_src);
@@ -2541,12 +2590,9 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 	if (src_info->dual_hw_type != DUAL_HW_MASTER_SLAVE)
 		return rc;
 
-	spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock, flags);
 	if (src_info->dual_hw_ms_info.dual_hw_ms_type ==
 		MS_TYPE_MASTER) {
 		if (vfe_dev->common_data->ms_resource.master_active == 1) {
-			spin_unlock_irqrestore(&vfe_dev->common_data->
-				common_dev_data_lock, flags);
 			return rc;
 		}
 
@@ -2559,8 +2605,6 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 		 * without repeating.
 		 */
 		if (!vfe_dev->common_data->ms_resource.slave_active_mask) {
-			spin_unlock_irqrestore(&vfe_dev->common_data->
-				common_dev_data_lock, flags);
 			return rc;
 		}
 		cur_timestamp_ms = ts->buf_time.tv_sec * 1000 +
@@ -2612,9 +2656,6 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 				(1 << slave_id);
 		}
 	}
-	spin_unlock_irqrestore(&vfe_dev->common_data->common_dev_data_lock,
-		flags);
-
 	return rc;
 }
 
@@ -3240,19 +3281,14 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		vfe_dev->pdev->id, frame_id, frame_src);
 
 	/*
-	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
-	 * In case of standalone RDI streaming, SOF are used from
-	 * individual intf.
-	 */
-	/*
 	 * If frame_id = 1 then no eof check is needed
 	 */
-	if (((vfe_dev->axi_data.src_info[VFE_PIX_0].active) && ((frame_id !=
+	if (((frame_src == VFE_PIX_0) && ((frame_id !=
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id + vfe_dev->
 		axi_data.src_info[VFE_PIX_0].sof_counter_step) ||
 		(frame_id <= vfe_dev->
 		axi_data.src_info[VFE_PIX_0].eof_id + 1))) ||
-		((!vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id !=
+		((frame_src != VFE_PIX_0) && (frame_id !=
 		vfe_dev->axi_data.src_info[frame_src].frame_id + vfe_dev->
 		axi_data.src_info[frame_src].sof_counter_step)) ||
 		stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {

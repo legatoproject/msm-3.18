@@ -14,6 +14,13 @@
 #include "mdmcalifornium-v1.1.dtsi"
 #include "mdmcalifornium-pinctrl.dtsi"
 
+/ {
+	aliases {
+		serial0 = &blsp1_uart3;
+		serial1 = &blsp1_uart1;
+	};
+};
+
 &soc {
 	sound {
 		status = "disabled";
@@ -89,6 +96,7 @@
 
 	/* 4V regulator for peripherals */
 	periph_vreg: regulator-periph-lm53635 {
+		status = "disabled";
 		compatible = "regulator-fixed";
 		regulator-name = "periph_vreg";
 		startup-delay-us = <4000>;
@@ -146,10 +154,15 @@
 		startup-delay-us = <100>;
 		gpio = <&tlmm_pinmux 99 0>;
 		enable-active-high;
+		regulator-always-on;
 	};
 };
 
 &tlmm_pinmux {
+	/* Set these up as hogs */
+	pinctrl-names = "default";
+	pinctrl-0 = <&can_reset_gpio>;
+
 	periph_vreg_gpio: periph_vreg_gpio {
 		mux {
 			pins = "gpio9";
@@ -161,6 +174,7 @@
 			bias-disable;
 		};
 	};
+
 
 	ntn_supply_gpio: ntn_supply_gpio {
 		mux {
@@ -174,6 +188,136 @@
 			bias-disable;
 		};
 	};
+
+	can_reset_gpio: can_reset_gpio {
+		mux {
+			pins = "gpio89";
+			function = "gpio";
+		};
+
+		config {
+			pins = "gpio89";
+			drive-strength = <2>;
+			output-high;
+			bias-pull-up;
+		};
+	};
+
+	pmx_sec_mi2s_dout {
+		sec_mi2s_ws_sleep {
+			mux {
+				pins = "gpio20";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* PULL DOWN */
+				input-enable;
+			};
+		};
+
+		sec_mi2s_sck_sleep {
+			mux {
+				pins = "gpio23";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio23";
+				drive-strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* PULL DOWN */
+				input-enable;
+			};
+		};
+
+		sec_mi2s_dout_sleep {
+			mux {
+				pins = "gpio22";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio22";
+				drive-strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* PULL DOWN */
+				input-enable;
+			};
+		};
+
+		sec_mi2s_ws_active {
+			mux {
+				pins = "gpio20";
+				function = "sec_mi2s_ws_b";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <8>;	/* 8 mA */
+				bias-disable;		/* NO PULL*/
+				output-high;
+			};
+		};
+
+		sec_mi2s_sck_active {
+			mux {
+				pins = "gpio23";
+				function = "sec_mi2s_sck_b";
+			};
+
+			config {
+				pins = "gpio23";
+				drive-strength = <8>;	/* 8 mA */
+				bias-disable;		/* NO PULL*/
+				output-high;
+			};
+		};
+
+		sec_mi2s_dout_active {
+			mux {
+				pins = "gpio22";
+				function = "sec_mi2s_data1_b";
+			};
+
+			config {
+				pins = "gpio22";
+				drive-strength = <8>;	/* 8 mA */
+				bias-disable;		/* NO PULL*/
+				output-high;
+			};
+		};
+	};
+
+	pmx_sec_mi2s_din {
+		sec_mi2s_din_sleep {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* PULL DOWN */
+				input-enable;
+			};
+		};
+
+		sec_mi2s_din_active {
+			mux {
+				pins = "gpio21";
+				function = "sec_mi2s_data0_b";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <8>;	/* 8 mA */
+				bias-disable;		/* NO PULL */
+				output-high;
+			};
+		};
+	};
 };
 
 &cnss_pcie {
@@ -182,9 +326,16 @@
 	/delete-property/ vdd-wlan-xtal-aon-supply;
 };
 
+/* BLE serial (no HCI) */
+&blsp1_uart1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_console_active>;
+};
+
 /* Console conflicts with periph_vreg (GPIO_9) */
 &blsp1_uart3 {
-	status = "disabled";
+	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_console_active>;
 };
@@ -212,19 +363,17 @@
 	lsm330-gyro@6a {
 		compatible = "st,lsm330-gyro";
 		reg = <0x6a>;
-		vdd-supply = <&gyro_vreg>;
 	};
 
 	lsm330-accel@1d {
 		compatible = "st,lsm330-accel";
 		reg = <0x1d>;
-		vdd-supply = <&gyro_vreg>;
 	};
 };
 
-&spi_2 {
-	status = "disabled";
-	spi-max-frequency = <19200000>;
+&spi_4 {
+	status = "ok";
+	/delete-property/ qcom,use-bam;
 };
 
 &usb3 {
@@ -234,6 +383,11 @@
 			 0x0 2 &intc 0 180 0>;
 	interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq";
 	qcom,charging-disabled;
+};
+
+/* Needed by blsp1_uart1 (BLE) */
+&pmdcalifornium_l13 {
+	regulator-always-on;
 };
 
 &pmdcalifornium_gpios {

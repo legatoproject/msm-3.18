@@ -108,6 +108,12 @@ enum cnss_driver_state {
 	CNSS_DRIVER_PROBED,
 };
 
+struct cnss_recovery_work_t {
+	struct work_struct work;
+	struct device *dev;
+	enum cnss_recovery_reason reason;
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -131,6 +137,7 @@ struct cnss_plat_data {
 	spinlock_t event_lock; /* spinlock for driver work event handling */
 	struct work_struct event_work;
 	struct workqueue_struct *event_wq;
+	struct cnss_recovery_work_t cnss_recovery_work;
 	struct qmi_handle *qmi_wlfw_clnt;
 	struct work_struct qmi_recv_msg_work;
 	struct notifier_block qmi_wlfw_clnt_nb;
@@ -139,6 +146,7 @@ struct cnss_plat_data {
 	struct wlfw_soc_info_s_v01 soc_info;
 	struct wlfw_fw_version_info_s_v01 fw_version_info;
 	struct cnss_fw_mem fw_mem;
+	struct cnss_fw_mem m3_mem;
 };
 
 void *cnss_bus_dev_to_bus_priv(struct device *dev);

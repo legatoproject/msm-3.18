@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2016, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2017, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3039,6 +3039,7 @@ static void msm_otg_set_vbus_state(int online)
 		pr_debug("PMIC: BSV clear\n");
 		msm_otg_dbg_log_event(&motg->phy, "PMIC: BSV CLEAR",
 				init, motg->inputs);
+		motg->is_ext_chg_dcp = false;
 		if (!test_and_clear_bit(B_SESS_VLD, &motg->inputs) && init)
 			return;
 	}
@@ -3086,6 +3087,16 @@ out:
 	msm_otg_dbg_log_event(&motg->phy, "CHECK VBUS EVENT DURING SUSPEND",
 			atomic_read(&motg->pm_suspended),
 			motg->sm_work_pending);
+
+	/* Move to host mode on vbus low if required */
+	if (motg->pdata->vbus_low_as_hostmode) {
+		if (!test_bit(B_SESS_VLD, &motg->inputs)) {
+			clear_bit(ID, &motg->inputs);
+			init = false;
+		} else {
+			set_bit(ID, &motg->inputs);
+		}
+	}
 	msm_otg_kick_sm_work(motg);
 }
 
@@ -4258,6 +4269,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 
 	pdata->enable_sdp_typec_current_limit = of_property_read_bool(node,
 					"qcom,enable-sdp-typec-current-limit");
+	pdata->vbus_low_as_hostmode = of_property_read_bool(node,
+					"qcom,vbus-low-as-hostmode");
 	return pdata;
 }
 
@@ -4516,7 +4529,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto devote_bus_bw;
 	}
-	dev_info(&pdev->dev, "OTG regs = %p\n", motg->regs);
+	dev_info(&pdev->dev, "OTG regs = %pK\n", motg->regs);
 
 	if (pdata->enable_sec_phy) {
 		res = platform_get_resource_byname(pdev,
