@@ -690,6 +690,31 @@ struct __attribute__((packed)) cross_sku_smem_s
   uint32_t crc32;                                /* CRC32 of above fields */
 };
 
+/* FWUpdate status structure feature */
+#define BC_FWUP_STR_SIZE            256
+#define BC_SMEM_FWUPSTATUS_SZ       (sizeof(struct bc_update_status_s))
+/* CRC check on the structure minus crc32 field */
+#define BC_FWUPSTATUS_CRC_SZ        (BC_SMEM_FWUPSTATUS_SZ - sizeof(uint32_t))
+/************
+ *
+ * Name:     bc_update_status_s
+ *
+ * Purpose:  firmware update status structure.
+ *
+ * Notes:    Structure is packed and uses fixed-width types to ensure
+ *           compatibility between images and processors
+ *
+ ************/
+struct __attribute__((packed)) bc_update_status_s
+{
+  uint32_t               magic_beg;    /* Beginning marker */
+  uint32_t               result;       /* result code      */
+  char                   logstr[BC_FWUP_STR_SIZE]; /* log string */
+  uint32_t               resultcomp;   /* redundant complement result */
+  uint32_t               magic_end;    /* End Marker        */
+  uint32_t               crc32;        /* CRC32 of above fields */
+};
+
 void sierra_smem_errdump_save_start(void);
 void sierra_smem_errdump_save_timestamp(uint32_t time_stamp);
 void sierra_smem_errdump_save_errstr(char *errstrp);
