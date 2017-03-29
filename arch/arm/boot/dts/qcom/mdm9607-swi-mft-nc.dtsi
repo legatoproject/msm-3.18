@@ -195,7 +195,9 @@
 
 &emac0 {
 	/* sierra hardware(RXD0 is 0, RXD1 is 0, LED_ACT is 1): so the address should be 4*/
-	phy-addr = <4>;
+	phy0: ethernet-phy@0 {
+		reg = <4>;
+	};
 };
 
 &blsp1_uart3 {
