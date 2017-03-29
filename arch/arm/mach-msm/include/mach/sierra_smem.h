@@ -122,6 +122,7 @@
 #define BS_SMEM_FTUR_CNFG_SIZE             0x0110   /* 272 bytes for reliability feature configuration*/
 #define BS_SMEM_COWORK_SIZE                0x0040   /* 64 bytes for co-work msg */
 #define BS_SMEM_ERESTORE_SIZE              0x0010   /* 16 byte for EFS restore info */
+#define BS_SMEM_NFATAL_LOG_SIZE            0x2010   /* For non fatal error log */
 
 #define BSMEM_CWE_OFFSET                   (0)
 #define BSMEM_MSG_OFFSET                   (BSMEM_CWE_OFFSET  + BS_SMEM_CWE_SIZE + BS_SMEM_CRC_SIZE )
@@ -145,6 +146,7 @@
 #define BSMEM_FTUR_CNFG_OFFSET             (BSMEM_EFS_RW_LOG_OFFSET + BS_SMEM_EFS_RW_LOG_SIZE + BS_SMEM_CRC_SIZE)
 #define BSMEM_COWORK_OFFSET                (BSMEM_FTUR_CNFG_OFFSET + BS_SMEM_FTUR_CNFG_SIZE + BS_SMEM_CRC_SIZE )
 #define BSMEM_EFS_RESTORE_OFFSET           (BSMEM_COWORK_OFFSET + BS_SMEM_COWORK_SIZE + BS_SMEM_CRC_SIZE)
+#define BSMEM_NFATAL_LOG_OFFSET            (BSMEM_EFS_RESTORE_OFFSET + BS_SMEM_ERESTORE_SIZE + BS_SMEM_CRC_SIZE)
 
 /* the buffer len to hold the linux  kmsg when kernel crash
  * if CONFIG_LOG_BUF_SHIFT is not define,is 128KB
