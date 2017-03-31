@@ -178,6 +178,11 @@ static bool cluster_info_nodes_called;
 static bool in_suspend, retry_in_progress;
 static int *tsens_id_map;
 static int *zone_id_tsens_map;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static uint32_t poll_interval;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
 static DEFINE_MUTEX(cx_mutex);
@@ -7209,6 +7214,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 		pr_info("the poll interval is too large (%u), use the default max value\n", data.poll_ms);
 		data.poll_ms = MSM_THERMAL_POLLMS_MAX;
 	}
+	poll_interval = data.poll_ms;
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
 
@@ -7312,6 +7318,27 @@ fail:
 probe_exit:
 	return ret;
 }
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int __ref set_poll_interval(const char *val, const struct kernel_param *kp)
+{
+	int ret = 0;
+
+	ret = param_set_uint(val, kp);
+
+	return ret;
+}
+
+static struct kernel_param_ops module_ops_pi = {
+	.set = set_poll_interval,
+	.get = param_get_uint,
+};
+
+module_param_cb(ktm_pi, &module_ops_pi, &poll_interval, 0644);
+MODULE_PARM_DESC(ktm_pi, "export KTM polling interval to /sys");
+#endif /* CONF_SIERRA */
+/* SWISTOP */
 
 static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 {
