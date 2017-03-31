@@ -80,6 +80,13 @@
 #define HOTPLUG_RETRY_INTERVAL_MS 100
 #define UIO_VERSION "1.0"
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+#define MSM_THERMAL_POLLMS_MIN    100  /* 100ms */
+#define MSM_THERMAL_POLLMS_MAX    5000 /* 5000ms */
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
+
 #define VALIDATE_AND_SET_MASK(_node, _key, _mask, _cpu) \
 	do { \
 		if (of_property_read_bool(_node, _key)) \
@@ -177,6 +184,11 @@ static bool cluster_info_nodes_called;
 static bool in_suspend, retry_in_progress;
 static int *tsens_id_map;
 static int *zone_id_tsens_map;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static uint32_t poll_interval;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
 static DEFINE_MUTEX(cx_mutex);
@@ -7230,6 +7242,19 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	if (data.poll_ms < MSM_THERMAL_POLLMS_MIN) {
+		pr_info("the poll interval is too small (%u), use the default min value\n", data.poll_ms);
+		data.poll_ms = MSM_THERMAL_POLLMS_MIN;
+	} else if (data.poll_ms > MSM_THERMAL_POLLMS_MAX) {
+		pr_info("the poll interval is too large (%u), use the default max value\n", data.poll_ms);
+		data.poll_ms = MSM_THERMAL_POLLMS_MAX;
+	}
+	poll_interval = data.poll_ms;
+#endif /*CONFIG_SIERRA*/
+/*SWISTOP*/
+
 	key = "qcom,limit-temp";
 	ret = of_property_read_u32(node, key, &data.limit_temp_degC);
 	if (ret)
@@ -7335,6 +7360,27 @@ fail:
 probe_exit:
 	return ret;
 }
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int __ref set_poll_interval(const char *val, const struct kernel_param *kp)
+{
+	int ret = 0;
+
+	ret = param_set_uint(val, kp);
+
+	return ret;
+}
+
+static struct kernel_param_ops module_ops_pi = {
+	.set = set_poll_interval,
+	.get = param_get_uint,
+};
+
+module_param_cb(ktm_pi, &module_ops_pi, &poll_interval, 0644);
+MODULE_PARM_DESC(ktm_pi, "export KTM polling interval to /sys");
+#endif /* CONF_SIERRA */
+/* SWISTOP */
 
 static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 {
