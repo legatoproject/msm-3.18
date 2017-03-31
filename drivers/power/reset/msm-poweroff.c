@@ -83,6 +83,16 @@ static bool scm_dload_supported;
 static struct kobject dload_kobj;
 static void *dload_type_addr;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define RESET_MODE_SWI_HARD 0
+#define RESET_MODE_SWI_WARM 1
+static int reset_mode_swi = RESET_MODE_SWI_HARD;
+module_param( reset_mode_swi, int, S_IRUGO | S_IWUSR );
+MODULE_PARM_DESC( reset_mode_swi, "Sierra reset mode: 1 - warm reset" );
+#endif
+/* SWISTOP */
+
 static int dload_set(const char *val, struct kernel_param *kp);
 /* interface for exporting attributes */
 struct reset_attribute {
@@ -306,7 +316,15 @@ static void msm_restart_prepare(const char *cmd)
 	}
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
+#ifdef CONFIG_SIERRA
+	if (in_panic || (sierra_smem_warm_reset_cmd_get() > 0)) {
+		reset_mode_swi = RESET_MODE_SWI_WARM;
+	}
+	if (need_warm_reset ||
+	   (reset_mode_swi == RESET_MODE_SWI_WARM)) {
+#else
 	if (need_warm_reset) {
+#endif /* CONFIG_SIERRA */
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	} else {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);

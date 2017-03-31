@@ -112,6 +112,57 @@ int sierra_smem_boothold_mode_set(void)
 }
 EXPORT_SYMBOL(sierra_smem_boothold_mode_set);
 
+
+/************
+ *
+ * Name:     sierra_smem_warm_reset_cmd_get
+ *
+ * Purpose:  check if warm reset if needed
+ *
+ * Parms:    none
+ *
+ * Return:   > 0 if warm reset required
+ *           0 otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    See msm_restart_prepare, default is hard reset.
+ *           use warm reset only if SMEM content need to be retained
+ *
+ ************/
+int sierra_smem_warm_reset_cmd_get(void)
+{
+  int i,ret = 0;
+  struct bc_smem_message_s *a2bmsgp = NULL;
+  unsigned char *virtual_addr;
+
+  for (i = BCMSG_MBOX_MIN; i <= BCMSG_MBOX_MAX; i++)
+  {
+    if (i != BCMSG_MBOX_BOOT)
+    {
+      virtual_addr = sierra_smem_base_addr_get();
+      if (virtual_addr &&
+          (i >= BCMSG_MBOX_MIN) &&
+          (i <= BCMSG_MBOX_MAX))
+      {
+        /*  APPL mailbox */
+        virtual_addr += (BSMEM_MSG_OFFSET + (BC_MSG_SIZE_MAX * i));
+
+        a2bmsgp = (struct bc_smem_message_s *)virtual_addr;
+      }
+      if (a2bmsgp &&
+          ((a2bmsgp->out.flags & BC_MSG_A2B_BOOT_HOLD) ||
+           (a2bmsgp->out.flags & BC_MSG_A2B_WARM_BOOT_CMD)))
+      {
+        ret = 1;
+        break;
+      }
+    }
+  }
+
+  return ret;
+}
+
 int sierra_smem_im_recovery_mode_set(void)
 {
         struct imsw_smem_im_s *immsgp;

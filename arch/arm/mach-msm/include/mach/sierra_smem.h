@@ -215,6 +215,7 @@
 #define BC_MSG_B2A_ADB_EN                  0x0000000000000004ULL
 #define BC_MSG_B2A_DLOAD_MODE              0x0000000000000008ULL
 #define BC_MSG_A2B_BOOT_HOLD               0x0000000000000001ULL
+#define BC_MSG_A2B_WARM_BOOT_CMD           0x0000000100000000ULL /* warm reset command */
 
 /* values from imswidefs.h and must keep in sync */
 #define IMSW_SMEM_MAGIC_BEG                0x92B15380U
@@ -651,6 +652,7 @@ void sierra_smem_errdump_save_auxstr(char *errstrp);
 void sierra_smem_errdump_save_frame(void *taskp, void *framep);
 int  sierra_smem_get_download_mode(void);
 int sierra_smem_boothold_mode_set(void);
+int sierra_smem_warm_reset_cmd_get(void);
 int sierra_smem_im_recovery_mode_set(void);
 unsigned char * sierra_smem_base_addr_get(void);
 extern uint32_t sierra_smem_get_hwconfig(void);
