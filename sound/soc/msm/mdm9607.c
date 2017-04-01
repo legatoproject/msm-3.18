@@ -76,7 +76,16 @@
 #define GCC_PLLTEST_PAD_CFG (GCC_CLK_CTL_REG + 0x7400C)
 
 #define GCC_DEBUG_CLK_CTL_EN_VALUE 0x100ec
+
+/* SWISTART */
+/* HW advise to replace default 10mA to 6mA. this drive strength has better overshoot.
+Related qualcomm case: 02872684 */
+#ifndef CONFIG_SIERRA
 #define GCC_PLLTEST_PAD_CFG_EN_VALUE 0x1200
+#else
+#define GCC_PLLTEST_PAD_CFG_EN_VALUE 0x1100
+#endif
+/* SWISTOP */
 
 #define I2S_SEL 0
 #define I2S_PCM_SEL 1
