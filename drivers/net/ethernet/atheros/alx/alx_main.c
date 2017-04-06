@@ -3784,7 +3784,7 @@ static void alx_ipa_send_routine(struct work_struct *work)
 	if (alx_ipa->ipa_prod_rm_state != ALX_IPA_RM_GRANTED) {
           spin_unlock_bh(&alx_ipa->ipa_rm_state_lock);
           if (adpt->pendq_cnt > 0 && alx_ipa_rm_request(adpt) != 0 ) {
-	    pr_info("%s IPA RM resource not granted,return \n", __func__);
+	    pr_debug("%s IPA RM resource not granted,return \n", __func__);
             spin_unlock_bh(&adpt->flow_ctrl_lock);
             return;
           }
@@ -4605,7 +4605,7 @@ static void alx_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
         struct alx_ipa_ctx *alx_ipa = adpt->palx_ipa;
 
 	spin_lock_bh(&alx_ipa->ipa_rm_state_lock);
-        pr_info(" %s IPA RM Evt: %d alx_ipa->ipa_prod_rm_state  %s\n",__func__,
+        pr_debug(" %s IPA RM Evt: %d alx_ipa->ipa_prod_rm_state  %s\n",__func__,
 		event, alx_ipa_rm_state_to_str(alx_ipa->ipa_prod_rm_state));
 	spin_unlock_bh(&alx_ipa->ipa_rm_state_lock);
 
@@ -4633,7 +4633,7 @@ static void alx_ipa_rm_notify(void *user_data, enum ipa_rm_event event,
 			schedule_work(&adpt->ipa_send_task);
 		} else {
 			spin_unlock_bh(&adpt->flow_ctrl_lock);
-			alx_err(adpt,"%s -- ERR RM_GRANTED RCVD but pendq_cnt %d, WQ_SCHED:%s\n",
+			pr_debug("%s -- ERR RM_GRANTED RCVD but pendq_cnt %d, WQ_SCHED:%s\n",
 				__func__,adpt->pendq_cnt,CHK_ADPT_FLAG(2, WQ_SCHED)?"true":"false");
 		}
                 break;
