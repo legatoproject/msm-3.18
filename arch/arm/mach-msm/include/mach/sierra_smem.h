@@ -431,7 +431,7 @@ enum bshwtype
   BSAR7584_NB28A,               /* 0x10 - Automotive 7584                     */
   BSAR7582_NB13,                /* 0x11 - Automotive 7582 no band 13          */
   BSAR7584_NC_NB28A,            /* 0x12 - Automotive 7584 without codec       */
-
+  BSAR7582_NC_NB7,              /* 0x13 - Automotive 7582 without codec&B7    */
 
   /* Note: Add these marcos is just for AV module compiling.
      Need to re-write according to MDM9x40 hwtype later */
