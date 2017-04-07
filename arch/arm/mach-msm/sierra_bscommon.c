@@ -235,6 +235,17 @@ bool bs_support_get (enum bsfeature feature)
 					break;
 			}
 			break;
+
+		case BSFEATURE_WM8944:
+			switch (prodfamily)
+			{
+				case BS_PROD_FAMILY_WP:
+					supported = true;
+					break;
+				default:
+					break;
+			}
+			break;
 /*SWI_TBD BChen LXSWI9X28-9 [2016-12-08] sync code from modem_proc/sierra/bs/src/bsuser.c
  *disable the redundant judgement ATM
  */

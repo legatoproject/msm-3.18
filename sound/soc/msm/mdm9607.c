@@ -26,6 +26,11 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <sound/msm-dai-q6-v2.h>
+#include "../codecs/wm8944.h"
+#include <linux/mfd/wm8944/registers.h>
+#include <linux/mfd/wm8944/core.h>
+#include <linux/clk.h>
+#include <linux/sierra_bsudefs.h>
 #endif
 /* SWISTOP */
 #include <soc/qcom/socinfo.h>
@@ -107,6 +112,7 @@ struct mdm9607_codec {
 
 struct mdm_machine_data {
 	u32 mclk_freq;
+	struct clk* sysclk;
 	atomic_t prim_clk_usrs;
 	u16 prim_mi2s_mode;
 	u16 prim_auxpcm_mode;
@@ -247,20 +253,31 @@ static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
 	pr_debug("%s enable = %x\n", __func__, enable);
 
+	lpass_clk->enable = enable;
 	if (enable) {
-		if (atomic_read(&pdata->prim_clk_usrs) == 0) {
-			lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
-			lpass_clk->clk_freq_in_hz = pdata->mclk_freq;
-			lpass_clk->enable = 1;
-			ret = afe_set_lpass_clock_v2(
-				AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
-			if (ret < 0)
-				pr_err("%s:afe set mclk failed\n", __func__);
-			else
-				atomic_inc(&pdata->prim_clk_usrs);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if(!strcmp(card->name, "mdm9607-wm8944-i2s-snd-card")) {
+			/* WM8944 on mangOH uses RF_CLK2 from PMIC for MCLK */
+			clk_prepare_enable(pdata->sysclk);
 		} else {
-			lpass_clk->enable = 1;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+			if (atomic_read(&pdata->prim_clk_usrs) == 0) {
+				lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
+				lpass_clk->clk_freq_in_hz = pdata->mclk_freq;
+				ret = afe_set_lpass_clock_v2(
+				AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
+				if (ret < 0)
+					pr_err("%s:afe set mclk failed\n", __func__);
+				else
+					atomic_inc(&pdata->prim_clk_usrs);
+			}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
 		}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 		lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT;
 		lpass_clk->clk_freq_in_hz = bit_clk_freq;
 		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
@@ -268,17 +285,27 @@ static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 		if (ret < 0)
 			pr_err("%s:afe_set_lpass_clock_v2 failed\n", __func__);
 	} else {
-		if (atomic_read(&pdata->prim_clk_usrs) > 0)
-			atomic_dec(&pdata->prim_clk_usrs);
-
-		if (atomic_read(&pdata->prim_clk_usrs) == 0) {
-			lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
-			lpass_clk->enable = 0;
-			ret = afe_set_lpass_clock_v2(
-				AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if(!strcmp(card->name, "mdm9607-wm8944-i2s-snd-card")) {
+			/* WM8944 on mangOH uses RF_CLK2 from PMIC for MCLK */
+			clk_disable_unprepare(pdata->sysclk);
 		} else {
-			lpass_clk->enable = 0;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+			if (atomic_read(&pdata->prim_clk_usrs) > 0)
+				atomic_dec(&pdata->prim_clk_usrs);
+
+			if (atomic_read(&pdata->prim_clk_usrs) == 0) {
+				lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
+				ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
+			}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
 		}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 		lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_PRI_MI2S_IBIT;
 		ret = afe_set_lpass_clock_v2(AFE_PORT_ID_PRIMARY_MI2S_RX,
 						lpass_clk);
@@ -313,6 +340,7 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = rtd->card;
 	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
+
 	int ret = 0;
 
 	if (atomic_inc_return(&mi2s_ref_count) == 1) {
@@ -366,14 +394,16 @@ static int mdm_mi2s_startup(struct snd_pcm_substream *substream)
 				goto err;
 			}
 			ret = snd_soc_dai_set_fmt(cpu_dai,
-					SND_SOC_DAIFMT_CBS_CFS);
+					SND_SOC_DAIFMT_CBS_CFS |
+					SND_SOC_DAIFMT_I2S);
 			if (ret < 0) {
 				pr_err("%s Set fmt for cpu dai failed\n",
 					__func__);
 				goto err;
 			}
 			ret = snd_soc_dai_set_fmt(codec_dai,
-					SND_SOC_DAIFMT_CBS_CFS);
+					SND_SOC_DAIFMT_CBS_CFS |
+					SND_SOC_DAIFMT_I2S);
 			if (ret < 0)
 				pr_err("%s Set fmt for codec dai failed\n",
 					__func__);
@@ -853,37 +883,61 @@ static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 	mutex_lock(&cdc_mclk_mutex);
 	memcpy(lpass_clk, &lpass_default, sizeof(struct afe_clk_cfg));
 	if (enable) {
-		if (atomic_read(&pdata->prim_clk_usrs) == 0) {
-			lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
-			lpass_clk->clk_freq_in_hz = pdata->mclk_freq;
-			lpass_clk->enable = enable;
-			ret = afe_set_lpass_clock_v2(
-				AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
-			if (ret < 0) {
-				pr_err("%s afe_set_lpass_clock_v2 failed\n",
-				       __func__);
-
-				goto err;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if(!strcmp(card->name, "mdm9607-wm8944-i2s-snd-card")) {
+			/* WM8944 on mangOH uses RF_CLK2 from PMIC for MCLK */
+			clk_prepare_enable(pdata->sysclk);
+		} else {
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+			if (atomic_read(&pdata->prim_clk_usrs) == 0) {
+				lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
+				lpass_clk->clk_freq_in_hz = pdata->mclk_freq;
+				lpass_clk->enable = enable;
+				ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
+				if (ret < 0) {
+					pr_err("%s afe_set_lpass_clock_v2 failed\n",
+						__func__);
+					goto err;
+				}
 			}
+			atomic_inc(&pdata->prim_clk_usrs);
+			pdata->mdm9607_codec_fn.mclk_enable_fn(codec, 1, dapm);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
 		}
-		atomic_inc(&pdata->prim_clk_usrs);
-		pdata->mdm9607_codec_fn.mclk_enable_fn(codec, 1, dapm);
+#endif /* CONFIG_SIERRA */
+/* SWISTART */
 	} else {
-		if (atomic_read(&pdata->prim_clk_usrs) > 0)
-			atomic_dec(&pdata->prim_clk_usrs);
-		if (atomic_read(&pdata->prim_clk_usrs) == 0) {
-			lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
-			lpass_clk->enable = enable;
-			ret = afe_set_lpass_clock_v2(
-				AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
-			if (ret < 0) {
-				pr_err("%s afe_set_lpass_clock_v2 failed\n",
-				       __func__);
-
-				goto err;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if(!strcmp(card->name, "mdm9607-wm8944-i2s-snd-card")) {
+			/* WM8944 on mangOH uses RF_CLK2 from PMIC for MCLK */
+			clk_disable_unprepare(pdata->sysclk);
+		} else {
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+			if (atomic_read(&pdata->prim_clk_usrs) > 0)
+				atomic_dec(&pdata->prim_clk_usrs);
+			if (atomic_read(&pdata->prim_clk_usrs) == 0) {
+				lpass_clk->clk_id = Q6AFE_LPASS_CLK_ID_MCLK_3;
+				lpass_clk->enable = enable;
+				ret = afe_set_lpass_clock_v2(
+					AFE_PORT_ID_PRIMARY_MI2S_RX, lpass_clk);
+				if (ret < 0) {
+					pr_err("%s afe_set_lpass_clock_v2 failed\n",
+						__func__);
+					goto err;
+				}
 			}
+			pdata->mdm9607_codec_fn.mclk_enable_fn(codec, 0, dapm);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
 		}
-		pdata->mdm9607_codec_fn.mclk_enable_fn(codec, 0, dapm);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	}
 	pr_debug("%s clk %x\n",  __func__, pdata->mclk_freq);
 err:
@@ -1433,6 +1487,43 @@ static int mdm_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
   }
 
   return 0;
+}
+
+static int mdm_wm8944_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_card *card = rtd->card;
+	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
+	pr_debug("%s dev_name %s\n", __func__, dev_name(cpu_dai->dev));
+
+	rtd->pmdown_time = 0;
+	ret = snd_soc_add_codec_controls(codec, mdm_snd_controls,
+					 ARRAY_SIZE(mdm_snd_controls));
+	if (ret < 0)
+		return ret;
+
+	snd_soc_dapm_new_controls(dapm, mdm9607_dapm_widgets,
+				  ARRAY_SIZE(mdm9607_dapm_widgets));
+
+	snd_soc_dai_set_clkdiv(codec_dai, WM8944_BCLKDIV, 0);
+	snd_soc_dai_set_sysclk(codec_dai, WM8944_SYSCLK_MCLK,
+				pdata->mclk_freq, 0);
+
+	/*
+	 * After DAPM Enable pins always
+	 * DAPM SYNC needs to be called.
+	 */
+	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
+	snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
+	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
+	snd_soc_dapm_sync(dapm);
+
+	return ret;
 }
 #endif
 /* SWISTOP */
@@ -2266,6 +2357,42 @@ static struct snd_soc_dai_link mdm_9306_dai[] = {
 	},
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct snd_soc_dai_link mdm_wm8944_dai[] = {
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "wm8944-codec",
+		.codec_dai_name = "wm8944-hifi",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.init = &mdm_wm8944_mi2s_audrx_init,
+		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "wm8944-codec",
+		.codec_dai_name = "wm8944-hifi",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+	},
+};
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 static struct snd_soc_dai_link mdm_tomtom_dai_links[
 				ARRAY_SIZE(mdm_dai) +
 				ARRAY_SIZE(mdm_9330_dai)];
@@ -2273,6 +2400,20 @@ static struct snd_soc_dai_link mdm_tomtom_dai_links[
 static struct snd_soc_dai_link mdm_tapan_dai_links[
 				ARRAY_SIZE(mdm_dai) +
 				ARRAY_SIZE(mdm_9306_dai)];
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct snd_soc_dai_link mdm_wm8944_dai_links[
+				ARRAY_SIZE(mdm_dai) +
+				ARRAY_SIZE(mdm_wm8944_dai)];
+
+static struct snd_soc_card snd_soc_card_mdm_wm8944 = {
+	.name = "mdm9607-wm8944-i2s-snd-card",
+	.dai_link = mdm_wm8944_dai_links,
+	.num_links = ARRAY_SIZE(mdm_wm8944_dai_links),
+};
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static struct snd_soc_card snd_soc_card_mdm_9330 = {
 	.name = "mdm9607-tomtom-i2s-snd-card",
@@ -2291,6 +2432,12 @@ static const struct of_device_id mdm_asoc_machine_of_match[]  = {
 	  .data = "tomtom_codec"},
 	{ .compatible = "qcom,mdm9607-audio-tapan",
 	  .data = "tapan_codec"},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{ .compatible = "qcom,mdm9607-audio-wm8944",
+	  .data = "wm8944-codec"},
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	{},
 };
 
@@ -2503,7 +2650,21 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			   sizeof(mdm_9306_dai));
 		dailink = mdm_tapan_dai_links;
 	}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	else if (!strcmp(match->data, "wm8944-codec")) {
+		card = &snd_soc_card_mdm_wm8944;
+		len_1 = ARRAY_SIZE(mdm_dai);
+		len_2 = len_1 + ARRAY_SIZE(mdm_wm8944_dai);
 
+		memcpy(mdm_wm8944_dai_links, mdm_dai,
+			   sizeof(mdm_dai));
+		memcpy(mdm_wm8944_dai_links + len_1, mdm_wm8944_dai,
+			   sizeof(mdm_wm8944_dai));
+		dailink = mdm_wm8944_dai_links;
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	if (card) {
 		card->dai_link = dailink;
 		card->num_links = len_2;
@@ -2541,39 +2702,23 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 			     GFP_KERNEL);
 	if (!pdata)
 		return -ENOMEM;
-	
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	ret = of_property_read_u32(pdev->dev.of_node,
-				   "qcom,tapan-mclk-clk-freq",
-				   &pdata->mclk_freq);
-#else
+
 	ret = of_property_read_u32(pdev->dev.of_node,
 				   "qcom,codec-mclk-clk-freq",
 				   &pdata->mclk_freq);
-#endif /* CONFIG_SIERRA*/
-/* SWISTOP */
 
 	if (ret) {
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-		dev_err(&pdev->dev,
-			"%s Looking up %s property in node %s failed",
-			__func__, "qcom,tapan-mclk-clk-freq",
-			pdev->dev.of_node->full_name);
-#else
 		dev_err(&pdev->dev,
 			"%s Looking up %s property in node %s failed",
 			__func__, "qcom,codec-mclk-clk-freq",
 			pdev->dev.of_node->full_name);
-#endif /* CONFIG_SIERRA*/
-/* SWISTOP */
 
 		goto err;
 	}
 
-	/* At present only 12.288MHz is supported on MDM. */
-	if (q6afe_check_osr_clk_freq(pdata->mclk_freq)) {
+	if (!bs_support_get(BSFEATURE_WM8944) &&
+	    q6afe_check_osr_clk_freq(pdata->mclk_freq)) {
+		/* At present only 12.288MHz is supported on MDM. */
 		dev_err(&pdev->dev, "%s Unsupported tomtom mclk freq %u\n",
 			__func__, pdata->mclk_freq);
 
@@ -2601,7 +2746,18 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		pdata->mdm9607_codec_fn.mclk_enable_fn = tomtom_mclk_enable;
 		pdata->mdm9607_codec_fn.mbhc_hs_detect = tomtom_hs_detect;
 	}
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	else if (!strcmp(card->name, "mdm9607-wm8944-i2s-snd-card")) {
+		pdata->sysclk = devm_clk_get(&pdev->dev, "wm8944_sysclk");
+		if(!pdata->sysclk) {
+			dev_err(&pdev->dev, "%s: failed to get MCLK for wm8944\n");
+			ret = -EINVAL;
+			goto err;
+		}
+	}
+#endif
+/* SWISTOP */
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
@@ -2609,6 +2765,7 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
 		goto err;
+
 	ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
 	if (ret)
 		goto err;
@@ -2634,6 +2791,7 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err2;
 	}
+
 	pdata->lpass_mux_mic_ctl_virt_addr =
 			ioremap(LPASS_CSR_GP_IO_MUX_MIC_CTL, 4);
 	if (pdata->lpass_mux_mic_ctl_virt_addr == NULL) {
@@ -2642,6 +2800,7 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err3;
 	}
+
 	pdata->lpass_mux_spkr_ctl_virt_addr =
 				ioremap(LPASS_CSR_GP_IO_MUX_SPKR_CTL, 4);
 	if (pdata->lpass_mux_spkr_ctl_virt_addr == NULL) {
@@ -2650,6 +2809,7 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err4;
 	}
+
 	pdata->lpaif_sec_muxsel_virt_addr = ioremap(LPAIF_SEC_MODE_MUXSEL, 4);
 	if (pdata->lpaif_sec_muxsel_virt_addr == NULL) {
 		pr_err("%s Pri muxsel virt addr is null\n", __func__);
@@ -2729,7 +2889,6 @@ static struct platform_driver mdm_asoc_machine_driver = {
 	.probe = mdm_asoc_machine_probe,
 	.remove = mdm_asoc_machine_remove,
 };
-
 
 module_platform_driver(mdm_asoc_machine_driver);
 

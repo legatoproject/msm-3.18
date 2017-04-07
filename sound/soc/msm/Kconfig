@@ -225,6 +225,9 @@ config SND_SOC_MDM9607
 	select MSM_QDSP6_APRV3
 	select MSM_QDSP6V2_CODECS
 	select SND_HWDEP
+# SWISTART
+	select SND_SOC_WM8944
+# SWISTOP
 	help
 	 To add support for SoC audio on MDM9607 boards.
 	 This will enable sound soc drivers which
