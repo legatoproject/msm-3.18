@@ -460,3 +460,47 @@ int8_t bs_uart_fun_get (uint uart_num)
 }
 EXPORT_SYMBOL(bs_uart_fun_get);
 
+/************
+ *
+ * Name:     bsgetpowerfaultflag()
+ *
+ * Purpose:  Returns the power fault is enabled or not
+ *
+ * Parms:    none
+ *
+ * Return:   returns whether power fault is enabled or not
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+bool bsgetpowerfaultflag(void)
+{
+	struct bscoworkmsg *mp;
+	unsigned char *virtual_addr;
+	bool result = false;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (virtual_addr) {
+	/*  APPL mailbox */
+		virtual_addr += BSMEM_COWORK_OFFSET;
+
+		mp = (struct bscoworkmsg *)virtual_addr;
+
+		if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+			mp->magic_end == BS_SMEM_COWORK_MAGIC_END ) {
+			/* not check CRC for execution efficiency to get power fault flag*/
+			result = (mp->bsfunctions & BSFUNCTIONS_POWERFAULT)? true: false;
+		} else {
+			pr_err(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
+			return false;
+		}
+	} else {
+		pr_err(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
+		return false;
+	}
+
+	return result;
+}
+EXPORT_SYMBOL(bsgetpowerfaultflag);

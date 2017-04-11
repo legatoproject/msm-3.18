@@ -340,6 +340,7 @@
 /* Bitmask for bsfunctions of BS_SMEM_REGION_COWORK */
 #define BSFUNCTIONS_HSIC 0x00000001
 #define BSFUNCTIONS_SERVICEPINDISABLE (0x00000001 << 1)
+#define BSFUNCTIONS_POWERFAULT (0x00000001 << 2)
 
 /************
  *

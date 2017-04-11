@@ -25,4 +25,5 @@ extern void bssetresettype(unsigned int reset_type);
 extern int8_t bsgetriowner(void);
 extern struct bs_resin_timer bsgetresintimer(void);
 extern int8_t bs_uart_fun_get (uint uart_num);
+extern bool bsgetpowerfaultflag(void);
 #endif
