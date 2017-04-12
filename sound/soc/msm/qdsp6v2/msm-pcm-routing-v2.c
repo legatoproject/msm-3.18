@@ -9409,6 +9409,15 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("SLIMBUS_1_RX", "Slimbus1 Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("SLIMBUS_1_TX", "Slimbus1 Capture", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("STUB_1_TX", "Stub1 Capture", 0, 0, 0, 0),
+/* SWISTART */
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
+	SND_SOC_DAPM_AIF_IN("STUB_DTMF_TX", "DTMF TX", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("STUB_HOST_RX_CAPTURE_TX", "CS-VOICE HOST RX CAPTURE", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("STUB_HOST_TX_CAPTURE_TX", "CS-VOICE HOST TX CAPTURE", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("STUB_HOST_RX_PLAYBACK_RX", "CS-VOICE HOST RX PLAYBACK", 0, 0, 0, 0),
+	SND_SOC_DAPM_AIF_IN("STUB_HOST_TX_PLAYBACK_RX", "CS-VOICE HOST TX PLAYBACK", 0, 0, 0, 0),
+#endif /* SIERRA */
+/* SWISTOP */
 	SND_SOC_DAPM_AIF_OUT("SLIMBUS_3_RX", "Slimbus3 Playback", 0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_IN("SLIMBUS_3_TX", "Slimbus3 Capture", 0, 0, 0, 0),
 	/* In- call recording */
@@ -9443,8 +9452,12 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 	SND_SOC_DAPM_SWITCH("HFP_INT_UL_HL", SND_SOC_NOPM, 0, 0,
 				&hfp_int_switch_mixer_controls),
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MUX("SLIM_0_RX AANC MUX", SND_SOC_NOPM, 0, 0,
 			aanc_slim_0_rx_mux),
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/* Mixer definitions */
 	SND_SOC_DAPM_MIXER("PRI_RX Audio Mixer", SND_SOC_NOPM, 0, 0,
@@ -10052,9 +10065,17 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia3", "MM_DL3"},
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia4", "MM_DL4"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia5", "MM_DL5"},
+#endif
+/*SWISTOP  */
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia7", "MM_DL7"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia8", "MM_DL8"},
+#endif
+/*SWISTOP  */
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia10", "MM_DL10"},
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia11", "MM_DL11"},
 	{"TERT_MI2S_RX Audio Mixer", "MultiMedia12", "MM_DL12"},
@@ -10084,7 +10105,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_MI2S_RX_SD1", NULL, "SEC_MI2S_RX_SD1 Audio Mixer"},
 
 	{"SEC_MI2S_RX Port Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"SEC_MI2S_RX Port Mixer", "INTERNAL_FM_TX", "INT_FM_TX"},
+#endif
+/* SWISTOP */
 
 	{"PRI_MI2S_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"PRI_MI2S_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
@@ -10697,8 +10722,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MM_UL17", NULL, "MultiMedia17 Mixer"},
 	{"MM_UL18", NULL, "MultiMedia18 Mixer"},
 	{"MM_UL19", NULL, "MultiMedia19 Mixer"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"MM_UL28", NULL, "MultiMedia28 Mixer"},
 	{"MM_UL29", NULL, "MultiMedia29 Mixer"},
+#endif
+/* SWISTOP */
 
 	{"AUX_PCM_RX Audio Mixer", "MultiMedia1", "MM_DL1"},
 	{"AUX_PCM_RX Audio Mixer", "MultiMedia2", "MM_DL2"},
@@ -10775,8 +10804,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SEC_MI2S_RX_Voice Mixer", "Voip", "VOIP_DL"},
 	{"SEC_MI2S_RX_Voice Mixer", "DTMF", "DTMF_DL_HL"},
 	{"SEC_MI2S_RX_Voice Mixer", "QCHAT", "QCHAT_DL"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"SEC_MI2S_RX_Voice Mixer", "VoiceMMode1", "VOICEMMODE1_DL"},
 	{"SEC_MI2S_RX_Voice Mixer", "VoiceMMode2", "VOICEMMODE2_DL"},
+#endif
+/* SWISTOP */
 	{"SEC_MI2S_RX", NULL, "SEC_MI2S_RX_Voice Mixer"},
 
 	{"SLIM_0_RX_Voice Mixer", "CSVoice", "CS-VOICE_DL1"},
@@ -11003,6 +11036,8 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"AUDIO_REF_EC_UL19 MUX", "TERT_MI2S_TX" , "TERT_MI2S_TX"},
 	{"AUDIO_REF_EC_UL19 MUX", "QUAT_MI2S_TX" , "QUAT_MI2S_TX"},
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"AUDIO_REF_EC_UL28 MUX", "PRI_MI2S_TX", "PRI_MI2S_TX"},
 	{"AUDIO_REF_EC_UL28 MUX", "SEC_MI2S_TX", "SEC_MI2S_TX"},
 	{"AUDIO_REF_EC_UL28 MUX", "TERT_MI2S_TX", "TERT_MI2S_TX"},
@@ -11012,10 +11047,16 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"AUDIO_REF_EC_UL29 MUX", "SEC_MI2S_TX", "SEC_MI2S_TX"},
 	{"AUDIO_REF_EC_UL29 MUX", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"AUDIO_REF_EC_UL29 MUX", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
+#endif
+/* SWISTOP */
 
 	{"MM_UL1", NULL, "AUDIO_REF_EC_UL1 MUX"},
 	{"MM_UL2", NULL, "AUDIO_REF_EC_UL2 MUX"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"MM_UL3", NULL, "AUDIO_REF_EC_UL3 MUX"},
+#endif
+/* SWISTOP */
 	{"MM_UL4", NULL, "AUDIO_REF_EC_UL4 MUX"},
 	{"MM_UL5", NULL, "AUDIO_REF_EC_UL5 MUX"},
 	{"MM_UL6", NULL, "AUDIO_REF_EC_UL6 MUX"},
@@ -11024,8 +11065,12 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"MM_UL17", NULL, "AUDIO_REF_EC_UL17 MUX"},
 	{"MM_UL18", NULL, "AUDIO_REF_EC_UL18 MUX"},
 	{"MM_UL19", NULL, "AUDIO_REF_EC_UL19 MUX"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"MM_UL28", NULL, "AUDIO_REF_EC_UL28 MUX"},
 	{"MM_UL29", NULL, "AUDIO_REF_EC_UL29 MUX"},
+#endif
+/* SWISTOP */
 
 	{"Voice_Tx Mixer", "PRI_TX_Voice", "PRI_I2S_TX"},
 	{"Voice_Tx Mixer", "PRI_MI2S_TX_Voice", "PRI_MI2S_TX"},
@@ -11572,7 +11617,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_0_RX Port Mixer", "SEC_AUX_PCM_UL_TX", "SEC_AUX_PCM_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "MI2S_TX", "MI2S_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "PRI_MI2S_TX", "PRI_MI2S_TX"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"SLIMBUS_0_RX Port Mixer", "SEC_MI2S_TX", "SEC_MI2S_TX"},
+#endif
+/* SWISTOP */
 	{"SLIMBUS_0_RX Port Mixer", "TERT_MI2S_TX", "TERT_MI2S_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "QUAT_MI2S_TX", "QUAT_MI2S_TX"},
 	{"SLIMBUS_0_RX Port Mixer", "INTERNAL_BT_SCO_TX", "INT_BT_SCO_TX"},
@@ -11638,7 +11687,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"SLIMBUS_1_RX Mixer", "VoLTE Stub", "VOLTE_STUB_DL"},
 	{"SLIMBUS_1_RX", NULL, "SLIMBUS_1_RX Mixer"},
 	{"INTERNAL_BT_SCO_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"INTERNAL_BT_SCO_RX_Voice Mixer", "Voice2 Stub", "VOICE2_STUB_DL"},
+#endif
+/* SWISTOP */
 	{"AFE_PCM_RX_Voice Mixer", "Voice Stub", "VOICE_STUB_DL"},
 	{"AFE_PCM_RX_Voice Mixer", "Voice2 Stub", "VOICE2_STUB_DL"},
 	{"AFE_PCM_RX_Voice Mixer", "VoLTE Stub", "VOLTE_STUB_DL"},
@@ -11773,7 +11826,11 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"PRI_MI2S_TX", NULL, "BE_IN"},
 	{"TERT_MI2S_TX", NULL, "BE_IN"},
 	{"SEC_MI2S_TX", NULL, "BE_IN"},
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	{"SENARY_MI2S_TX", NULL, "BE_IN" },
+#endif
+/* SWISTOP */
 	{"SLIMBUS_0_TX", NULL, "BE_IN" },
 	{"SLIMBUS_1_TX", NULL, "BE_IN" },
 	{"SLIMBUS_3_TX", NULL, "BE_IN" },
