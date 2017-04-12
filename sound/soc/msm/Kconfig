@@ -3,6 +3,13 @@ menu "MSM SoC Audio support"
 config SND_SOC_MSM_HOSTLESS_PCM
 	tristate
 
+#SWISTRART
+config SIERRA_AUDIO_CONFIG
+	def_bool y
+	help
+	 Configuraton for proprietary audio feature of Sierra
+#SWISTOP
+
 config SND_SOC_MSM_QDSP6V2_INTF
 	bool "SoC Q6 audio driver for APQ8084"
 	depends on MSM_QDSP6_APRV2
