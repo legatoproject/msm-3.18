@@ -58,6 +58,13 @@
 		clock-names = "core_clk", "iface_clk";
 		status = "disabled";
 	};
+	sound-9306 {
+		status = "disabled";
+	};
+
+	wcd9xxx_intc: wcd9xxx-irq {
+		status = "disabled";
+	};
 
 	tlmm_pinmux: pinctrl@1000000 {
 		/*undefine use of qcom,tlmm-emmc-boot-select*/
@@ -329,6 +336,21 @@
 
 &i2c_4 {
 	status = "ok";
+	wcd9xxx_tomtom_codec@0d{
+		status = "disabled";
+	};
+	wcd9xxx_tapan_codec@0d{
+		status = "disabled";
+	};
+	wcd9xxx_codec@77{
+		status = "disabled";
+	};
+	wcd9xxx_codec@66{
+		status = "disabled";
+	};
+	wcd9xxx_codec@55{
+		status = "disabled";
+	};
 };
 
 &spi_1 {

@@ -4663,8 +4663,12 @@ static const struct snd_soc_dapm_widget tapan_9306_dapm_widgets[] = {
 		&rx4_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX4 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx4_mix1_inp2_mux),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MUX("RX4 MIX1 INP3", SND_SOC_NOPM, 0, 0,
 		&rx4_mix1_inp3_mux),
+#endif
+/* SWISTOP */
 
 	/* RX4 MIX2 mux inputs */
 	SND_SOC_DAPM_MUX("RX4 MIX2 INP1", SND_SOC_NOPM, 0, 0,
@@ -4786,16 +4790,24 @@ static const struct snd_soc_dapm_widget tapan_common_dapm_widgets[] = {
 		&rx2_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX2 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx2_mix1_inp2_mux),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MUX("RX2 MIX1 INP3", SND_SOC_NOPM, 0, 0,
 		&rx2_mix1_inp2_mux),
+#endif
+/* SWISTOP */
 
 	/* RX3 MIX1 mux inputs */
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx3_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx3_mix1_inp2_mux),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP3", SND_SOC_NOPM, 0, 0,
 		&rx3_mix1_inp3_mux),
+#endif
+/* SWISTOP */
 
 	/* RX1 MIX2 mux inputs */
 	SND_SOC_DAPM_MUX("RX1 MIX2 INP1", SND_SOC_NOPM, 0, 0,

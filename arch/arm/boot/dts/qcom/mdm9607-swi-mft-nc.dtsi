@@ -81,8 +81,12 @@
 		status = "disabled";
 		};
 	sound-9306 {
-		status = "ok";
-		};
+		status = "disabled";
+	};
+
+	wcd9xxx_intc: wcd9xxx-irq {
+		status = "disabled";
+	};
 
 	qcom,msm-dai-mi2s {
 		mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
@@ -143,6 +147,15 @@
 	wcd9xxx_tapan_codec@0d{
 		status = "disabled";
 		qcom,cdc-reset-gpio;
+	};
+	wcd9xxx_codec@77{
+		status = "disabled";
+	};
+	wcd9xxx_codec@66{
+		status = "disabled";
+	};
+	wcd9xxx_codec@55{
+		status = "disabled";
 	};
 };
 

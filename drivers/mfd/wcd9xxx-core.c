@@ -2387,9 +2387,17 @@ static int wcd9xxx_read_of_property_u32(struct device *dev,
 {
 	int ret = 0;
 	ret = of_property_read_u32(dev->of_node, name, val);
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	if (ret)
 		dev_err(dev, "Looking up %s property in node %s failed",
 				name, dev->of_node->full_name);
+#else
+	if (ret)
+		dev_warn(dev, "Looking up %s property in node %s failed",
+				name, dev->of_node->full_name);
+#endif
+/* SWISTOP */
 	return ret;
 }
 
@@ -2730,9 +2738,17 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 				"qcom,cdc-mad-dmic-rate",
 				&mad_dmic_sample_rate);
 	if (ret) {
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 		dev_err(dev, "Looking up %s property in node %s failed, err = %d",
 			"qcom,cdc-mad-dmic-rate",
 			dev->of_node->full_name, ret);
+#else
+		dev_warn(dev, "Looking up %s property in node %s failed, err = %d",
+			"qcom,cdc-mad-dmic-rate",
+			dev->of_node->full_name, ret);
+#endif
+/* SWISTOP */
 		mad_dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
 	}
 	pdata->mad_dmic_sample_rate =
@@ -2746,9 +2762,17 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 				   "qcom,cdc-dmic-clk-drv-strength",
 				   &dmic_clk_drive);
 	if (ret)
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 		dev_err(dev, "Looking up %s property in node %s failed, err = %d",
 			"qcom,cdc-dmic-clk-drv-strength",
 			dev->of_node->full_name, ret);
+#else
+		dev_warn(dev, "Looking up %s property in node %s failed, err = %d",
+			"qcom,cdc-dmic-clk-drv-strength",
+			dev->of_node->full_name, ret);
+#endif
+/* SWISTOP */
 	else if (dmic_clk_drive != 2 && dmic_clk_drive != 4 &&
 		 dmic_clk_drive != 8 && dmic_clk_drive != 16)
 		dev_err(dev, "Invalid cdc-dmic-clk-drv-strength %d\n",

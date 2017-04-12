@@ -1340,8 +1340,12 @@ static const struct snd_soc_dapm_widget mdm9607_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic3", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+#endif
+/* SWISTOP */
 };
 
 static const char *const spk_function[] = {"Off", "On"};
@@ -1463,6 +1467,7 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * After DAPM Enable pins always
 	 * DAPM SYNC needs to be called.
 	 */
+
 	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
@@ -1472,7 +1477,11 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "Lineout_3 amp");
 	snd_soc_dapm_ignore_suspend(dapm, "Lineout_2 amp");
 	snd_soc_dapm_ignore_suspend(dapm, "Lineout_4 amp");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "ultrasound amp");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "ANCRight Headset Mic");
@@ -1481,16 +1490,23 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic2");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic3");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
-
 	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
@@ -1499,13 +1515,21 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC5");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC6");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
+#endif
+/* SWISTOP */
 
 	snd_soc_dapm_sync(dapm);
 
