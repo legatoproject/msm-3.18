@@ -70,9 +70,17 @@ static int wake_n_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	dev_info(&pdev->dev, "wake_n probe\n");
+	struct device_node *np;
 
-	struct device_node *np = pdev->dev.of_node;
+	if(pdev != NULL) {
+		np = pdev->dev.of_node;
+	}
+	else {
+		pr_err("%s: NULL input parameter\n", __func__);
+		return -EPERM;
+	}
+
+	dev_info(&pdev->dev, "wake_n probe\n");
 
 	wake_n_pdata.gpio = of_get_named_gpio(np, "wake-n-gpio", 0);
 	if (!gpio_is_valid(wake_n_pdata.gpio))
@@ -80,7 +88,7 @@ static int wake_n_probe(struct platform_device *pdev)
 
 	ret = gpio_request(wake_n_pdata.gpio, "WAKE_N_GPIO");
 	if (ret) {
-		pr_err("%s: failed to get GPIO%d, error code is%d\n", __func__,
+		pr_err("%s: failed to get GPIO%d, error code is %d\n", __func__,
 			wake_n_pdata.gpio,ret);
 		return ret;
 	}

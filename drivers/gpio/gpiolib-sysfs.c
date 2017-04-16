@@ -53,6 +53,218 @@ static struct gpio_chip gpio_ext_chip = {
 		.label  = "msmextgpio",
 		.base   = 1,
 };
+
+static struct ext_gpio_map ext_gpio_ar[]={
+	{"1", 15,FUNCTION_UNALLOCATED},
+	{"2", 14,FUNCTION_UNALLOCATED},
+	{"3", 13,FUNCTION_UNALLOCATED},
+	{"4", 12,FUNCTION_UNALLOCATED},
+	{"5", 30,FUNCTION_EMBEDDED_HOST},
+	{"6", 16,FUNCTION_UNALLOCATED},
+	{"7", 17,FUNCTION_UNALLOCATED},
+	{"8", 43,FUNCTION_UNALLOCATED},
+	{"9", 49,FUNCTION_UNALLOCATED},
+	{"10", 50,FUNCTION_UNALLOCATED},
+	{"11", 45,FUNCTION_UNALLOCATED},
+	{"12", 75,FUNCTION_UNALLOCATED},
+	{"13", 37,FUNCTION_UNALLOCATED},
+	{"14", 36,FUNCTION_UNALLOCATED},
+	{"15", -1,FUNCTION_EMBEDDED_HOST},
+	{"16", -1,FUNCTION_EMBEDDED_HOST},
+	{"17", -1,FUNCTION_EMBEDDED_HOST},
+	{"18", -1,FUNCTION_EMBEDDED_HOST},
+	{"19", -1,FUNCTION_EMBEDDED_HOST},
+	{"20", -1,FUNCTION_EMBEDDED_HOST},
+	{"21", -1,FUNCTION_EMBEDDED_HOST},
+	{"22", -1,FUNCTION_EMBEDDED_HOST},
+	{"23", -1,FUNCTION_EMBEDDED_HOST},
+	{"24", -1,FUNCTION_EMBEDDED_HOST},
+	{"25", 26,FUNCTION_EMBEDDED_HOST},
+	{"26", 44,FUNCTION_EMBEDDED_HOST},
+	{"27", -1,FUNCTION_EMBEDDED_HOST},
+	{"28", -1,FUNCTION_EMBEDDED_HOST},
+	{"29", 74,FUNCTION_EMBEDDED_HOST},
+	{"30", -1,FUNCTION_EMBEDDED_HOST},
+	{"31", -1,FUNCTION_EMBEDDED_HOST},
+	{"32", -1,FUNCTION_EMBEDDED_HOST},
+	{"33", -1,FUNCTION_EMBEDDED_HOST},
+	{"34", 11,FUNCTION_EMBEDDED_HOST},
+	{"35", 10,FUNCTION_EMBEDDED_HOST},
+	{"36", -1,FUNCTION_EMBEDDED_HOST},
+	{"37", -1,FUNCTION_EMBEDDED_HOST},
+	{"38", -1,FUNCTION_EMBEDDED_HOST},
+	{"39", -1,FUNCTION_EMBEDDED_HOST},
+	{"40", -1,FUNCTION_EMBEDDED_HOST},
+	{"41", -1,FUNCTION_EMBEDDED_HOST},
+	{"42", -1,FUNCTION_EMBEDDED_HOST},
+	{"43", -1,FUNCTION_EMBEDDED_HOST},
+	{"44", -1,FUNCTION_EMBEDDED_HOST},
+	{"45", -1,FUNCTION_EMBEDDED_HOST},
+ /* SWI_TBD [Kinbo:2016-07-27]: QTI9X28-312, GPIO46 is used by HSIC, but control HSIC need GPIO API*/
+	{"46", 59,FUNCTION_UNALLOCATED},
+	{"M1", 1020,FUNCTION_UNALLOCATED},
+	{"M2", 1021,FUNCTION_UNALLOCATED},
+	{"M3", 1023,FUNCTION_UNALLOCATED},
+	{"M4", 1022,FUNCTION_UNALLOCATED},
+	{GPIO_NAME_RI,35,FUNCTION_UNALLOCATED}
+};
+
+static struct ext_gpio_map ext_gpio_wp[]={
+	{"1", 21,FUNCTION_EMBEDDED_HOST},
+	{"2", 22,FUNCTION_EMBEDDED_HOST},
+	{"3", 23,FUNCTION_EMBEDDED_HOST},
+	{"4", 20,FUNCTION_EMBEDDED_HOST},
+	{"5", 30,FUNCTION_EMBEDDED_HOST},
+	{"6", 45,FUNCTION_EMBEDDED_HOST},
+	{"7", 75,FUNCTION_EMBEDDED_HOST},
+	{"8", 43,FUNCTION_UNALLOCATED},
+	{"9", 49,FUNCTION_UNALLOCATED},
+	{"10", 50,FUNCTION_UNALLOCATED},
+	{"11", 16,FUNCTION_UNALLOCATED},
+	{"12", 17,FUNCTION_UNALLOCATED},
+	{"13", 37,FUNCTION_UNALLOCATED},
+	{"14", 36,FUNCTION_UNALLOCATED},
+	{"15", 24,FUNCTION_UNALLOCATED},
+	{"16", -1,FUNCTION_EMBEDDED_HOST},
+	{"17", -1,FUNCTION_EMBEDDED_HOST},
+	{"18", -1,FUNCTION_EMBEDDED_HOST},
+	{"19", -1,FUNCTION_EMBEDDED_HOST},
+	{"20", -1,FUNCTION_EMBEDDED_HOST},
+	{"21", -1,FUNCTION_EMBEDDED_HOST},
+	{"22", -1,FUNCTION_EMBEDDED_HOST},
+	{"23", -1,FUNCTION_EMBEDDED_HOST},
+	{"24", -1,FUNCTION_EMBEDDED_HOST},
+	{"25", 26,FUNCTION_EMBEDDED_HOST},
+	{"26", 44,FUNCTION_EMBEDDED_HOST},
+	{"27", -1,FUNCTION_EMBEDDED_HOST},
+	{"28", -1,FUNCTION_EMBEDDED_HOST},
+	{"29", 74,FUNCTION_EMBEDDED_HOST},
+	{"30", -1,FUNCTION_EMBEDDED_HOST},
+	{"31", -1,FUNCTION_EMBEDDED_HOST},
+	{"32", -1,FUNCTION_EMBEDDED_HOST},
+	{"33", -1,FUNCTION_EMBEDDED_HOST},
+	{"34", 15,FUNCTION_EMBEDDED_HOST},
+	{"35", 14,FUNCTION_EMBEDDED_HOST},
+	{"36", -1,FUNCTION_EMBEDDED_HOST},
+	{"37", -1,FUNCTION_EMBEDDED_HOST},
+	{"38", -1,FUNCTION_EMBEDDED_HOST},
+	{"39", -1,FUNCTION_EMBEDDED_HOST},
+	{"40", -1,FUNCTION_EMBEDDED_HOST},
+	{"41", -1,FUNCTION_EMBEDDED_HOST},
+	{"42", -1,FUNCTION_EMBEDDED_HOST},
+	{"43", -1,FUNCTION_EMBEDDED_HOST},
+	{"44", -1,FUNCTION_EMBEDDED_HOST},
+	{"45", -1,FUNCTION_EMBEDDED_HOST},
+ /* SWI_TBD [Kinbo:2016-07-27]: QTI9X28-312, GPIO46 is used by HSIC, but control HSIC need GPIO API*/
+	{"46", 59,FUNCTION_UNALLOCATED},
+	{"M1", 1020,FUNCTION_UNALLOCATED},
+	{"M2", 1021,FUNCTION_UNALLOCATED},
+	{"M3", 1023,FUNCTION_UNALLOCATED},
+	{"M4", 1022,FUNCTION_UNALLOCATED},
+#ifdef CONFIG_GPIO_SWIMCU
+/* SWI_TBD [BChen:2016-08-22]: QTI9X07-36, define the ulpm mcu gpio number in the arch/arm/mach-msm/board-9607.h,
+ * and its base is 200
+ */
+	{"U1",SWIMCU_GPIO_TO_SYS(0),FUNCTION_UNALLOCATED},
+	{"U2",SWIMCU_GPIO_TO_SYS(1),FUNCTION_UNALLOCATED},
+	{"U3",SWIMCU_GPIO_TO_SYS(2),FUNCTION_UNALLOCATED},
+	{"U4",SWIMCU_GPIO_TO_SYS(3),FUNCTION_UNALLOCATED},
+	{"U5",SWIMCU_GPIO_TO_SYS(4),FUNCTION_UNALLOCATED},
+	{"U6",SWIMCU_GPIO_TO_SYS(5),FUNCTION_UNALLOCATED},
+	{"U7",SWIMCU_GPIO_TO_SYS(6),FUNCTION_UNALLOCATED},
+	{"U8",SWIMCU_GPIO_TO_SYS(7),FUNCTION_UNALLOCATED},
+#endif /* CONFIG_GPIO_SWIMCU */
+	{GPIO_NAME_RI,35,FUNCTION_UNALLOCATED}
+};
+
+static struct ext_gpio_map ext_gpio_mft[]={
+	{"0", 0,FUNCTION_UNALLOCATED},
+	{"1", 1,FUNCTION_UNALLOCATED},
+	{"2", 2,FUNCTION_UNALLOCATED},
+	{"3", 3,FUNCTION_UNALLOCATED},
+	{"4", 4,FUNCTION_UNALLOCATED},
+	{"5", 5,FUNCTION_UNALLOCATED},
+	{"6", 6,FUNCTION_UNALLOCATED},
+	{"7", 7,FUNCTION_UNALLOCATED},
+	{"8", 8,FUNCTION_UNALLOCATED},
+	{"9", 9,FUNCTION_UNALLOCATED},
+	{"10", 10,FUNCTION_UNALLOCATED},
+	{"11", 11,FUNCTION_UNALLOCATED},
+	{"12", 12,FUNCTION_UNALLOCATED},
+	{"13", 13,FUNCTION_UNALLOCATED},
+	{"14", 14,FUNCTION_UNALLOCATED},
+	{"15", 15,FUNCTION_UNALLOCATED},
+	{"16", 16,FUNCTION_UNALLOCATED},
+	{"17", 17,FUNCTION_UNALLOCATED},
+	{"18" ,18,FUNCTION_UNALLOCATED},
+	{"19", 19,FUNCTION_UNALLOCATED},
+	{"20", 20,FUNCTION_UNALLOCATED},
+	{"21", 21,FUNCTION_UNALLOCATED},
+	{"22", 22,FUNCTION_UNALLOCATED},
+	{"23", 23,FUNCTION_UNALLOCATED},
+	{"24", 24,FUNCTION_UNALLOCATED},
+	{"25", 25,FUNCTION_UNALLOCATED},
+	{"26", 26,FUNCTION_UNALLOCATED},
+	{"27", 27,FUNCTION_UNALLOCATED},
+	{"28", 28,FUNCTION_UNALLOCATED},
+	{"29", 29,FUNCTION_UNALLOCATED},
+	{"30", 30,FUNCTION_UNALLOCATED},
+	{"31", 31,FUNCTION_UNALLOCATED},
+	{"32", 32,FUNCTION_UNALLOCATED},
+	{"33", 33,FUNCTION_UNALLOCATED},
+	{"34", 34,FUNCTION_UNALLOCATED},
+	{"35", 35,FUNCTION_UNALLOCATED},
+	{"36", 36,FUNCTION_UNALLOCATED},
+	{"37", 37,FUNCTION_UNALLOCATED},
+	{"38" ,38,FUNCTION_UNALLOCATED},
+	{"39", 39,FUNCTION_UNALLOCATED},
+	{"40", 40,FUNCTION_UNALLOCATED},
+	{"41", 41,FUNCTION_UNALLOCATED},
+	{"42", 42,FUNCTION_UNALLOCATED},
+	{"43", 43,FUNCTION_UNALLOCATED},
+	{"44", 44,FUNCTION_UNALLOCATED},
+	{"45", 45,FUNCTION_UNALLOCATED},
+	{"46", 46,FUNCTION_UNALLOCATED},
+	{"47", 47,FUNCTION_UNALLOCATED},
+	{"48", 48,FUNCTION_UNALLOCATED},
+	{"49", 49,FUNCTION_UNALLOCATED},
+	{"50", 50,FUNCTION_UNALLOCATED},
+	{"51", 51,FUNCTION_UNALLOCATED},
+	{"52", 52,FUNCTION_UNALLOCATED},
+	{"53", 53,FUNCTION_UNALLOCATED},
+	{"54", 54,FUNCTION_UNALLOCATED},
+	{"55", 55,FUNCTION_UNALLOCATED},
+	{"56", 56,FUNCTION_UNALLOCATED},
+	{"57", 57,FUNCTION_UNALLOCATED},
+	{"58" ,58,FUNCTION_UNALLOCATED},
+	{"59", 59,FUNCTION_UNALLOCATED},
+	{"60", 60,FUNCTION_UNALLOCATED},
+	{"61", 61,FUNCTION_UNALLOCATED},
+	{"62", 62,FUNCTION_UNALLOCATED},
+	{"63", 63,FUNCTION_UNALLOCATED},
+	{"64", 64,FUNCTION_UNALLOCATED},
+	{"65", 65,FUNCTION_UNALLOCATED},
+	{"66", 66,FUNCTION_UNALLOCATED},
+	{"67", 67,FUNCTION_UNALLOCATED},
+	{"68" ,68,FUNCTION_UNALLOCATED},
+	{"69", 69,FUNCTION_UNALLOCATED},
+	{"70", 70,FUNCTION_UNALLOCATED},
+	{"71", 71,FUNCTION_UNALLOCATED},
+	{"72", 72,FUNCTION_UNALLOCATED},
+	{"73", 73,FUNCTION_UNALLOCATED},
+	{"74", 74,FUNCTION_UNALLOCATED},
+	{"75", 75,FUNCTION_UNALLOCATED},
+	{"76", 76,FUNCTION_UNALLOCATED},
+	{"77", 77,FUNCTION_UNALLOCATED},
+	{"78", 78,FUNCTION_UNALLOCATED},
+	{"79", 79,FUNCTION_UNALLOCATED},
+	{"80", 1020,FUNCTION_UNALLOCATED},
+	{"81", 1021,FUNCTION_UNALLOCATED},
+	{"82", 1023,FUNCTION_UNALLOCATED},
+	{"83", 1022,FUNCTION_UNALLOCATED}
+
+};
+
 /**
  * getap_multiplex_gpio() - set the gpio multiplexing bit in AP
  *
@@ -263,9 +475,9 @@ static ssize_t gpio_pull_store(struct device *dev,
 	if (!test_bit(FLAG_EXPORT, &desc->flags))
 		status = -EIO;
 	else if (sysfs_streq(buf, "up"))
-		status = gpio_pull_up(desc);
+		status = gpio_pull_up((struct gpio_desc *)desc);
 	else if (sysfs_streq(buf, "down"))
-		status = gpio_pull_down(desc);
+		status = gpio_pull_down((struct gpio_desc *)desc);
 	else
 		status = -EINVAL;
 
@@ -632,24 +844,25 @@ static ssize_t export_store(struct class *class,
 	long			gpio;
 	struct gpio_desc	*desc;
 	int			status;
-/*SWISTART*/
+
 #ifdef CONFIG_SIERRA
-	gpio_set_map_table();
 	bool alias = false;
 
+	gpio_set_map_table();
+
 	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--find GPIO: %d \n", __func__,gpio);
+	pr_debug("%s: Export GPIO: %ld\n", __func__,gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
-/*SWISTOP*/
+
 	if (status < 0)
 		goto done;
 
 	desc = gpio_to_desc(gpio);
 	/* reject invalid GPIOs */
 	if (!desc) {
-		pr_warn("%s: invalid GPIO %ld\n", __func__, gpio);
+		pr_warn("%s: Invalid GPIO %ld\n", __func__, gpio);
 		return -EINVAL;
 	}
 
@@ -672,7 +885,7 @@ static ssize_t export_store(struct class *class,
 
 done:
 	if (status)
-		pr_debug("%s: status %d\n", __func__, status);
+		pr_debug("%s: Status %d\n", __func__, status);
 	return status ? : len;
 }
 
@@ -683,17 +896,18 @@ static ssize_t unexport_store(struct class *class,
 	long			gpio;
 	struct gpio_desc	*desc;
 	int			status;
-/*SWISTART*/
+
 #ifdef CONFIG_SIERRA
-	gpio_set_map_table();
 	bool alias = false;
 
+	gpio_set_map_table();
+
 	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--unexport GPIO: %d \n", __func__,gpio);
+	pr_debug("%s: Uexport GPIO: %ld\n", __func__,gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
-/*SWISTOP*/
+
 
 	if (status < 0)
 		goto done;
@@ -701,7 +915,7 @@ static ssize_t unexport_store(struct class *class,
 	desc = gpio_to_desc(gpio);
 	/* reject bogus commands (gpio_unexport ignores them) */
 	if (!desc) {
-		pr_warn("%s: invalid GPIO %ld\n", __func__, gpio);
+		pr_warn("%s: Invalid GPIO %ld\n", __func__, gpio);
 		return -EINVAL;
 	}
 
@@ -717,7 +931,7 @@ static ssize_t unexport_store(struct class *class,
 	}
 done:
 	if (status)
-		pr_debug("%s: status %d\n", __func__, status);
+		pr_debug("%s: Status %d\n", __func__, status);
 	return status ? : len;
 }
 

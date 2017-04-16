@@ -33,7 +33,7 @@ struct swi_tcxo *data = NULL;
 
 static ssize_t sierra_tcxo_show(struct kobject *kobj,
   struct kobj_attribute *attr,
-  const char *buf);
+  char *buf);
 static ssize_t sierra_tcxo_store(struct kobject *kobj,
     struct kobj_attribute *attr,
     const char *buf,
@@ -49,7 +49,7 @@ static struct attribute *attrs[] = {
 
 static ssize_t sierra_tcxo_show(struct kobject *kobj,
   struct kobj_attribute *attr,
-  const char *buf)
+  char *buf)
 {
   uint8_t enabled;
   enabled = data->enable;

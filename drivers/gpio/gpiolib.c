@@ -1065,7 +1065,7 @@ int gpiod_direction_output(struct gpio_desc *desc, int value)
 	return _gpiod_direction_output_raw(desc, value);
 }
 EXPORT_SYMBOL_GPL(gpiod_direction_output);
-/* SWISTART */
+
 #ifdef CONFIG_SIERRA
 int gpio_pull_up(struct gpio_desc *desc)
 {
@@ -1090,6 +1090,8 @@ int gpio_pull_up(struct gpio_desc *desc)
 		set_bit(FLAG_IS_UP, &desc->flags);
 
 	trace_gpio_direction(desc_to_gpio(desc), 1, status);
+
+	return status;
 }
 EXPORT_SYMBOL_GPL(gpio_pull_up);
 
@@ -1114,12 +1116,15 @@ int gpio_pull_down(struct gpio_desc *desc)
 	status = chip->pull_down(chip, gpio_chip_hwgpio(desc));
 	if (status == 0)
 		clear_bit(FLAG_IS_UP, &desc->flags);
+
 	trace_gpio_direction(desc_to_gpio(desc), 0, status);
+
+	return status;
 
 }
 EXPORT_SYMBOL_GPL(gpio_pull_down);
 #endif
-/* SWISTOP */
+
 
 /**
  * gpiod_set_debounce - sets @debounce time for a @gpio

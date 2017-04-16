@@ -73,16 +73,15 @@ struct qpnp_rtc {
 };
 
 
-/*SWISTART*/
 #ifdef CONFIG_SIERRA
 static struct wakeup_source * ws;
 
 static void sierra_rtc_wake(struct work_struct *work)
 {
-	pr_info("%s",__func__);
 	struct qpnp_rtc * rtc_d;
 	char event[16], *envp[2];
 
+	pr_info("%s",__func__);
 
 	rtc_d = container_of(work, struct qpnp_rtc, sierra_rtc_work);
 
@@ -101,8 +100,6 @@ static void sierra_rtc_wake(struct work_struct *work)
 
 }
 #endif
-/*SWISTOP*/
-
 
 static int qpnp_read_wrapper(struct qpnp_rtc *rtc_dd, u8 *rtc_val,
 			u16 base, int count)

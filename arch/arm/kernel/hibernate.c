@@ -56,6 +56,7 @@ void notrace restore_processor_state(void)
  *
  * When soft reboot completes, the hibernation snapshot is written out.
  */
+#ifndef CONFIG_SIERRA
 static int notrace arch_save_image(unsigned long unused)
 {
 	int ret;
@@ -65,13 +66,13 @@ static int notrace arch_save_image(unsigned long unused)
 		_soft_restart(virt_to_phys(cpu_resume), false);
 	return ret;
 }
+#endif
 
 /*
  * Save the current CPU state before suspend / poweroff.
  */
 int notrace swsusp_arch_suspend(void)
 {
-/* SWISTART */
 #ifdef CONFIG_SIERRA
 /*
  *  function in 3.18 kernel will not use the second parameter "arch_save_image()"
@@ -79,8 +80,7 @@ int notrace swsusp_arch_suspend(void)
 	return cpu_suspend(0);
 #else
 	return cpu_suspend(0, arch_save_image);
-#endif /* SIERRA */
-/* SWISTOP */
+#endif /* CONFIG_SIERRA */
 }
 
 /*

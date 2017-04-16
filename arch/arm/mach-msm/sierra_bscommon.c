@@ -62,7 +62,7 @@ uint64_t bsgetgpioflag(void)
 	 		/* doube check CRC */
 			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE)) {
 				/*get gpio flag*/
-				result = (uint64_t)(mp->bcgpioflag[0]) | (uint64_t)(mp->bcgpioflag[1] << 32);
+				result = (uint64_t)(mp->bcgpioflag[0]) | ((uint64_t)(mp->bcgpioflag[1]) << 32);
 			} else {
 				printk(KERN_ERR"sierra:-%s-failed: crc error", __func__);
 				return 0;
