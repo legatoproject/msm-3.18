@@ -88,9 +88,103 @@ int sierra_smem_ds_get_ssid(uint8_t *modem_idx, uint8_t *lk_idx, uint8_t *linux_
 }
 EXPORT_SYMBOL(sierra_smem_ds_get_ssid);
 
+/************
+ *
+ * Name:     sierra_ds_smem_erestore_info_set
+ *
+ * Purpose:  Set smem of BS_SMEM_REGION_EFS_RESTORE
+ *
+ * Parms:    [IN] value_type - type of the member
+ *           [OUT]value      - store value get from smem
+ *
+ * Return:   0 - set successfully
+ *          -1 - set failed
+ *
+ * Abort:    None
+ *
+ * Notes:    None
+ *
+ ************/
+int sierra_ds_smem_erestore_info_set(uint32_t value_type, uint8_t value)
+{
+	struct ds_smem_erestore_info *efs_restore = NULL;
+	unsigned char *virtual_addr = NULL;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	/* Check if get the region */
+	if(NULL != virtual_addr)
+	{
+		virtual_addr += BSMEM_EFS_RESTORE_OFFSET;
+		/* Get the region */
+		efs_restore = (struct ds_smem_erestore_info*)virtual_addr;
+		/* Check if wether initialized. If not, initialize first */
+		if((DS_MAGIC_EFSB != efs_restore->magic_beg) ||
+			(DS_MAGIC_EFSE != efs_restore->magic_end) ||
+			(crc32_le(~0, (void *)efs_restore, DS_ERESTORE_CRC_SZ) != efs_restore->crc32))
+		{
+			efs_restore->magic_beg          = DS_MAGIC_EFSB;
+			efs_restore->magic_end          = DS_MAGIC_EFSE;
+			efs_restore->erestore_t         = BL_RESTORE_INFO_INVALID_VALUE;
+			efs_restore->errorcount         = BL_RESTORE_INFO_INVALID_VALUE;
+			efs_restore->restored_flag      = BL_RESTORE_INFO_INVALID_VALUE;
+			efs_restore->reserved           = BL_RESTORE_INFO_INVALID_VALUE;
+			efs_restore->crc32              = crc32_le(0, (void *)efs_restore, DS_ERESTORE_CRC_SZ);
+		}
+
+		if((BL_RESTORE_INFO_MIN > value_type) || (BL_RESTORE_INFO_MAX < value_type))
+		{
+			/* Bad paramaters */
+			pr_debug(KERN_ERR"sierra:-%s-failed: invalid bl_erestore_info_type %d: %d", __func__, value_type, value);
+			return -1;
+		}
+		else
+		{
+			if((BL_RESTORE_INFO_RESTORE_TYPE == value_type) && (DS_RESTORE_EFS_TYPE_MIN < value) && (DS_RESTORE_EFS_TYPE_MAX > value))
+			{
+			/* Set efs restore info BL_RESTORE_INFO_RESTORE_TYPE */
+			efs_restore->magic_beg  = DS_MAGIC_EFSB;
+			efs_restore->magic_end  = DS_MAGIC_EFSE;
+			efs_restore->erestore_t = value;
+			efs_restore->crc32      = crc32_le(~0, (void *)efs_restore, DS_ERESTORE_CRC_SZ);
+			pr_debug("sierra:-%s-successed: BL_RESTORE_INFO_RESTORE_TYPE: %d", __func__, value);
+			}
+			else if ((BL_RESTORE_INFO_RESTORE_DONE == value_type) && (BL_RESTORE_INFO_STAGE_MIN > value) && (BL_RESTORE_INFO_STAGE_MIN < value))
+			{
+			/* Set efs restore info BL_RESTORE_INFO_RESTORE_TYPE */
+			efs_restore->magic_beg  = DS_MAGIC_EFSB;
+			efs_restore->magic_end  = DS_MAGIC_EFSE;
+			efs_restore->restored_flag  = value;
+			efs_restore->crc32      = crc32_le(~0, (void *)efs_restore, DS_ERESTORE_CRC_SZ);
+			pr_debug("sierra:-%s-successed: BL_RESTORE_INFO_RESTORE_DONE: %d", __func__, value);
+			}
+			else if (BL_RESTORE_INFO_ECOUNT_BUF == value_type)
+			{
+			/* Set efs restore info BL_RESTORE_INFO_ECOUNT_BUF */
+			efs_restore->magic_beg  = DS_MAGIC_EFSB;
+			efs_restore->magic_end  = DS_MAGIC_EFSE;
+			efs_restore->errorcount = value;
+			efs_restore->crc32      = crc32_le(~0, (void *)efs_restore, DS_ERESTORE_CRC_SZ);
+			pr_debug("sierra:-%s-successed: BL_RESTORE_INFO_ECOUNT_BUF: %d", __func__, value);
+			}
+			else
+			{
+				pr_err("sierra:-%s-failed: invalid parameter bl_erestore_info_type %d: %d", __func__, value_type, value);
+			}
+
+			return 0;
+		}
+	}
+	else
+	{
+		pr_err("sierra:-%s-failed: get virtual_addr error", __func__);
+		return -1;
+	}
+}
+
 int sierra_smem_ds_write_bad_image_and_swap(uint64_t bad_image_mask)
 {
 	struct ds_smem_message_s * ds_smem_bufp = NULL;
+	uint8_t need_erestore_type = DS_RESTORE_EFS_TYPE_MIN;
 
 	/* Get DS SMEM region */
 	ds_smem_bufp = sierra_smem_ds_get_buf();
@@ -134,6 +228,9 @@ int sierra_smem_ds_write_bad_image_and_swap(uint64_t bad_image_mask)
 	ds_smem_bufp->swap_reason = DS_SWAP_REASON_BAD_IMAGE;
 	ds_smem_bufp->is_changed = DS_BOOT_UP_CHANGED;
 	ds_smem_bufp->crc32 = crc32_le(~0, (void *)ds_smem_bufp, (sizeof(struct ds_smem_message_s) - sizeof(uint32_t)));
+
+	need_erestore_type = DS_RESTORE_EFS_SANITY_FROM_KERNEL;
+	sierra_ds_smem_erestore_info_set(BL_RESTORE_INFO_RESTORE_TYPE,need_erestore_type);
 
 	return 0;
 }
