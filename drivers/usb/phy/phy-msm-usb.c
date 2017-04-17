@@ -5250,13 +5250,8 @@ static int msm_otg_pm_resume(struct device *dev)
 	if (motg->resume_pending || motg->phy_irq_pending) {
 		msm_otg_dbg_log_event(&motg->phy, "PM RESUME BY USB",
 				motg->async_int, motg->resume_pending);
-		/* Bring hardware out of LPM asap, sm_work can handle the rest*/
-		msm_otg_resume(motg);
-
-		/* sm work will start in pm notify */
+		/* sm work if pending will start in pm notify to exit LPM */
 	}
-	msm_otg_dbg_log_event(&motg->phy, "PM RESUME DONE",
-			get_pm_runtime_counter(dev), motg->async_int);
 
 	return ret;
 }
