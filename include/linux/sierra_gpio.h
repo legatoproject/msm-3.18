@@ -142,7 +142,7 @@ static struct ext_gpio_map ext_gpio_wp[]={
 	{"U7",SWIMCU_GPIO_TO_SYS(6),FUNCTION_UNALLOCATED},
 	{"U8",SWIMCU_GPIO_TO_SYS(7),FUNCTION_UNALLOCATED},
 #endif /* CONFIG_GPIO_SWIMCU */
-	{GPIO_NAME_RI,35,FUNCTION_UNALLOCATED}
+	{GPIO_NAME_RI,25,FUNCTION_UNALLOCATED}
 };
 
 static struct ext_gpio_map ext_gpio_mft[]={
