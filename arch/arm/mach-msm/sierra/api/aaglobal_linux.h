@@ -31,9 +31,7 @@
 #define _package       /* accessable within package only, used for fns only */
 #define _global        /* function accessed globally, used for functions only */
 
-#ifndef boolean
-#define boolean uint8_t
-#endif
+typedef int boolean;
 
 #ifndef FALSE
 #define FALSE 0
