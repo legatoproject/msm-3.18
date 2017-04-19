@@ -244,8 +244,17 @@ void msm_set_restart_mode(int mode)
 {
 	restart_mode = mode;
 }
-EXPORT_SYMBOL(msm_set_restart_mode);
 
+EXPORT_SYMBOL(msm_set_restart_mode);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+void msm_set_download_mode_swi(int mode)
+{
+	download_mode = mode;
+}
+EXPORT_SYMBOL(msm_set_download_mode_swi);
+#endif
+/* SWISTOP */
 /*
  * Force the SPMI PMIC arbiter to shutdown so that no more SPMI transactions
  * are sent from the MSM to the PMIC.  This is required in order to avoid an

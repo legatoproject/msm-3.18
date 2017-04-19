@@ -17,6 +17,9 @@ obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 
 # SWISTART
 obj-y += sierra_smem.o sierra_smem_msg.o sierra_smem_errdump.o sierra_smem_mode.o
-obj-y += sierra_bscommon.o
+obj-y += sierra_bscommon.o sierra_serial.o
+obj-y += sierra_monitor.o
+
+obj-$(CONFIG_SIERRA) += sierra/
 # SWISTOP
 

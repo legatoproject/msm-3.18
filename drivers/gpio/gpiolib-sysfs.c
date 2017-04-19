@@ -110,57 +110,56 @@ static struct ext_gpio_map ext_gpio_ar[]={
 };
 
 static struct ext_gpio_map ext_gpio_wp[]={
-	{"1", 21,FUNCTION_EMBEDDED_HOST},
-	{"2", 22,FUNCTION_EMBEDDED_HOST},
-	{"3", 23,FUNCTION_EMBEDDED_HOST},
-	{"4", 20,FUNCTION_EMBEDDED_HOST},
-	{"5", 30,FUNCTION_EMBEDDED_HOST},
-	{"6", 45,FUNCTION_EMBEDDED_HOST},
-	{"7", 75,FUNCTION_EMBEDDED_HOST},
-	{"8", 43,FUNCTION_UNALLOCATED},
-	{"9", 49,FUNCTION_UNALLOCATED},
-	{"10", 50,FUNCTION_UNALLOCATED},
-	{"11", 16,FUNCTION_UNALLOCATED},
-	{"12", 17,FUNCTION_UNALLOCATED},
-	{"13", 37,FUNCTION_UNALLOCATED},
-	{"14", 36,FUNCTION_UNALLOCATED},
-	{"15", 24,FUNCTION_UNALLOCATED},
-	{"16", -1,FUNCTION_EMBEDDED_HOST},
-	{"17", -1,FUNCTION_EMBEDDED_HOST},
-	{"18", -1,FUNCTION_EMBEDDED_HOST},
-	{"19", -1,FUNCTION_EMBEDDED_HOST},
-	{"20", -1,FUNCTION_EMBEDDED_HOST},
-	{"21", -1,FUNCTION_EMBEDDED_HOST},
-	{"22", -1,FUNCTION_EMBEDDED_HOST},
-	{"23", -1,FUNCTION_EMBEDDED_HOST},
-	{"24", -1,FUNCTION_EMBEDDED_HOST},
-	{"25", 26,FUNCTION_EMBEDDED_HOST},
-	{"26", 44,FUNCTION_EMBEDDED_HOST},
-	{"27", -1,FUNCTION_EMBEDDED_HOST},
-	{"28", -1,FUNCTION_EMBEDDED_HOST},
-	{"29", 74,FUNCTION_EMBEDDED_HOST},
-	{"30", -1,FUNCTION_EMBEDDED_HOST},
-	{"31", -1,FUNCTION_EMBEDDED_HOST},
-	{"32", -1,FUNCTION_EMBEDDED_HOST},
-	{"33", -1,FUNCTION_EMBEDDED_HOST},
-	{"34", 15,FUNCTION_EMBEDDED_HOST},
-	{"35", 14,FUNCTION_EMBEDDED_HOST},
-	{"36", -1,FUNCTION_EMBEDDED_HOST},
-	{"37", -1,FUNCTION_EMBEDDED_HOST},
-	{"38", -1,FUNCTION_EMBEDDED_HOST},
-	{"39", -1,FUNCTION_EMBEDDED_HOST},
-	{"40", -1,FUNCTION_EMBEDDED_HOST},
-	{"41", -1,FUNCTION_EMBEDDED_HOST},
-	{"42", -1,FUNCTION_EMBEDDED_HOST},
-	{"43", -1,FUNCTION_EMBEDDED_HOST},
-	{"44", -1,FUNCTION_EMBEDDED_HOST},
-	{"45", -1,FUNCTION_EMBEDDED_HOST},
- /* SWI_TBD [Kinbo:2016-07-27]: QTI9X28-312, GPIO46 is used by HSIC, but control HSIC need GPIO API*/
-	{"46", 59,FUNCTION_UNALLOCATED},
-	{"M1", 1020,FUNCTION_UNALLOCATED},
-	{"M2", 1021,FUNCTION_UNALLOCATED},
-	{"M3", 1023,FUNCTION_UNALLOCATED},
-	{"M4", 1022,FUNCTION_UNALLOCATED},
+	{"1", -1,FUNCTION_UNALLOCATED},
+	{"2", 38,FUNCTION_UNALLOCATED},
+	{"3", -1,FUNCTION_UNALLOCATED},
+	{"4", -1,FUNCTION_UNALLOCATED},
+	{"5", -1,FUNCTION_UNALLOCATED},
+	{"6", -1,FUNCTION_UNALLOCATED},
+	{"7", 16,FUNCTION_UNALLOCATED},
+	{"8", 58,FUNCTION_UNALLOCATED},
+	{"9", -1,FUNCTION_UNALLOCATED},
+	{"10", -1,FUNCTION_UNALLOCATED},
+	{"11", -1,FUNCTION_UNALLOCATED},
+	{"12", -1,FUNCTION_UNALLOCATED},
+	{"13", 76,FUNCTION_UNALLOCATED},
+	{"14", -1,FUNCTION_UNALLOCATED},
+	{"15", -1,FUNCTION_UNALLOCATED},
+	{"16", -1,FUNCTION_UNALLOCATED},
+	{"17", -1,FUNCTION_UNALLOCATED},
+	{"18", -1,FUNCTION_UNALLOCATED},
+	{"19", -1,FUNCTION_UNALLOCATED},
+	{"20", -1,FUNCTION_UNALLOCATED},
+	{"21", 8,FUNCTION_UNALLOCATED},
+	{"22", 9,FUNCTION_UNALLOCATED},
+	{"23", 10,FUNCTION_UNALLOCATED},
+	{"24", 11,FUNCTION_UNALLOCATED},
+	{"25", 17,FUNCTION_UNALLOCATED},
+	{"26", -1,FUNCTION_UNALLOCATED},
+	{"27", -1,FUNCTION_UNALLOCATED},
+	{"28", -1,FUNCTION_UNALLOCATED},
+	{"29", -1,FUNCTION_UNALLOCATED},
+	{"30", -1,FUNCTION_UNALLOCATED},
+	{"31", -1,FUNCTION_UNALLOCATED},
+	{"32", 77,FUNCTION_UNALLOCATED},
+	{"33", 78,FUNCTION_UNALLOCATED},
+	{"34", -1,FUNCTION_UNALLOCATED},
+	{"35", 37,FUNCTION_UNALLOCATED},
+	{"36", -1,FUNCTION_UNALLOCATED},
+	{"37", -1,FUNCTION_UNALLOCATED},
+	{"38", -1,FUNCTION_UNALLOCATED},
+	{"39", -1,FUNCTION_UNALLOCATED},
+	{"40", -1,FUNCTION_UNALLOCATED},
+	{"41", -1,FUNCTION_UNALLOCATED},
+	{"42", 79,FUNCTION_UNALLOCATED},
+	{"43", -1,FUNCTION_UNALLOCATED},
+	{"44", -1,FUNCTION_UNALLOCATED},
+	{"45", -1,FUNCTION_UNALLOCATED},
+	{"46", -1,FUNCTION_UNALLOCATED},
+	{"M1", -1,FUNCTION_UNALLOCATED},
+	{"M2", -1,FUNCTION_UNALLOCATED},
+	{"M3", -1,FUNCTION_UNALLOCATED},
+	{"M4", -1,FUNCTION_UNALLOCATED},
 #ifdef CONFIG_GPIO_SWIMCU
 /* SWI_TBD [BChen:2016-08-22]: QTI9X07-36, define the ulpm mcu gpio number in the arch/arm/mach-msm/board-9607.h,
  * and its base is 200
@@ -1273,14 +1272,6 @@ static int __init gpiolib_sysfs_init(void)
 	if (status < 0)
 		return status;
 
-	/* Scan and register the gpio_chips which registered very
-	 * early (e.g. before the class_register above was called).
-	 *
-	 * We run before arch_initcall() so chip->dev nodes can have
-	 * registered, and so arch_initcall() can always gpio_export().
-	 */
-	spin_lock_irqsave(&gpio_lock, flags);
-
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
 	/* Assign product specific GPIO mapping */
@@ -1288,8 +1279,23 @@ static int __init gpiolib_sysfs_init(void)
 	gpio_ext_chip.mask = bsgetgpioflag();
 	getap_multiplex_gpio();
 	status = gpiochip_export(&gpio_ext_chip);
+
+	/* we move sierra code away from gpio_lock here because the code
+	 * don't acquire a mutex or spin lock.
+	 *
+	 * __might_sleep() will dump out the error stack if sleeping function
+	 *  is called from invaid context(spin_lock). e.g. bsreadhwconfig()
+	 */
 #endif /*CONFIG_SIERRA*/
 /*SWISTOP*/
+
+	/* Scan and register the gpio_chips which registered very
+	 * early (e.g. before the class_register above was called).
+	 *
+	 * We run before arch_initcall() so chip->dev nodes can have
+	 * registered, and so arch_initcall() can always gpio_export().
+	 */
+	spin_lock_irqsave(&gpio_lock, flags);
 
 	list_for_each_entry(chip, &gpio_chips, list) {
 		if (chip->exported)

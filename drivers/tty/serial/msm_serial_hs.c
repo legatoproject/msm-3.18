@@ -67,6 +67,12 @@
 #include <linux/platform_data/msm_serial_hs.h>
 #include <linux/msm-bus.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_serial.h>
+#endif /*CONFIG_SIERRA*/
+/* SWISTOP */
+
 #include "msm_serial_hs_hwreg.h"
 #define UART_SPS_CONS_PERIPHERAL 0
 #define UART_SPS_PROD_PERIPHERAL 1
@@ -681,6 +687,20 @@ static int msm_serial_loopback_enable_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(loopback_enable_fops, msm_serial_loopback_enable_get,
 			msm_serial_loopback_enable_set, "%llu\n");
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t show_uart_config(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+
+	return uart_config_str_get(pdev->id, BS_UART_TYPE_HS, buf, PAGE_SIZE);
+}
+
+static DEVICE_ATTR(config, S_IRUSR| S_IRGRP| S_IROTH, show_uart_config, NULL);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 /*
  * msm_serial_hs debugfs node: <debugfs_root>/msm_serial_hs/loopback.<id>
  * writing 1 turns on internal loopback mode in HW. Useful for automation
@@ -3333,6 +3353,12 @@ static int msm_hs_probe(struct platform_device *pdev)
 	unsigned long data;
 	char name[30];
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	u32 line;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
 		pdata = msm_hs_dt_to_pdata(pdev);
@@ -3355,6 +3381,11 @@ static int msm_hs_probe(struct platform_device *pdev)
 			}
 		}
 		pdev->dev.platform_data = pdata;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		line = pdev->id;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	}
 
 	if (pdev->id < 0 || pdev->id >= UARTDM_NR) {
@@ -3376,6 +3407,24 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		msm_uport->uart_type = BLSP_HSUART;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* create config file for APP usage */
+	ret = device_create_file(&pdev->dev, &dev_attr_config);
+	if (unlikely(ret))
+		pr_err("%s():Can't create config attribute\n", __func__);
+
+	/* create corresponding symlink directory on SYSFS */
+	uart_sysfs_symlink_set(&pdev->dev, BS_UART_TYPE_HS);
+
+	/* set uart config enum index */
+	if (uart_config_set(line, BS_UART_TYPE_HS) != 0)
+	{
+		return -EPERM;
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	msm_hs_get_pinctrl_configs(uport);
 	/* Get required resources for BAM HSUART */

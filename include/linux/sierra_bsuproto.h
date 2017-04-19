@@ -18,5 +18,8 @@
 
 extern uint64_t bsgetgpioflag(void);
 extern bool bsgethsicflag(void);
-extern bool bs_support_get(enum bsfeature feature);
+extern enum bshwtype bs_hwtype_get(void);
+extern enum bs_prod_family_e bs_prod_family_get (void);
+extern bool bs_support_get (enum bsfeature feature);
+extern int8_t bs_uart_fun_get (uint uart_num);
 #endif

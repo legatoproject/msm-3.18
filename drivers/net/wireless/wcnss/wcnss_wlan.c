@@ -56,6 +56,7 @@
 #define WCNSS_PM_QOS_TIMEOUT	15000
 #define IS_CAL_DATA_PRESENT     0
 #define WAIT_FOR_CBC_IND     2
+#define WCNSS_DUAL_BAND_CAPABILITY_OFFSET	(1 << 8)
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -118,6 +119,8 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define PRONTO_PMU_CFG_OFFSET              0x1004
 #define PRONTO_PMU_COM_CSR_OFFSET          0x1040
 #define PRONTO_PMU_SOFT_RESET_OFFSET       0x104C
+
+#define PRONTO_QFUSE_DUAL_BAND_OFFSET	   0x0018
 
 #define A2XB_CFG_OFFSET				0x00
 #define A2XB_INT_SRC_OFFSET			0x0c
@@ -379,6 +382,7 @@ static struct {
 	void __iomem *pronto_saw2_base;
 	void __iomem *pronto_pll_base;
 	void __iomem *pronto_mcu_base;
+	void __iomem *pronto_qfuse;
 	void __iomem *wlan_tx_status;
 	void __iomem *wlan_tx_phy_aborts;
 	void __iomem *wlan_brdg_err_source;
@@ -422,6 +426,9 @@ static struct {
 	int pc_disabled;
 	struct delayed_work wcnss_pm_qos_del_req;
 	struct mutex pm_qos_mutex;
+	struct clk *snoc_wcnss;
+	unsigned int snoc_wcnss_clock_freq;
+	bool is_dual_band_disabled;
 } *penv = NULL;
 
 static ssize_t wcnss_wlan_macaddr_store(struct device *dev,
@@ -587,6 +594,30 @@ void wcnss_pronto_is_a2xb_bus_stall(void *tst_addr, u32 fifo_mask, char *type)
 		pr_err("%s data FIFO tstbus not stalled reg%08x\n",
 				type, reg);
 	}
+}
+
+int wcnss_get_dual_band_capability_info(struct platform_device *pdev)
+{
+	u32 reg = 0;
+	struct resource *res;
+
+	res = platform_get_resource_byname(
+			pdev, IORESOURCE_MEM, "pronto_qfuse");
+	if (!res)
+		return -EINVAL;
+
+	penv->pronto_qfuse = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(penv->pronto_qfuse))
+		return -ENOMEM;
+
+	reg = readl_relaxed(penv->pronto_qfuse +
+			PRONTO_QFUSE_DUAL_BAND_OFFSET);
+	if (reg & WCNSS_DUAL_BAND_CAPABILITY_OFFSET)
+		penv->is_dual_band_disabled = true;
+	else
+		penv->is_dual_band_disabled = false;
+
+	return 0;
 }
 
 /* Log pronto debug registers during SSR Timeout CB */
@@ -1703,6 +1734,14 @@ int wcnss_wlan_iris_xo_mode(void)
 }
 EXPORT_SYMBOL(wcnss_wlan_iris_xo_mode);
 
+int wcnss_wlan_dual_band_disabled(void)
+{
+	if (penv && penv->pdev)
+		return penv->is_dual_band_disabled;
+
+	return -EINVAL;
+}
+EXPORT_SYMBOL(wcnss_wlan_dual_band_disabled);
 
 void wcnss_suspend_notify(void)
 {
@@ -3152,6 +3191,16 @@ wcnss_trigger_config(struct platform_device *pdev)
 				__func__);
 			goto fail_ioremap2;
 		}
+
+		if (of_property_read_bool(
+			pdev->dev.of_node, "qcom,is-dual-band-disabled")) {
+			ret = wcnss_get_dual_band_capability_info(pdev);
+			if (ret) {
+				pr_err(
+				"%s: failed to get dual band info\n", __func__);
+				goto fail_ioremap2;
+			}
+		}
 	}
 
 	penv->adc_tm_dev = qpnp_get_adc_tm(&penv->pdev->dev, "wcnss");
@@ -3161,6 +3210,21 @@ wcnss_trigger_config(struct platform_device *pdev)
 	} else {
 		INIT_DELAYED_WORK(&penv->vbatt_work, wcnss_update_vbatt);
 		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
+	}
+
+	penv->snoc_wcnss = devm_clk_get(&penv->pdev->dev, "snoc_wcnss");
+	if (IS_ERR(penv->snoc_wcnss)) {
+		pr_err("%s: couldn't get snoc_wcnss\n", __func__);
+		penv->snoc_wcnss = NULL;
+	} else {
+		if (of_property_read_u32(pdev->dev.of_node,
+					 "qcom,snoc-wcnss-clock-freq",
+					 &penv->snoc_wcnss_clock_freq)) {
+			pr_debug("%s: wcnss snoc clock frequency is not defined\n",
+				 __func__);
+			devm_clk_put(&penv->pdev->dev, penv->snoc_wcnss);
+			penv->snoc_wcnss = NULL;
+		}
 	}
 
 	if (penv->wlan_config.is_pronto_vadc) {
@@ -3224,6 +3288,38 @@ fail:
 	penv = NULL;
 	return ret;
 }
+
+/* Driver requires to directly vote the snoc clocks
+ * To enable and disable snoc clock, it call
+ * wcnss_snoc_vote function
+ */
+void wcnss_snoc_vote(bool clk_chk_en)
+{
+	int rc;
+
+	if (penv->snoc_wcnss == NULL) {
+		pr_err("%s: couldn't get clk snoc_wcnss\n", __func__);
+		return;
+	}
+
+	if (clk_chk_en) {
+		rc = clk_set_rate(penv->snoc_wcnss,
+				  penv->snoc_wcnss_clock_freq);
+		if (rc) {
+			pr_err("%s: snoc_wcnss_clk-clk_set_rate failed =%d\n",
+			       __func__, rc);
+			return;
+		}
+
+		if (clk_prepare_enable(penv->snoc_wcnss)) {
+			pr_err("%s: snoc_wcnss clk enable failed\n", __func__);
+			return;
+		}
+	} else {
+		clk_disable_unprepare(penv->snoc_wcnss);
+	}
+}
+EXPORT_SYMBOL(wcnss_snoc_vote);
 
 /* wlan prop driver cannot invoke cancel_work_sync
  * function directly, so to invoke this function it

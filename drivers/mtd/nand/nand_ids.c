@@ -71,7 +71,7 @@ struct nand_flash_dev nand_flash_ids[] = {
 /* add Micron MT29F2G08ABBGA3W 2Gb 2k page size */
 	{"MT29F2G08ABBGA3W 2G  1.8V 4-bit",
 		{ .id = {0x2c, 0xaa, 0x90, 0x15, 0x06, 0x00, 0x00, 0x00} },
-		SZ_2K, SZ_256, SZ_128K, 0, 5, 64, NAND_ECC_INFO(8, SZ_512) },
+		SZ_2K, SZ_256, SZ_128K, 0, 5, 80, NAND_ECC_INFO(8, SZ_512) },
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 

@@ -31,6 +31,12 @@
 #include "pil-q6v5.h"
 #include "pil-msa.h"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <../sierra/api/ssmemudefs.h>
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 /* Q6 Register Offsets */
 #define QDSP6SS_RST_EVB			0x010
 #define QDSP6SS_DBG_CFG			0x018
@@ -507,6 +513,13 @@ static int pil_mss_reset(struct pil_desc *pil)
 
 	dev_info(pil->dev, "MBA boot done\n");
 	drv->is_booted = true;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* notify ssmem that mpss is going up */
+	ssmem_mpss_up_notification();
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	return 0;
 

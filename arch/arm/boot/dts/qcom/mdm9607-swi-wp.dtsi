@@ -14,10 +14,13 @@
 #include "mdm9607-swi.dtsi"
 #include "mdm9607-pinctrl.dtsi"
 #include "mdm9607-swimcu.dtsi"
+#include "mdm9607-sierra-monitor.dtsi"
 
 / {
 	aliases {
-		serial0 = &blsp1_uart1;
+		serial0 = &blsp1_uart2_ls;
+		serial1 = &blsp1_uart1;
+		uart0 = &blsp1_uart2;
 	};
 };
 
@@ -30,6 +33,18 @@
 		interrupt-names = "vbus_det_irq";
 	};
 
+	blsp1_uart2_ls: serial@78b0000 { /* BLSP1 UART2 */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78b0000 0x200>;
+		interrupts = <0 108 0>;
+
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
+	};
+
+
 	tlmm_pinmux: pinctrl@1000000 {
 		/*undefine use of qcom,tlmm-emmc-boot-select*/
 		qcom,tlmm-emmc-boot-select;
@@ -41,6 +56,18 @@
 			};
 			config {
 				pins = "gpio12", "gpio13";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		uart2_console_sleep: uart2_console_sleep {
+			mux {
+				pins = "gpio4", "gpio5";
+				function = "blsp_uart2";
+			};
+			config {
+				pins = "gpio4", "gpio5";
 				drive-strength = <2>;
 				bias-pull-down;
 			};
@@ -161,6 +188,13 @@
 	status = "ok";
 };
 
+&blsp1_uart2_ls {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_console_sleep>;
+};
+
+
 &i2c_4 {
 	/* reduce bus frequency as a workaround for MCU ROM boot loader */
 	qcom,clk-freq-out = <100000>;
@@ -244,12 +278,6 @@
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
 
 	status = "ok";
-};
-
-&modem_adsp_mem {
-        compatible = "removed-dma-pool";
-        no-map-fixup;
-        reg = <0x82a00000 0x5000000>;
 };
 
 &pm8019_mpps {

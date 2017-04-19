@@ -2,7 +2,7 @@
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014,2017 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -83,6 +83,14 @@ int adreno_hw_init(struct msm_gpu *gpu)
 static uint32_t get_wptr(struct msm_ringbuffer *ring)
 {
 	return ring->cur - ring->start;
+}
+
+static uint32_t get_rptr(struct msm_ringbuffer *ring)
+{
+	struct msm_gpu *gpu = ring->gpu;
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_gpu_read(adreno_gpu, REG_ADRENO_CP_RB_RPTR);
 }
 
 uint32_t adreno_last_fence(struct msm_gpu *gpu)
@@ -255,36 +263,38 @@ void adreno_dump(struct msm_gpu *gpu)
 	}
 }
 
-static uint32_t ring_freewords(struct msm_gpu *gpu)
+#define GSL_RB_NOP_SIZEDWORDS      2
+static bool ring_freewords(struct msm_gpu *gpu, uint32_t ndwords)
 {
 	uint32_t size = gpu->rb->size / 4;
 	uint32_t wptr = get_wptr(gpu->rb);
+	uint32_t rptr = get_rptr(gpu->rb);
 
-	return size - wptr - 1;
-}
+	if (rptr <= wptr) {
+		if ((wptr + ndwords) <=
+				(size - GSL_RB_NOP_SIZEDWORDS))
+			return true;
+		/*
+		 * There isn't enough space toward the end of ringbuffer. So
+		 * look for space from the beginning of ringbuffer upto the
+		 * read pointer.
+		 */
+		if (ndwords < rptr) {
+			OUT_RING(gpu->rb, cp_pkt7(CP_NOP, (size - wptr - 1)));
+			gpu->rb->cur = gpu->rb->start;
+			return true;
+		}
+	}
 
-/*
- * TODO next stage, remove wait on the tail of ring buffer.
- */
-static int rb_check_and_split(struct msm_gpu *gpu, uint32_t ndwords)
-{
-	uint32_t size = gpu->rb->size / 4;
-	uint32_t wptr = get_wptr(gpu->rb);
+	if ((wptr + ndwords) < rptr)
+		return true;
 
-	if ((wptr + ndwords) < size-1)
-		return 0;
-
-	OUT_RING(gpu->rb, cp_pkt7(CP_NOP, (size - wptr - 1)));
-	gpu->rb->cur = gpu->rb->start;
-	gpu->funcs->flush(gpu);
-	gpu->funcs->idle(gpu);
-	return 1;
+	return false;
 }
 
 void adreno_wait_ring(struct msm_gpu *gpu, uint32_t ndwords)
 {
-	rb_check_and_split(gpu, ndwords);
-	if (spin_until(ring_freewords(gpu) >= ndwords))
+	if (spin_until(ring_freewords(gpu, ndwords)))
 		DRM_ERROR("%s: timeout waiting for ringbuffer space\n",
 			  gpu->name);
 }
@@ -373,6 +383,8 @@ int adreno_gpu_init(struct drm_device *drm, struct platform_device *pdev,
 		return ret;
 	}
 
+	adreno_perfcounter_start(adreno_gpu);
+
 	return 0;
 }
 
@@ -390,4 +402,41 @@ void adreno_gpu_cleanup(struct adreno_gpu *gpu)
 	if (gpu->pfp_bo)
 		msm_gem_free_object(gpu->pfp_bo);
 	msm_gpu_cleanup(&gpu->base);
+}
+
+int adreno_perfcounter_read(struct msm_gpu *gpu,
+	struct drm_perfcounter_read_group __user *reads, unsigned int count)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_read_group(adreno_gpu, reads, count);
+}
+
+int adreno_perfcounter_query(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int __user *countables, unsigned int count,
+		unsigned int *max_counters)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_query_group(adreno_gpu, groupid,
+		&countables, count, &max_counters);
+}
+
+int adreno_perfcounter_msm_get(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int countable, unsigned int *offset, unsigned int *offset_hi,
+		unsigned int flags)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_get(adreno_gpu, groupid, countable,
+		&offset, &offset_hi, flags);
+}
+
+int adreno_perfcounter_msm_put(struct msm_gpu *gpu, unsigned int groupid,
+	unsigned int countable, unsigned int flags)
+{
+	struct adreno_gpu *adreno_gpu = to_adreno_gpu(gpu);
+
+	return adreno_perfcounter_put(adreno_gpu, groupid,
+		countable, flags);
 }

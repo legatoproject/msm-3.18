@@ -34,6 +34,11 @@ struct msm_gem_object {
 	struct msm_gem_buf *buf;
 	uint32_t flags;
 
+
+	/* global timestamp */
+	uint32_t read_timestamp;
+	uint32_t write_timestamp;
+
 	/* And object is either:
 	 *  inactive - on priv->inactive_list
 	 *  active   - on one one of the gpu's active_list..  well, at
@@ -44,7 +49,6 @@ struct msm_gem_object {
 	 */
 	struct list_head mm_list;
 	struct msm_gpu *gpu;     /* non-null if active */
-	uint32_t read_fence, write_fence;
 
 	/* Transiently in the process of submit ioctl, objects associated
 	 * with the submit are on submit->bo_list.. this only lasts for
@@ -81,22 +85,37 @@ static inline uint32_t msm_gem_fence(struct msm_gem_object *msm_obj,
 		uint32_t op)
 {
 	uint32_t fence = 0;
+	struct drm_device *dev = msm_obj->base.dev;
 
+	mutex_lock(&dev->struct_mutex);
 	if (op & MSM_PREP_READ)
-		fence = msm_obj->write_fence;
+		fence = msm_obj->write_timestamp;
 	if (op & MSM_PREP_WRITE)
-		fence = max(fence, msm_obj->read_fence);
+		fence = max(fence, msm_obj->read_timestamp);
+	mutex_unlock(&dev->struct_mutex);
 
 	return fence;
 }
-
-#define MAX_CMDS 10
 
 /* Created per submit-ioctl, to track bo's and cmdstream bufs, etc,
  * associated with the cmdstream submission for synchronization (and
  * make it easier to unwind when things go wrong, etc).  This only
  * lasts for the duration of the submit-ioctl.
  */
+
+struct msm_submit_cmd {
+	uint32_t type;
+	uint32_t size;  /* in dwords */
+	uint32_t iova;
+	uint32_t idx;   /* cmdstream buffer idx in bos[] */
+};
+
+struct msm_submit_bos {
+	uint32_t flags;
+	struct msm_gem_object *obj;
+	uint32_t iova;
+};
+
 struct msm_gem_submit {
 	struct drm_device *dev;
 	struct msm_gpu *gpu;
@@ -107,17 +126,8 @@ struct msm_gem_submit {
 	bool valid;
 	unsigned int nr_cmds;
 	unsigned int nr_bos;
-	struct {
-		uint32_t type;
-		uint32_t size;  /* in dwords */
-		uint32_t iova;
-		uint32_t idx;   /* cmdstream buffer idx in bos[] */
-	} cmd[MAX_CMDS];
-	struct {
-		uint32_t flags;
-		struct msm_gem_object *obj;
-		uint32_t iova;
-	} bos[0];
+	struct msm_submit_cmd *cmd;
+	struct msm_submit_bos *bos;
 };
 
 #endif /* __MSM_GEM_H__ */

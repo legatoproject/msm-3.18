@@ -22,25 +22,18 @@
 #include <asm/io.h>
 
 #include <mach/sierra_smem.h>
-
-
-static unsigned char * smem_base = NULL;
+/* mach-msm/include is in the include path, add sierra/api to it */
+#include <../sierra/api/ssmemudefs.h>
 
 unsigned char * sierra_smem_base_addr_get(void)
 {
-        if (!smem_base) {
-                smem_base = (unsigned char *)ioremap_nocache(SIERRA_SMEM_BASE_PHY, SIERRA_SMEM_SIZE);
-                if (!smem_base) {
-                        pr_err("sierra_smem_base_addr_get error");
-                }
-        }
-        return smem_base;
+        return ssmem_smem_base_addr_get();
 }
 
 static ssize_t sierra_smem_read(struct file *fp, char __user *buf,
                                 size_t count, loff_t *posp)
 {
-        unsigned char * memp = smem_base;
+        unsigned char * memp = sierra_smem_base_addr_get();
         loff_t  pos = *posp;
         ssize_t retval = -EFAULT;
 
@@ -74,7 +67,7 @@ static ssize_t sierra_smem_read(struct file *fp, char __user *buf,
 static ssize_t sierra_smem_write(struct file *fp, const char __user *buf,
                                  size_t count, loff_t *posp)
 {
-        unsigned char * memp = smem_base;
+        unsigned char * memp = sierra_smem_base_addr_get();
         loff_t  pos = *posp;
         ssize_t retval = -EFAULT;
 
@@ -103,7 +96,7 @@ static ssize_t sierra_smem_write(struct file *fp, const char __user *buf,
 
 static int sierra_smem_open(struct inode *inode, struct file *file)
 {
-        if(!smem_base) {
+        if(!sierra_smem_base_addr_get()) {
                 return -EFAULT;
         }
         else {

@@ -19,22 +19,29 @@
 
 enum bshwtype
 {
-	BSQCTMTP,						/* Qualcomm MTP 9x30 */
-	BSHWNONE,						/* HW type NONE (Fuse has not been blown yet) */
-	BSAR7582,						/* 0x02 - Automotive 7582 */
-	BSAR7584,						/* 0x03 - Automotive 7584 */
-	BSAR7586,						/* 0x04 - Automotive 7586 */
-	BSAR7588,						/* 0x05 - Automotive 7588 */
-	BSAR8582,						/* 0x06 - Automotive 8582 */
-	BSAR7582_NC,				/* 0x07 - Automotive 7582 without codec */
-	BSAR7584_NC,				/* 0x08 - Automotive 7584 without codec */
-	BSAR7586_NC,				/* 0x09 - Automotive 7586 without codec */
-	BSAR7588_NC,				/* 0x0A - Automotive 7588 without codec */
-	BSAR8582_NC,				/* 0x0B - Automotive 8582 without codec */
-	BSWP7601,						/* 0x0C - WP7601 */
-	BSWP7603,						/* 0x0D - WP7603 */
-	BSHWUNKNOWN,				/* Unknown HW */
-	BSHWINVALID = 0xFF	/* Invalid HW */
+	BSQCTMTP,               /* Qualcomm MTP 9x30 */
+	BSHWNONE,               /* HW type NONE (Fuse has not been blown yet) */
+	BSAR7582,               /* 0x02 - Automotive 7582 */
+	BSAR7584,               /* 0x03 - Automotive 7584 */
+	BSAR7586,               /* 0x04 - Automotive 7586 */
+	BSAR7588,               /* 0x05 - Automotive 7588 */
+	BSAR8582,               /* 0x06 - Automotive 8582 */
+	BSAR7582_NC,            /* 0x07 - Automotive 7582 without codec */
+	BSAR7584_NC,            /* 0x08 - Automotive 7584 without codec */
+	BSAR7586_NC,            /* 0x09 - Automotive 7586 without codec */
+	BSAR7588_NC,            /* 0x0A - Automotive 7588 without codec */
+	BSAR8582_NC,            /* 0x0B - Automotive 8582 without codec */
+	BSWP7601,               /* 0x0C - WP7601 */
+	BSWP7603,               /* 0x0D - WP7603 */
+	BSWP7601_1,             /* 0x0E - WP7601-1 */
+	BSWP7603_1,             /* 0x0F - WP7603-1 */
+	BSWP7605,               /* 0x10 - WP7605  */
+	BSWP7605_1,             /* 0x11 - WP7605-1 */
+	BSWP7607,               /* 0x12 - WP7607 */
+	BSWP7607_1,             /* 0x13 - WP7607-1 */
+	BSWP7607_2,             /* 0x14 - WP7607-2 */
+	BSHWUNKNOWN,            /* Unknown HW */
+	BSHWINVALID = 0xFF      /* Invalid HW */
 };
 
 /************
@@ -100,6 +107,67 @@ enum bsfeature
 	BSFEATURE_POWERFAULT,			/* if POWERFAULT is supported */
 	BSFEATURE_MAX							/* Used for bounds checking */
 };
+
+/************
+ *
+ * Name:     bs_uart_func_e
+ *
+ * Purpose:  Enumerated list of different functions supported by App processor
+ *
+ * Members:  BS_UART_FUNC_DISABLED  - UART disabled
+ *           BS_UART_FUNC_AT - UART reserved for AT service
+ *           BS_UART_FUNC_DM - UART reserved for DM service
+ *           BS_UART_FUNC_NMEA - UART reserved for NMEA service
+ *           BS_UART_FUNC_CONSOLE - UART reserved for CONSOLE service
+ *           BS_UART_FUNC_APP - UART open for all application usage
+ *           BS_UART_FUNC_APP - used for bounds checking
+ *           BS_UART_FUNC_INVALID - function is invalid
+ *
+ * Notes:    None
+ *
+ ************/
+enum bs_uart_func_e
+{
+  BS_UART_FUNC_DISABLED = 0,
+  BS_UART_FUNC_AT       = 1,
+  BS_UART_FUNC_DM       = 2,
+  BS_UART_FUNC_NMEA     = 4,
+  BS_UART_FUNC_CONSOLE  = 16,
+  BS_UART_FUNC_APP      = 17,
+  BS_UART_FUNC_MAX,
+  BS_UART_FUNC_INVALID  = 0xFF,
+};
+
+/************
+ *
+ * Members:  BS_UART1_LINE - line number of UART1
+ *           BS_UART2_LINE - line number of UART2
+ *           BS_UART_LINE_MAX - used for bounds checking
+ * Notes:    None
+ *
+ ************/
+enum bs_uart_line_e
+{
+  BS_UART1_LINE = 0,
+  BS_UART2_LINE,
+  BS_UART_LINE_MAX,
+};
+
+/************
+ *
+ * Members:  BS_UART_TYPE_HSL - high speed lite UART
+ *           BS_UART_TYPE_HS - high speed UART
+ *           BS_UART_TYPE_MAX - used for bounds checking
+ * Notes:    None
+ *
+ ************/
+enum bs_uart_type_e
+{
+  BS_UART_TYPE_HSL = 0,
+  BS_UART_TYPE_HS,
+  BS_UART_TYPE_MAX,
+};
+
 
 #include "sierra_bsuproto.h"
 #endif

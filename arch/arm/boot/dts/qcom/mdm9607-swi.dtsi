@@ -18,7 +18,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		sierra_smem: sierra_region@0x8ff00000 {
+		sierra_ssmem_region: sierra_region@0x8ff00000 {
 			compatible = "removed-dma-pool";
 			no-map;
 			reg = <0x8ff00000 0x100000>;
@@ -30,6 +30,12 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges;
+
+
+	sierra_ssmem@0x8ff00000 { /* Sierra SSMEM */
+		compatible = "sierra,ssmem";
+		memory-region = <&sierra_ssmem_region>;
+	};
 
 	blsp1_uart1: serial@78af000 { /* BLSP1 UART1 */
 		compatible = "qcom,msm-lsuart-v14";
@@ -110,8 +116,12 @@
 	#address-cells = <1>;
 	#size-cells = <0>;
 	reg-names = "spi_physical", "spi_bam_physical";
+/* Update DMA size to 0x2b000 from 0x23000 to fix kernel crash when high-speed
+ * UART is disabled. This fix is confirmed by Qualcomm FAE in the case number
+ * 02754294.
+ */
 	reg = <0x78b7000 0x600>,
-		  <0x7884000 0x23000>;
+		  <0x7884000 0x2b000>;
 	interrupt-names = "spi_irq", "spi_bam_irq";
 	interrupts = <0 97 0>, <0 238 0>;
 	spi-max-frequency = <50000000>;
