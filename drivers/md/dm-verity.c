@@ -270,25 +270,15 @@ out:
 				else {
 					DMERR("wrong ubi name %s", ubi_name);
 				}
+
+				if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask)
+				{
+					sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
+					kernel_restart("dm-verity device corrupted");
+				}
 			}
 			else {
 				DMERR("can't get ubi name");
-			}
-
-			/* Mark all images which are authenticated by DM verity as bad image if can't locate exact image */
-			if (DS_IMAGE_FLAG_NOT_SET== bad_image_mask)
-			{
-				if (DS_IMAGE_FLAG_NOT_SET == bad_image_mask) {
-					if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
-						bad_image_mask = DS_IMAGE_SYSTEM_2 | DS_IMAGE_USERDATA_2;
-					}
-					else {
-						bad_image_mask = DS_IMAGE_SYSTEM_1 | DS_IMAGE_USERDATA_1;
-					}
-				}
-
-				sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
-				kernel_restart("dm-verity device corrupted");
 			}
 		}
 
