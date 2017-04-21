@@ -181,6 +181,12 @@
 	/* undefine use of mpp4, as we don't use mpp4 for this function */
 		gpio;
 	};
+
+	sierra_tcxo_clk {
+		compatible = "sierra,tcxo_clk";
+		clocks = <&clock_gcc clk_rf_clk2>;
+		clock-names = "tcxo_clk";
+	};
 };
 
 &blsp1_uart1 {
