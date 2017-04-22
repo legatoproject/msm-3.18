@@ -735,7 +735,9 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	if (cluster_configure(cluster, i, from_idle))
 		goto failed;
 
+#ifdef CONFIG_MSM_IDLE_STATS
 	cluster->stats->sleep_time = start_time;
+#endif
 	cluster_prepare(cluster->parent, &cluster->num_children_in_sync, i,
 			from_idle, start_time);
 
@@ -743,7 +745,10 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	return;
 failed:
 	spin_unlock(&cluster->sync_lock);
+
+#ifdef CONFIG_MSM_IDLE_STATS
 	cluster->stats->sleep_time = 0;
+#endif
 	return;
 }
 
@@ -779,9 +784,12 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	if (!first_cpu || cluster->last_level == cluster->default_level)
 		goto unlock_return;
 
+#ifdef CONFIG_MSM_IDLE_STATS
 	if (cluster->stats->sleep_time)
 		cluster->stats->sleep_time = end_time -
 			cluster->stats->sleep_time;
+#endif
+
 	lpm_stats_cluster_exit(cluster->stats, cluster->last_level, true);
 
 	level = &cluster->levels[cluster->last_level];
@@ -1381,9 +1389,12 @@ static int lpm_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+#ifdef CONFIG_DEBUG_FS
 	size = num_dbg_elements * sizeof(struct lpm_debug);
 	lpm_debug = dma_alloc_coherent(&pdev->dev, size,
 			&lpm_debug_phys, GFP_KERNEL);
+#endif
+
 	register_cluster_lpm_stats(lpm_root_node, NULL);
 
 	ret = cluster_cpuidle_register(lpm_root_node);
