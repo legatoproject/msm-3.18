@@ -752,6 +752,8 @@ static void uart_hs_sysfs_symlink_set(struct device * dev)
 }
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
+
+#ifdef CONFIG_DEBUG_FS
 /*
  * msm_serial_hs debugfs node: <debugfs_root>/msm_serial_hs/loopback.<id>
  * writing 1 turns on internal loopback mode in HW. Useful for automation
@@ -773,6 +775,12 @@ static void msm_serial_debugfs_init(struct msm_hs_port *msm_uport,
 		MSM_HS_ERR("%s(): Cannot create loopback.%d debug entry",
 							__func__, id);
 }
+#else
+static void msm_serial_debugfs_init(struct msm_hs_port *msm_uport,
+					   int id)
+{
+}
+#endif
 
 static int msm_hs_remove(struct platform_device *pdev)
 {

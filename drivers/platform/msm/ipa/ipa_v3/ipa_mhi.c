@@ -533,6 +533,8 @@ static void ipa3_mhi_debugfs_destroy(void)
 }
 
 #else
+static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
+	u64 host_addr, int size){}
 static void ipa3_mhi_debugfs_init(void) {}
 static void ipa3_mhi_debugfs_destroy(void) {}
 #endif /* CONFIG_DEBUG_FS */

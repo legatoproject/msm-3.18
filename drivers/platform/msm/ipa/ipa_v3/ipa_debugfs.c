@@ -2032,4 +2032,20 @@ void ipa3_debugfs_remove(void)
 #else /* !CONFIG_DEBUG_FS */
 void ipa3_debugfs_init(void) {}
 void ipa3_debugfs_remove(void) {}
+int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe)
+{
+	return 0;
+}
+int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len)
+{
+	return 0;
+}
+int _ipa_read_gen_reg_v3_0(char *buff, int max_len)
+{
+	return 0;
+}
+void _ipa_write_dbg_cnt_v3_0(int option)
+{
+	return 0;
+}
 #endif
