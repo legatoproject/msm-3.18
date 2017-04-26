@@ -20,6 +20,7 @@ extern uint64_t bsgetgpioflag(void);
 extern bool bsgethsicflag(void);
 extern void bsseterrcount(unsigned int err_cnt);
 extern uint32_t bsgetresettypeflag(void);
+extern bool bscheckapplresettypeflag(void);
 extern void bssetresettype(unsigned int reset_type);
 extern int8_t bsgetriowner(void);
 extern bool bs_product_is_ar8582(void);
