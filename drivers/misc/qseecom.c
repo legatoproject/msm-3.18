@@ -2129,22 +2129,24 @@ static void __qseecom_reentrancy_check_if_no_app_blocked(uint32_t smc_id)
 }
 
 /*
- * scm_call send command to a blocked TZ app will fail
- * So, first check and then wait until this apps is unblocked
+ * scm_call of send data will fail if this TA is blocked or there are more
+ * than one TA requesting listener services; So, first check to see if need
+ * to wait.
  */
 static void __qseecom_reentrancy_check_if_this_app_blocked(
 			struct qseecom_registered_app_list *ptr_app)
 {
 	sigset_t new_sigset, old_sigset;
 	if (qseecom.qsee_reentrancy_support) {
-		while (ptr_app->app_blocked) {
+		while (ptr_app->app_blocked || qseecom.app_block_ref_cnt > 1) {
 			/* thread sleep until this app unblocked */
 			sigfillset(&new_sigset);
 			sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
 			mutex_unlock(&app_access_lock);
 			do {
 				if (!wait_event_freezable(qseecom.app_block_wq,
-						!ptr_app->app_blocked))
+					(!ptr_app->app_blocked &&
+					qseecom.app_block_ref_cnt <= 1)))
 					break;
 			} while (1);
 			mutex_lock(&app_access_lock);
@@ -2311,7 +2313,13 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 				ret);
 			goto loadapp_err;
 		}
-
+		if (load_img_req.mdt_len > len || load_img_req.img_len > len) {
+			pr_err("ion len %zu is smaller than mdt_len %u or img_len %u\n",
+					len, load_img_req.mdt_len,
+					load_img_req.img_len);
+			ret = -EINVAL;
+			goto loadapp_err;
+		}
 		/* Populate the structure for sending scm call to load image */
 		if (qseecom.qsee_version < QSEE_VERSION_40) {
 			load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
@@ -5086,6 +5094,12 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 			ret);
 		return ret;
 	}
+	if (load_img_req.mdt_len > len || load_img_req.img_len > len) {
+		pr_err("ion len %zu is smaller than mdt_len %u or img_len %u\n",
+				len, load_img_req.mdt_len,
+				load_img_req.img_len);
+		return ret;
+	}
 	/* Populate the structure for sending scm call to load image */
 	if (qseecom.qsee_version < QSEE_VERSION_40) {
 		load_req.qsee_cmd_id = QSEOS_LOAD_EXTERNAL_ELF_COMMAND;
@@ -6980,7 +6994,11 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			break;
 		}
 		pr_debug("SET_MEM_PARAM: qseecom addr = 0x%pK\n", data);
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
 		ret = qseecom_set_client_mem_param(data, argp);
+		atomic_dec(&data->ioctl_count);
+		mutex_unlock(&app_access_lock);
 		if (ret)
 			pr_err("failed Qqseecom_set_mem_param request: %d\n",
 								ret);
