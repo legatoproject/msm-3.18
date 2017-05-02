@@ -232,7 +232,8 @@ void kernel_restart(char *cmd)
 	bsseterrcount(0);
 
 	/* set linux reset type */
-	if(bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR)
+	if((bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR) && 
+		true != bscheckapplresettypeflag())
 	{
 		bssetresettype(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
 	}

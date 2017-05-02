@@ -21,6 +21,7 @@ extern uint8_t bsgethwrev(void);
 extern uint64_t bsgetgpioflag(void);
 extern void bsseterrcount(unsigned int err_cnt);
 extern uint32_t bsgetresettypeflag(void);
+extern bool bscheckapplresettypeflag(void);
 extern void bssetresettype(unsigned int reset_type);
 extern int8_t bsgetriowner(void);
 extern struct bs_resin_timer bsgetresintimer(void);
