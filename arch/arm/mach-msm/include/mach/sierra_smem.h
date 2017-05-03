@@ -894,6 +894,7 @@ enum bl_erestore_info_type
 {
   BL_RESTORE_INFO_MIN = 1,
   BL_RESTORE_INFO_ECOUNT_BUF= BL_RESTORE_INFO_MIN,
+  BL_RESTORE_INFO_BEROPTION_BUF,
   BL_RESTORE_INFO_RESTORE_DONE,
   BL_RESTORE_INFO_RESTORE_TYPE,
   BL_RESTORE_INFO_MAX = BL_RESTORE_INFO_RESTORE_TYPE,
@@ -913,7 +914,7 @@ struct __attribute__((packed)) ds_smem_erestore_info
   uint8_t   erestore_t;            /* EFS restore type */
   uint8_t   errorcount;            /* backup errorcount */
   uint8_t   restored_flag;         /* efs-restore last booting */
-  uint8_t   reserved;              /* reserved 8 bits */
+  uint8_t   beroption;             /* backup beroption */
   uint32_t  magic_end;             /* Magic ending flag */
   uint32_t  crc32;                 /* CRC32 of above fields */
 };
