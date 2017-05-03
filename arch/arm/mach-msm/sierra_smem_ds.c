@@ -26,6 +26,7 @@
 #include <linux/types.h>
 
 #include <mach/sierra_smem.h>
+#include <linux/reboot.h>
 
 static struct ds_smem_message_s *sierra_smem_ds_get_buf(void)
 {
@@ -262,4 +263,56 @@ int sierra_support_ar_dualsystem(void)
 	return ret;
 }
 EXPORT_SYMBOL(sierra_support_ar_dualsystem);
+
+/**
+ * ubi_check_bad_image_and_swap - check badiamge and swap.
+ *
+ *
+ * This function check bad image in ubi partition,include
+ * modem, rootfd and legato
+ */
+void ubi_check_bad_image_and_swap(char *ubi_name)
+{
+	uint64_t bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+	uint8_t linux_index = 0;
+	uint8_t modem_index = 0;
+
+	if (0 == sierra_smem_ds_get_ssid(NULL, &modem_index, &linux_index)) {
+			if (0 == strcmp(ubi_name, "rootfs")) {
+				if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+					bad_image_mask = DS_IMAGE_SYSTEM_2;
+				}
+				else {
+					bad_image_mask = DS_IMAGE_SYSTEM_1;
+				}
+			}
+			else if (0 == strcmp(ubi_name, "modem")) {
+				if (DS_SSID_SUB_SYSTEM_2 == modem_index) {
+					bad_image_mask = DS_IMAGE_MODEM_2;
+				}
+				else {
+					bad_image_mask = DS_IMAGE_MODEM_1;
+				}
+			}
+			else if (0 == strcmp(ubi_name, "legato")) {
+				if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+					bad_image_mask = DS_IMAGE_USERDATA_2;
+				}
+				else {
+					bad_image_mask = DS_IMAGE_USERDATA_1;
+				}
+			}
+			if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
+				sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
+				kernel_restart("ubi check bad image and swap");
+			}
+	}
+	else {
+		panic("smem can't visit, system crash");
+	}
+
+	return;
+}
+
+EXPORT_SYMBOL(ubi_check_bad_image_and_swap);
 

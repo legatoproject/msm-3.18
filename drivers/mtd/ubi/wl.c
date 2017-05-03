@@ -106,6 +106,12 @@
 #include "ubi.h"
 #include "wl.h"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif
+/* SWISTOP */
+
 /* Number of physical eraseblocks reserved for wear-leveling purposes */
 #define WL_RESERVED_PEBS 1
 
@@ -1860,7 +1866,16 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 		}
 	}
 	else
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		ubi_assert(ubi->good_peb_count == found_pebs);
+#else
+		if (ubi->good_peb_count != found_pebs)
+		{
+			ubi_check_bad_image_and_swap(ubi->vtbl->name);
+		}
+#endif
+/* SWISTOP */
 
 	reserved_pebs = WL_RESERVED_PEBS;
 	ubi_fastmap_init(ubi, &reserved_pebs);
