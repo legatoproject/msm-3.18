@@ -128,7 +128,7 @@ int sierra_ds_smem_erestore_info_set(uint32_t value_type, uint8_t value)
 			efs_restore->erestore_t         = BL_RESTORE_INFO_INVALID_VALUE;
 			efs_restore->errorcount         = BL_RESTORE_INFO_INVALID_VALUE;
 			efs_restore->restored_flag      = BL_RESTORE_INFO_INVALID_VALUE;
-			efs_restore->reserved           = BL_RESTORE_INFO_INVALID_VALUE;
+			efs_restore->beroption          = BL_RESTORE_INFO_INVALID_VALUE;
 			efs_restore->crc32              = crc32_le(0, (void *)efs_restore, DS_ERESTORE_CRC_SZ);
 		}
 
@@ -166,6 +166,15 @@ int sierra_ds_smem_erestore_info_set(uint32_t value_type, uint8_t value)
 			efs_restore->errorcount = value;
 			efs_restore->crc32      = crc32_le(~0, (void *)efs_restore, DS_ERESTORE_CRC_SZ);
 			pr_debug("sierra:-%s-successed: BL_RESTORE_INFO_ECOUNT_BUF: %d", __func__, value);
+			}
+			else if (BL_RESTORE_INFO_BEROPTION_BUF == value_type)
+			{
+				/* Set efs restore info BL_RESTORE_INFO_BEROPTION_BUF */
+				efs_restore->magic_beg  = DS_MAGIC_EFSB;
+				efs_restore->magic_end  = DS_MAGIC_EFSE;
+				efs_restore->beroption  = value;
+				efs_restore->crc32      = crc32_le(~0, (void *)efs_restore, DS_ERESTORE_CRC_SZ);
+				pr_debug("sierra:-%s-successed: BL_RESTORE_INFO_BEROPTION_BUF: %d\n", __func__, value);
 			}
 			else
 			{
