@@ -112,12 +112,41 @@
 	};
 
 	blsp1_uart1: serial@78af000 {
-		compatible = "qcom,msm-lsuart-v14";
-		reg = <0x78af000 0x200>;
-		interrupts = <0 107 0>;
-		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
-			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78af000 0x200>,
+		    <0x7884000 0x23000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart1>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 107 0
+			    1 &intc 0 238 0
+			    2 &tlmm_pinmux 21 0>;
+
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xFD>;
+
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+		qcom,master-id = <86>;
 		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+		    <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "default","sleep";
+		pinctrl-0 = <&uart1_console_tx_active &uart1_console_rx_active
+			     &uart1_console_cts_active &uart1_console_rts_active>;
+		pinctrl-1 = <&uart1_console_tx_sleep &uart1_console_rx_sleep
+			     &uart1_console_cts_sleep &uart1_console_rts_sleep>;
+
+		qcom,msm-bus,name = "buart1";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
 		status = "disabled";
 	};
 
@@ -224,8 +253,8 @@
 		interrupts = <0 97 0>, <0 238 0>;
 		spi-max-frequency = <50000000>;
 		pinctrl-names = "spi_default", "spi_sleep";
-		pinctrl-0 = <&spi2_default &spi2_cs0_active &spi2_cs1_active>;
-		pinctrl-1 = <&spi2_sleep &spi2_cs0_sleep &spi2_cs1_sleep>;
+		pinctrl-0 = <&spi2_default &spi2_cs0_active>;
+		pinctrl-1 = <&spi2_sleep &spi2_cs0_sleep>;
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
 		clock-names = "iface_clk", "core_clk";
@@ -242,11 +271,6 @@
 			compatible = "sierra,spidev";
 			spi-max-frequency = <50000000>;
 			reg = <0>;
-		};
-		spidev1@1 {
-			compatible = "sierra,spidev";
-			spi-max-frequency = <50000000>;
-			reg = <1>;
 		};
 	};
 
@@ -305,6 +329,97 @@
 	};
 
 	tlmm_pinmux: pinctrl@1000000 {
+	blsp1_uart1{
+		uart1_console_tx_active: uart1_console_tx_active {
+			mux {
+				pins = "gpio20";
+				function = "blsp_uart_tx_b1";
+			};
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart1_console_rx_active: uart1_console_rx_active {
+			mux {
+				pins = "gpio21";
+				function = "blsp_uart_rx_b1";
+			};
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart1_console_cts_active: uart1_console_cts_active {
+			mux {
+				pins = "gpio22";
+				function = "blsp_uart_cts_n_b1";
+			};
+			config {
+				pins = "gpio22";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart1_console_rts_active: uart1_console_rts_active {
+			mux {
+				pins = "gpio23";
+				function = "blsp_uart_rfr_n_b1";
+			};
+			config {
+				pins = "gpio23";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart1_console_tx_sleep: uart1_console_tx_sleep {
+			mux {
+				pins = "gpio20";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart1_console_rx_sleep: uart1_console_rx_sleep {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart1_console_cts_sleep: uart1_console_cts_sleep {
+			mux {
+				pins = "gpio22";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio22";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+		uart1_console_rts_sleep: uart1_console_rts_sleep {
+			mux {
+				pins = "gpio23";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio23";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+
 		uart2_console_active: uart2_console_active {
 			mux {
 				pins = "gpio4", "gpio5";
@@ -708,7 +823,7 @@
 };
 
 &blsp1_uart1 {
-	status = "disabled";
+	status = "ok";
 };
 
 &spi_0 {
@@ -729,6 +844,10 @@
 
 &ipa_hw {
 	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
+};
+
+&i2c_2 {
+	status = "ok";
 };
 
 &i2c_3 {

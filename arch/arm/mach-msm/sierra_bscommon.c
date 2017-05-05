@@ -178,7 +178,7 @@ uint64_t bsgetgpioflag(void)
 			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE))
 			{
 				/*get gpio flag*/
-				result = (uint64_t)(mp->bsgpioflag[0]) | (uint64_t)(mp->bsgpioflag[1] << 32);
+				result = (uint64_t)(mp->bsgpioflag[0]) | ((uint64_t)mp->bsgpioflag[1] << 32);
 			}
 			else
 			{
