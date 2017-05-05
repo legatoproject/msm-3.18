@@ -2210,6 +2210,12 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 
 	if (bam_props->ipc_loglevel)
 		bam->ipc_loglevel = bam_props->ipc_loglevel;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	else
+		bam->ipc_loglevel = 4;
+#endif
+/* SWISTOP */
 
 	ok = sps_bam_device_init(bam);
 	mutex_unlock(&bam->lock);

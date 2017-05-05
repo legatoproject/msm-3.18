@@ -1825,7 +1825,16 @@ DEFINE_SIMPLE_ATTRIBUTE(fops_iomem_x32, debugfs_iomem_x32_get,
 
 static void spi_debugfs_init(struct msm_spi *dd)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	char dir_name[20];
+
+	scnprintf(dir_name, sizeof(dir_name), "%s_dbg", dev_name(dd->dev));
+	dd->dent_spi = debugfs_create_dir(dir_name, NULL);
+#else
 	dd->dent_spi = debugfs_create_dir(dev_name(dd->dev), NULL);
+#endif
+/* SWISTOP */
 	if (dd->dent_spi) {
 		int i;
 
@@ -2698,7 +2707,7 @@ static struct of_device_id msm_spi_dt_match[] = {
 #ifdef CONFIG_SIERRA
 	{   .compatible = "sierra,spidev" },
 #endif
-/* SWISTOP */		
+/* SWISTOP */
 	{}
 };
 
