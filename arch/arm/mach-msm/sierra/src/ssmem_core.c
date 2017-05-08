@@ -235,7 +235,7 @@ _package struct ssmem_alloc_entry_s *ssmem_alloc_entry_get(
     }
   }
 
-  SWI_PRINT(SWI_ERROR, "ssmem region %d not allocated", region_id);
+  SWI_PRINT(SWI_MED, "ssmem region %d not allocated", region_id);
   return NULL;
 }
 

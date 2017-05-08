@@ -23,8 +23,8 @@
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
 #include <linux/workqueue.h>
-#include <linux/notifier.h>
 
+#include <linux/sierra_gpio_wake_n.h>
 #include <linux/mfd/swimcu/core.h>
 #include <linux/mfd/swimcu/gpio.h>
 #include <linux/mfd/swimcu/pm.h>
@@ -314,9 +314,6 @@ static int swimcu_process_events(struct swimcu *swimcu)
 	return 0;
 }
 
-/* SWI_TBD [BChen:2016-08-22]: QTI9X07-36, Need gpio wake support*/
-/*extern int register_sierra_gpio_wake_notifier(struct notifier_block *nb);*/
-/*extern int unregister_sierra_gpio_wake_notifier(struct notifier_block *nb);*/
 
 /************
  *
@@ -339,7 +336,6 @@ static int swimcu_event_trigger (struct notifier_block *self,
                                 unsigned long event, void *unused)
 {
 	struct swimcu *swimcu = container_of(self, struct swimcu, nb);
-
 	return swimcu_process_events(swimcu);
 }
 
@@ -361,17 +357,31 @@ static int swimcu_event_trigger (struct notifier_block *self,
 static void swimcu_event_init (struct swimcu *swimcu)
 {
 	swimcu->nb.notifier_call = swimcu_event_trigger;
-/* SWI_TBD [BChen:2016-08-22]: QTI9X07-36, Need gpio wake support*/
-	/*register_sierra_gpio_wake_notifier(&swimcu->nb);*/
+	sierra_gpio_wake_notifier_register(&swimcu->nb);
 }
 
-/*
- * Register a client device.  This is non-fatal since there is no need to
- * fail the entire device init due to a single platform device failing.
+/************
+ *
+ * Name:     swimcu_event_init
+ *
+ * Purpose:  Register a client device
+ *
+ * Parms:    swimcu - device block data
+ *           name - device name
+ *           pdev - device pointer
+ *
+ * Return:    0 if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:    This is non-fatal since there is no need to fail the entire
+ *           device init due to a single platform device failing.
+ *
  */
 static int swimcu_client_dev_register(struct swimcu *swimcu,
-				       const char *name,
-				       struct platform_device **pdev)
+				const char *name,
+				struct platform_device **pdev)
 {
 	int ret;
 
@@ -410,8 +420,7 @@ static int swimcu_client_dev_register(struct swimcu *swimcu,
  */
 void swimcu_device_exit(struct swimcu *swimcu)
 {
-/* SWI_TBD [BChen:2016-08-22]: QTI9X07-36, Need gpio wake support*/
-	/*unregister_sierra_gpio_wake_notifier(&swimcu->nb);*/
+	sierra_gpio_wake_notifier_unregister(&swimcu->nb);
 	swimcu_pm_sysfs_deinit(swimcu);
 	platform_device_unregister(swimcu->hwmon.pdev);
 	platform_device_unregister(swimcu->gpio.pdev);

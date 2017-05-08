@@ -45,7 +45,8 @@
  *
  * Members:  See below
  *
- * Notes:
+ * Notes:    These IDs may be exposed to host driver so please
+ *           don't modify existing region ID.
  *
  ************/
 enum ssmem_region_id_e
@@ -68,7 +69,8 @@ enum ssmem_region_id_e
   SSMEM_RG_ID_EFS_LOG              = 17,
   SSMEM_RG_ID_FWUPDATE_STATUS      = 18,
   SSMEM_RG_ID_IMSW                 = 19,
-  SSMEM_RG_ID_LAST                 = SSMEM_RG_ID_IMSW,
+  SSMEM_RG_ID_KEYS                 = 20,
+  SSMEM_RG_ID_LAST                 = SSMEM_RG_ID_KEYS,
   SSMEM_RG_ID_MAX                  = 100,
   SSMEM_RG_ID_INVALID,
 };

@@ -1,6 +1,6 @@
-/* kernel/include/linux/sierra_bsuproto.h
+/* kernel/include/linux/sierra_gpio_wake_n.h
  *
- * Copyright (C) 2013 Sierra Wireless, Inc
+ * Copyright (C) 2017 Sierra Wireless, Inc
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -13,14 +13,11 @@
  *
  */
 
-#ifndef BS_UPROTO_H
-#define BS_UPROTO_H
+#ifndef CONFIG_SIERRA_GPIO_WAKE_N
+#define CONFIG_SIERRA_GPIO_WAKE_N
+#include <linux/notifier.h>
 
-extern uint64_t bsgetgpioflag(void);
-extern bool bsgethsicflag(void);
-extern enum bshwtype bs_hwtype_get(void);
-extern enum bs_prod_family_e bs_prod_family_get (void);
-extern bool bs_support_get (enum bsfeature feature);
-extern int8_t bs_uart_fun_get (uint uart_num);
-extern int8_t bsgetriowner(void);
+extern int sierra_gpio_wake_notifier_register(struct notifier_block *nb);
+
+extern int sierra_gpio_wake_notifier_unregister(struct notifier_block *nb);
 #endif

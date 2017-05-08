@@ -72,6 +72,7 @@ _global void *ssmem_get(
     entryp = ssmem_alloc_entry_get(region_id);
     if (!entryp)
     {
+      SWI_PRINT(SWI_ERROR, "ssmem_get: region %d not exists", region_id);
       break;
     }
 
@@ -215,7 +216,7 @@ _global void *ssmem_acquire(
       if (regionp)
       {
         entryp = ssmem_alloc_entry_add(region_id, regionp, region_sz);
-        SWI_PRINT(SWI_HIGH, "ssmem region %d added, size %d",
+        SWI_PRINT(SWI_MED, "ssmem region %d added, size %d",
                   region_id, region_sz);
       }
 
@@ -283,6 +284,7 @@ _global boolean ssmem_meta_update(
     entryp = ssmem_alloc_entry_get(region_id);
     if (!entryp)
     {
+      SWI_PRINT(SWI_ERROR, "ssmem_update: region %d not exists", region_id);
       break;
     }
 
@@ -355,6 +357,7 @@ _global boolean ssmem_release(
     entryp = ssmem_alloc_entry_get(region_id);
     if (!entryp)
     {
+      SWI_PRINT(SWI_ERROR, "ssmem_release: region %d not exists", region_id);
       break;
     }
 
