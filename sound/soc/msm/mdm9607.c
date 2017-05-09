@@ -2287,11 +2287,27 @@ static struct snd_soc_card snd_soc_card_mdm_9306 = {
 	.num_links = ARRAY_SIZE(mdm_tapan_dai_links),
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct snd_soc_card snd_soc_card_mdm = {
+	.name = "qcom,mdm9607-audio-dummy",
+	.dai_link = mdm_dai,
+	.num_links = ARRAY_SIZE(mdm_dai),
+};
+#endif
+/* SWISTOP */
+
 static const struct of_device_id mdm_asoc_machine_of_match[]  = {
 	{ .compatible = "qcom,mdm9607-audio-tomtom",
 	  .data = "tomtom_codec"},
 	{ .compatible = "qcom,mdm9607-audio-tapan",
 	  .data = "tapan_codec"},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{ .compatible = "qcom,mdm9607-audio-dummy",
+	  .data = "dummy"},
+#endif
+/* SWISTOP */
 	{},
 };
 
@@ -2550,6 +2566,15 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			   sizeof(mdm_9306_dai));
 		dailink = mdm_tapan_dai_links;
 	}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	else if (!strcmp(match->data, "dummy")) {
+		card = &snd_soc_card_mdm;
+		len_2 = ARRAY_SIZE(mdm_dai);
+		dailink = mdm_dai;
+	}
+#endif
+/* SWISTOP */
 
 	if (card) {
 		card->dai_link = dailink;
@@ -2638,9 +2663,21 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
 		goto err;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* if there is internal codec connect to board, add the audio routing */
+	if (bs_support_get(BSFEATURE_INTERNALCODEC) == true)
+	{
+		ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
+		if (ret)
+			goto err;
+	}
+#else
 	ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
 	if (ret)
 		goto err;
+#endif
+/* SWISTOP */
 
 	ret = mdm_populate_mi2s_interface_mode(card);
 	if (ret)
