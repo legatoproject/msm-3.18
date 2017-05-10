@@ -464,6 +464,11 @@ void DWC_ETH_QOS_adjust_link(struct net_device *dev)
 
 		if (phydev->speed != pdata->speed) {
 			new_state = 1;
+#ifdef CONFIG_NTN_PHY_RMII
+			hw_if->ntn_set_tx_clk_25MHz_RMII(pdata);
+			hw_if->ntn_set_phy_intf_RMII(pdata);
+			NMSGPR_ALERT("\tRMII_DEBUG:\t%s:\t Fixed RMII mode.\n", __func__);
+#else
 			switch (phydev->speed) {
 			case SPEED_1000:
 				hw_if->set_gmii_speed(pdata);
@@ -479,6 +484,7 @@ void DWC_ETH_QOS_adjust_link(struct net_device *dev)
 				break;
 			}
 			pdata->speed = phydev->speed;
+#endif
 		}
 
 		if (!pdata->oldlink) {

@@ -63,6 +63,13 @@ config NEUTRINO_NET
 	---help---
 	  TOSHIBA PCIe EMAC support, for Neutrino project
 
+config NTN_PHY_RMII
+	bool "TOSHIBA PCIe EMAC support RMII"
+	depends on NEUTRINO_NET
+	default n
+	---help---
+	  TOSHIBA PCIe EMAC support RMII phy
+
 config NEUTRINO_PTPSUPPORT_OBJ
 	bool "PTP support for TOSHIBA PCIe driver"
 	depends on NEUTRINO_NET

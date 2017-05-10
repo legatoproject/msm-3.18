@@ -1028,6 +1028,11 @@ struct hw_if_struct {
 	INT(*ntn_set_tx_clk_25MHz)(struct DWC_ETH_QOS_prv_data *);
 	INT(*ntn_set_tx_clk_2_5MHz)(struct DWC_ETH_QOS_prv_data *);
 
+#ifdef CONFIG_NTN_PHY_RMII
+	INT(*ntn_set_phy_intf_RMII)(struct DWC_ETH_QOS_prv_data *);
+	INT(*ntn_set_tx_clk_25MHz_RMII)(struct DWC_ETH_QOS_prv_data *);
+#endif
+
 	/* Read host initiated boot option */
 	UINT(*ntn_boot_host_initiated)(struct DWC_ETH_QOS_prv_data *);
 	UINT(*ntn_boot_from_flash_done)(struct DWC_ETH_QOS_prv_data *);

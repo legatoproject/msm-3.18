@@ -2654,6 +2654,34 @@ static INT set_promiscuous_mode(struct DWC_ETH_QOS_prv_data *pdata)
 	return Y_SUCCESS;
 }
 
+#ifdef CONFIG_NTN_PHY_RMII
+static INT ntn_set_phy_intf_RMII(struct DWC_ETH_QOS_prv_data *pdata)
+{
+	UINT reg_val;
+
+	NTN_NEMACCTL_RgRd(reg_val);
+	reg_val &= NTN_NEMACCTL_PHY_INTF_MASK;
+	reg_val |= NTN_NEMACCTL_PHY_INTF_RMII;
+	NDBGPR_L2("\tRMII_DEBUG:\t%s\n", __func__);
+	NTN_NEMACCTL_RgWr(reg_val);
+
+	return Y_SUCCESS;
+}
+
+static INT ntn_set_tx_clk_25MHz_RMII(struct DWC_ETH_QOS_prv_data *pdata)
+{
+	UINT reg_val;
+
+	NTN_NEMACCTL_RgRd(reg_val);
+	reg_val &= NTN_NEMACCTL_TX_CLK_MASK;
+	reg_val |= NTN_NEMACCTL_TX_CLK_25MHz_RMII;
+	NDBGPR_L2("\tRMII_DEBUG:\t%s\n", __func__);
+	NTN_NEMACCTL_RgWr(reg_val);
+
+	return Y_SUCCESS;
+}
+#endif
+
 /*!
 * \brief This sequence is used to write into phy registers
 * \param[in] phy_id
@@ -4368,10 +4396,14 @@ static INT DWC_ETH_QOS_yinit(struct DWC_ETH_QOS_prv_data *pdata)
 
         DBGPR("-->DWC_ETH_QOS_yinit\n");
 
+#if CONFIG_NTN_PHY_RMII
+	/*do nothing*/
+#else
         /* Initialize for 1Gbps, Full Duplex and 125 MHz */
         set_full_duplex(pdata);
         set_gmii_speed(pdata);
         ntn_set_tx_clk_125MHz(pdata);
+#endif
 
         /* reset mmc counters */
         MMC_CNTRL_RgWr(0x1);
@@ -4678,6 +4710,12 @@ void DWC_ETH_QOS_init_function_ptrs_dev(struct hw_if_struct *hw_if)
 	/* Determine if boot mode is host initiated */
 	hw_if->ntn_boot_host_initiated = ntn_boot_host_initiated;
 	hw_if->ntn_boot_from_flash_done = ntn_boot_from_flash_done;
+
+#ifdef CONFIG_NTN_PHY_RMII
+	/* Config Control register for PHY Interface Mode (MII/RMII or default RGMII) */
+	hw_if->ntn_set_phy_intf_RMII = ntn_set_phy_intf_RMII;
+	hw_if->ntn_set_tx_clk_25MHz_RMII = ntn_set_tx_clk_25MHz_RMII;
+#endif
 
 	DBGPR("<--DWC_ETH_QOS_init_function_ptrs_dev\n");
 }

@@ -938,6 +938,19 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 	DWC_ETH_QOS_config_tamap(pdev);
 #endif
 
+#ifdef CONFIG_NTN_PHY_RMII
+
+	/* PHY Mode (MII/RMII or default RGMII)
+	* should be configured prior to GMAC clock enable/reset.
+	*/
+	hw_if->ntn_set_tx_clk_25MHz_RMII(pdata);
+	NMSGPR_ALERT("\tRMII_DEBUG:\t%s:\t Fixed miispeed-100,tx_clk-25MHz RMII\n", __func__);
+	hw_if->ntn_set_phy_intf_RMII(pdata);
+	NMSGPR_ALERT("\tRMII_DEBUG:\t%s:\t Fixed RMII mode.\n", __func__);
+	hw_if->set_full_duplex(pdata);
+	NMSGPR_ALERT("\tRMII_DEBUG:\t%s:\t Fixed Full Duplex mode.\n", __func__);
+#endif
+
     /* issue clock enable to GMAC device */
     hw_if->ntn_mac_clock_config(0x1, pdata);
     /* issue software reset to GMAC device */
