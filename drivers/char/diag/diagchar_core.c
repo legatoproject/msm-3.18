@@ -2969,6 +2969,9 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		return -EIO;
 	}
 
+/* SWISTART */
+#if CONFIG_SIERRA
+#ifdef CONFIG_DIAG_OVER_USB
 	if (driver->logging_mode == DIAG_USB_MODE && !driver->usb_connected) {
 		if (!((pkt_type == DCI_DATA_TYPE) ||
 		    (pkt_type == DCI_PKT_TYPE) ||
@@ -2979,6 +2982,20 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			return -EIO;
 		}
 	}
+#endif
+#else
+	if (driver->logging_mode == DIAG_USB_MODE && !driver->usb_connected) {
+		if (!((pkt_type == DCI_DATA_TYPE) ||
+		    (pkt_type == DCI_PKT_TYPE) ||
+		    (pkt_type & DATA_TYPE_DCI_LOG) ||
+		    (pkt_type & DATA_TYPE_DCI_EVENT))) {
+			pr_debug("diag: In %s, Dropping non DCI packet type\n",
+				 __func__);
+			return -EIO;
+		}
+	}
+#endif
+/* SWISTOP */
 
 	payload_buf = buf + sizeof(int);
 	payload_len = count - sizeof(int);
@@ -3007,9 +3024,19 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		 * stream. If USB is not connected and we are not in memory
 		 * device mode, we should not process these logs/events.
 		 */
+/* SWISTART */
+#if CONFIG_SIERRA
+#ifdef CONFIG_DIAG_OVER_USB
 		if (pkt_type && driver->logging_mode == DIAG_USB_MODE &&
 		    !driver->usb_connected)
 			return err;
+#endif
+#else
+		if (pkt_type && driver->logging_mode == DIAG_USB_MODE &&
+		    !driver->usb_connected)
+			return err;
+#endif
+/* SWISTOP */
 	}
 
 	switch (pkt_type) {

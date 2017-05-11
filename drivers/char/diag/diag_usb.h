@@ -72,6 +72,19 @@ struct diag_usb_info {
 	struct workqueue_struct *usb_wq;
 };
 
+/* SWISTART */
+#if CONFIG_SIERRA
+#ifdef CONFIG_DIAG_OVER_USB
+extern struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV];
+#endif
+int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops);
+int diag_usb_queue_read(int id);
+int diag_usb_write(int id, unsigned char *buf, int len, int ctxt);
+void diag_usb_connect_all(void);
+void diag_usb_disconnect_all(void);
+void diag_usb_exit(int id);
+
+#else
 #ifdef CONFIG_DIAG_OVER_USB
 extern struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV];
 int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops);
@@ -106,5 +119,7 @@ void diag_usb_exit(int id)
 	return;
 }
 #endif
+#endif
+/* SWISTOP */
 
 #endif
