@@ -3,14 +3,14 @@ Sierra Wireless MCU Ultra Low Power Management
 
 V1.02
 
-The Sierra Wireless WPx5 product series are equipped with an
+The Sierra Wireless WP product series are equipped with an
 on-board MCU whose prime function is to allow the system to
 operate in a very low power mode (ultra low power mode or ULPM).
 In this mode, power is removed from the main MDM chip, while the
 MCU runs at the lowest possible current consumption monitoring
 for configured boot conditions. When triggered, the MCU then
 restores power to boot the MDM. The MCU provides GPIO and ADC
-(future) services in support of boot options.
+services in support of boot options.
 
 The MCU kernel driver provides a sysfs interface to query and
 configure the MCU I/O and boot conditions from ULPM.
@@ -19,17 +19,15 @@ configure the MCU I/O and boot conditions from ULPM.
 1. GPIO
 ===============
 
-The MCU supports 8 external pins that may be configured as GPIO.
+The MCU supports 5 external pins that may be configured as GPIO.
 These are exposed through the standard gpiolib interface
-(/sys/class/gpio) as GPIO U1-U8. They may be exported (default
-is input, no pull), pull configured (DOWN, UP), or direction set
-as output with value setting (0, 1).
-IRQ support is not currently available.
-Note that only U3 and U5 are currently available as boot
-source options to wake from ULPM (described below), although any
-of these 8 if configured (exported) will persist while in ULPM
-(at the expense of additional current consumption depending on
-configuration).
+(/sys/class/gpio) as GPIO 36, 37, 38, 40 and 41. They may be
+exported (default is input, no pull), pull configured (DOWN, UP),
+or direction set as output with value setting (0, 1).
+IRQ and boot source support is available on GPIO36 and GPIO 38
+Note that any of the 5 GPIOs if configured (exported) will persist
+while in ULPM (at the expense of additional current consumption
+depending on configuration).
 For more details on this interface, see:
 Documentation/gpio/sysfs.txt
 
@@ -37,12 +35,11 @@ Documentation/gpio/sysfs.txt
 2. ADC
 ===============
 
-The MCU supports 2 external pins that may be configured as ADC
-inputs. These correspond to ADC2 and ADC3 of the WPx5. They are
-exposed through the standard hwmon interface (/sys/class/hwmon)
-at hwmon1. Each ADC may be read via in0_mv and in1_mv. The value
-is returned in milliVolts (range: 0 - 1800mV).
-The interface is loosely based on that described in:
+The MCU supports only one external pin that may be configured
+as an ADC input. It corresponds to ADC2 of the WP76xx. It is
+exposed through the standard hwmon interface (/sys/class/hwmon) at hwmon1.
+ADC may be read via in0_mv. The value is returned in millivolts
+(range: 0 - 1800mV). The interface is loosely based on that described in:
 Documentation/hwmon/sysfs-interface
 
 
@@ -58,9 +55,48 @@ the feature is not available.
 Available boot sources are:
 	/sys/module/swimcu_pm/boot_source/timer/timeout
 		(value in seconds)
-	/sys/module/swimcu_pm/boot_source/gpioU3/edge
-	/sys/module/swimcu_pm/boot_source/gpioU5/edge
+	/sys/module/swimcu_pm/boot_source/gpio36/edge
+	/sys/module/swimcu_pm/boot_source/gpio38/edge
 		(values: off, low, high, rising, falling, both)
+	/sys/module/swimcu_pm/boot_source/adc/adc2/above
+	/sys/module/swimcu_pm/boot_source/adc/adc2/below
+		(values in range 0-1800mV)
+	/sys/module/swimcu_pm/boot_source/adc/interval
+		(value in range 1-65535ms)
+
+For ADC wakeup, the above and below parameters specify the range of values
+that trigger boot. The default values are 0 and 1800, respectively.
+The interval parameter sets the timeout period for the low power timer to
+trigger ADC readings. Continuous mode is not supported, so the interval
+parameter must be set before enabling ULPM. A lower interval value will result
+in more frequent ADC readings at the expense of higher current consumption.
+Current measurements at typical sampling intervals are shown below.
+After configuration, the ADC must be selected before entering ULPM or it will
+not be used as a boot source.
+
+For example, to trigger on a 500-1000mV input to adc2 with 5 ms interval
+between ADC readings:
+
+Write 500 to:
+	/sys/module/swimcu_pm/boot_source/adc/adc2/above
+Write 1000 to:
+	/sys/module/swimcu_pm/boot_source/adc/adc2/below
+Write 5 to:
+	/sys/module/swimcu_pm/boot_source/adc/interval
+Write 1 to:
+	/sys/module/swimcu_pm/boot_source/adc/adc2/select
+
+Average current consumption for ULPM with ADC boot source:
+ADC Sampling Interval (ms)	Average Current (uA)
+1				50-80
+5				13-14
+10				8-9
+100				6.3
+1000				6
+
+Note there is one millisecond of overhead to process the timer interrupt
+and trigger an ADC reading, so the actual period between ADC readings is
+one plus the sampling interval.
 
 Once boot sources are configured, ULPM may be enabled by writing 1 to:
 	/sys/module/swimcu_pm/boot_source/enable
@@ -72,14 +108,15 @@ If a boot source is triggered, either before entering or upon
 returning from ULPM, the triggered status is set to 1 for that
 boot source:
 	/sys/module/swimcu_pm/boot_source/timer/triggered
-	/sys/module/swimcu_pm/boot_source/gpioU3/triggered
-	/sys/module/swimcu_pm/boot_source/gpioU5/triggered
+	/sys/module/swimcu_pm/boot_source/gpio36/triggered
+	/sys/module/swimcu_pm/boot_source/gpio38/triggered
+	/sys/module/swimcu_pm/boot_source/adc/adc2/triggered
 
 In the event that a boot source triggers before entering ULPM (or
-no boot source is configured), the write to enable will fail. The
-boot source will need to be reenabled in this case. Note that the
-timer is not started until ULPM is entered and thus will not trigger
-before.
+no boot source is configured), it will fail that writing 1 to
+/sys/module/swimcu_pm/boot_source/enable.
+The boot source will need to be reenabled in this case.
+Note the timer will start immediately when ULPM request is accepted.
 
 
 4. MCU Firmware Version

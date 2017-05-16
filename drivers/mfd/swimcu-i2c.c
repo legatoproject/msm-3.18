@@ -1,5 +1,5 @@
 /*
- * swimcu-i2c.c  --  Generic I2C driver for Sierra Wireless WP76xx MCU
+ * swimcu-i2c.c  --  Generic I2C driver for sierra mcu
  *
  * Copyright (c) 2016 Sierra Wireless, Inc.
  *
@@ -149,7 +149,7 @@ static struct swimcu_platform_data * swimcu_populate_dt_pdata(struct device *dev
 #endif
 
 static int swimcu_i2c_probe(struct i2c_client *i2c,
-														const struct i2c_device_id *id)
+							const struct i2c_device_id *id)
 {
 	struct swimcu *swimcu;
 	struct swimcu_platform_data *pdata;
@@ -223,5 +223,5 @@ static void __exit swimcu_i2c_exit(void)
 }
 module_exit(swimcu_i2c_exit);
 
-MODULE_DESCRIPTION("I2C support for the Sierra Wireless WP76xx MCU");
+MODULE_DESCRIPTION("I2C support for the Sierra Wireless MCU");
 MODULE_LICENSE("GPL");

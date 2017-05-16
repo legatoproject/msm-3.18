@@ -1011,7 +1011,6 @@ enum mci_protocol_status_code_e swimcu_adc_init(
 	uint32_t buffer[MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX];
 	uint32_t bitfield;
 	uint8_t  count;
-
 	swimcu_log(ADC, "%s: ADC channel %d\n", __func__, configp->channel);
 
 	/* Mandatory number of 32-bit parameters for the command */
@@ -1024,6 +1023,12 @@ enum mci_protocol_status_code_e swimcu_adc_init(
 	bitfield   = configp->channel;
 	bitfield <<= MCI_PROTOCOL_ADC_CHANNEL_SHIFT;
 	bitfield  &= MCI_PROTOCOL_ADC_CHANNEL_MASK;
+	buffer[0] |= bitfield;
+
+	/* encode trigger */
+	bitfield   = configp->trigger_type;
+	bitfield <<= MCI_PROTOCOL_ADC_TRIGGER_SHIFT;
+	bitfield  &= MCI_PROTOCOL_ADC_TRIGGER_MASK;
 	buffer[0] |= bitfield;
 
 	/* encode the number of samples to be collected for SW average mode */
@@ -1111,6 +1116,10 @@ enum mci_protocol_status_code_e swimcu_adc_init(
 				pr_err("%s: Invalid HW compare mode %d", __func__, configp->hw_compare.mode);
 				return MCI_PROTOCOL_STATUS_CODE_INVALID_ARGUMENT;
 		}
+	}
+	if (MCI_PROTOCOL_ADC_TRIGGER_MODE_HW == configp->trigger_mode) {
+		buffer[3] = configp->trigger_interval;
+		count++;
 	}
 
 	/* SC3: HW sample average and continuous conversion mode */
@@ -1354,32 +1363,8 @@ enum mci_protocol_status_code_e swimcu_wakeup_source_config(
 				case MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC:
 
 					swimcu_log(PROT, "ADC type=%d adch=%d",
-						configp->source_type, configp->args.adc.channel);
-					swimcu_log(PROT, "wakeup source compare mode=%d (%d, %d)", configp->args.adc.compare.mode,
-						configp->args.adc.compare.value1, configp->args.adc.compare.value2);
-					/* add additional adc input channel */
-					bitfield   = configp->args.adc.channel;
-					bitfield <<= MCI_PROTOCOL_WAKEUP_SOURCE_ADCH_SHIFT;
-					bitfield  &= MCI_PROTOCOL_WAKEUP_SOURCE_ADCH_MASK;
-					buffer[0] |= bitfield;
-
-					/* argument in the second parameters */
-					buffer[1]   = configp->args.adc.compare.mode;
-					buffer[1] <<= MCI_PROTOCOL_ADC_COMPARE_MODE_SHIFT;
-					buffer[1]  &= MCI_PROTOCOL_ADC_COMPARE_MODE_MASK;
-
-					bitfield   = configp->args.adc.compare.value1;
-					bitfield <<= MCI_PROTOCOL_ADC_COMPARE_V1_SHIFT;
-					bitfield  &= MCI_PROTOCOL_ADC_COMPARE_V1_MASK;
-					buffer[1] |= bitfield;
-
-					if ((configp->args.adc.compare.mode == MCI_PROTOCOL_ADC_COMPARE_MODE_WITHIN) ||
-						(configp->args.adc.compare.mode == MCI_PROTOCOL_ADC_COMPARE_MODE_BEYOND)) {
-						bitfield   = configp->args.adc.compare.value2;
-						bitfield <<= MCI_PROTOCOL_ADC_COMPARE_V2_SHIFT;
-						bitfield  &= MCI_PROTOCOL_ADC_COMPARE_V2_MASK;
-						buffer[1] |= bitfield;
-					}
+						configp->source_type, configp->args.channel);
+					buffer[1] = configp->args.channel;
 					break;
 
 				default:
@@ -1415,12 +1400,7 @@ enum mci_protocol_status_code_e swimcu_wakeup_source_config(
 				case MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC:
 
 					/* add additional adc input channel */
-					bitfield   = configp->args.adc.channel;
-					bitfield <<= MCI_PROTOCOL_WAKEUP_SOURCE_ADCH_SHIFT;
-					bitfield  &= MCI_PROTOCOL_WAKEUP_SOURCE_ADCH_MASK;
-					buffer[0] |= bitfield;
-
-					buffer[1] = 0;
+					buffer[1]   = configp->args.channel;
 					break;
 
 				default:
@@ -1456,15 +1436,7 @@ enum mci_protocol_status_code_e swimcu_wakeup_source_config(
 
 			case MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC:
 
-				configp->args.adc.compare.mode = (enum mci_protocol_adc_compare_mode_e)
-					((buffer[1] & MCI_PROTOCOL_ADC_COMPARE_MODE_MASK)
-					>> MCI_PROTOCOL_ADC_COMPARE_MODE_SHIFT);
-
-				configp->args.adc.compare.value1 = (buffer[1] & MCI_PROTOCOL_ADC_COMPARE_V1_MASK)
-					>> MCI_PROTOCOL_ADC_COMPARE_V1_SHIFT;
-
-				configp->args.adc.compare.value2 = (buffer[1] & MCI_PROTOCOL_ADC_COMPARE_V2_MASK)
-					>> MCI_PROTOCOL_ADC_COMPARE_V2_SHIFT;
+				configp->args.channel = buffer[1];
 				break;
 
 			default:

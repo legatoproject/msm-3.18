@@ -1,5 +1,5 @@
 /*
- * gpiolib support for Sierra Wireless WPx5 MCU
+ * gpiolib support for Sierra Wireless WP76xx MCU
  *
  * adapted from:
  * gpiolib support for Wolfson WM835x PMICs
@@ -20,14 +20,18 @@
 #include <linux/mfd/core.h>
 #include <linux/platform_device.h>
 #include <linux/seq_file.h>
+#include <linux/irq.h>
 
 #include <linux/mfd/swimcu/core.h>
 #include <linux/mfd/swimcu/gpio.h>
+#include <linux/mfd/swimcu/mcidefs.h>
 
 struct swimcu_gpio_data {
 	struct swimcu *swimcu;
 	struct gpio_chip gpio_chip;
 };
+
+enum mci_pin_irqc_type_e gpio_irq_cfg[SWIMCU_NUM_GPIO_IRQ] = {MCI_PIN_IRQ_DISABLED};
 
 static inline struct swimcu *to_swimcu(struct gpio_chip *chip)
 {
@@ -168,6 +172,18 @@ static void swimcu_gpio_free(struct gpio_chip *chip, unsigned gpio)
 	}
 }
 
+static int swimcu_to_irq(struct gpio_chip *chip, unsigned gpio)
+{
+	struct swimcu *swimcu = to_swimcu(chip);
+	int ret = -1;
+	enum swimcu_gpio_irq_index swimcu_irq = swimcu_get_irq_from_gpio(gpio);
+
+	if ((swimcu->gpio_irq_base > 0) && (swimcu_irq != SWIMCU_GPIO_NO_IRQ)) {
+		ret = swimcu->gpio_irq_base + swimcu_irq;
+	}
+	return ret;
+}
+
 static struct gpio_chip template_chip = {
 	.label			= "swimcu",
 	.owner			= THIS_MODULE,
@@ -179,9 +195,162 @@ static struct gpio_chip template_chip = {
 	.set			= swimcu_gpio_set_value,
 	.pull_up    		= swimcu_gpio_set_pull_up,
 	.pull_down  		= swimcu_gpio_set_pull_down,
-	.to_irq		  	= NULL,
+	.to_irq		  	= swimcu_to_irq,
 	.can_sleep		= true,
 };
+
+void swimcu_gpio_work(struct swimcu *swimcu, enum swimcu_gpio_irq_index irq)
+{
+	int gpio = swimcu_get_gpio_from_irq(irq);
+	int result;
+
+	if (irq < 0 || irq >= SWIMCU_NUM_GPIO_IRQ) {
+		pr_err("%s: Invalid IRQ: %d\n", __func__, irq);
+		return;
+	}
+
+	handle_nested_irq(swimcu->gpio_irq_base + irq);
+	result = swimcu_gpio_set_trigger(gpio, gpio_irq_cfg[irq]);
+	if (result < 0) {
+		pr_err("%s: gpio%d error result=%d\n", __func__, gpio, result);
+	}
+	else {
+		/* need to refresh gpio configs to apply trigger settings */
+		swimcu_gpio_refresh(swimcu);
+	}
+}
+
+static inline int sys_irq_to_swimcu_irq(struct swimcu *swimcu, int irq)
+{
+	return irq - swimcu->gpio_irq_base;
+}
+
+static void swimcu_irq_lock(struct irq_data *data)
+{
+	struct swimcu *swimcu = irq_data_get_irq_chip_data(data);
+
+	mutex_lock(&swimcu->gpio_irq_lock);
+}
+
+static void swimcu_irq_sync_unlock(struct irq_data *data)
+{
+	struct swimcu *swimcu = irq_data_get_irq_chip_data(data);
+
+	mutex_unlock(&swimcu->gpio_irq_lock);
+	swimcu_gpio_refresh(swimcu);
+}
+
+static void swimcu_irq_disable(struct irq_data *data)
+{
+	struct swimcu *swimcu = irq_data_get_irq_chip_data(data);
+	int swimcu_irq = sys_irq_to_swimcu_irq(swimcu, data->irq);
+	int gpio = swimcu_get_gpio_from_irq(swimcu_irq);
+	enum mci_pin_irqc_type_e irq_type;
+	int result;
+
+	/* We can't directly mask interrupts on the MCU,
+	* so save the current trigger config then set it to disabled */
+	irq_type = swimcu_gpio_get_trigger(gpio);
+	result = swimcu_gpio_set_trigger(gpio, MCI_PIN_IRQ_DISABLED);
+	if(result < 0) {
+		pr_err("%s: gpio%d error result=%d\n", __func__, gpio, result);
+	}
+	else {
+		gpio_irq_cfg[swimcu_irq] = irq_type;
+	}
+}
+
+static void swimcu_irq_enable(struct irq_data *data)
+{
+	struct swimcu *swimcu = irq_data_get_irq_chip_data(data);
+	int swimcu_irq = sys_irq_to_swimcu_irq(swimcu, data->irq);
+	int gpio = swimcu_get_gpio_from_irq(swimcu_irq);
+	int result;
+
+	/* restore saved trigger config */
+	result = swimcu_gpio_set_trigger(gpio, gpio_irq_cfg[swimcu_irq]);
+	if (result < 0) {
+		pr_err("%s: gpio%d error result=%d\n", __func__, gpio, result);
+	}
+}
+
+static int swimcu_irq_set_type(struct irq_data *data, unsigned int type)
+{
+	struct swimcu *swimcu = irq_data_get_irq_chip_data(data);
+	int swimcu_irq = sys_irq_to_swimcu_irq(swimcu, data->irq);
+	int gpio = swimcu_get_gpio_from_irq(swimcu_irq);
+	enum mci_pin_irqc_type_e irq_type;
+	int result;
+
+	switch (type)
+	{
+		case IRQ_TYPE_LEVEL_LOW:
+			irq_type = MCI_PIN_IRQ_LOGIC_ZERO;
+			break;
+		case IRQ_TYPE_LEVEL_HIGH:
+			irq_type = MCI_PIN_IRQ_LOGIC_ONE;
+			break;
+		case IRQ_TYPE_EDGE_BOTH:
+			irq_type = MCI_PIN_IRQ_EITHER_EDGE;
+			break;
+		case IRQ_TYPE_EDGE_RISING:
+			irq_type = MCI_PIN_IRQ_RISING_EDGE;
+			break;
+		case IRQ_TYPE_EDGE_FALLING:
+			irq_type = MCI_PIN_IRQ_FALLING_EDGE;
+			break;
+		default:
+			irq_type = MCI_PIN_IRQ_DISABLED;
+	}
+
+	result = swimcu_gpio_set_trigger(gpio, irq_type);
+	if(result < 0) {
+		pr_err("%s: gpio%d error result=%d\n", __func__, gpio, result);
+	}
+	else {
+		gpio_irq_cfg[swimcu_irq] = irq_type;
+	}
+	return result;
+}
+
+static struct irq_chip swimcu_irq_chip = {
+	.name			= "swimcu-irq",
+	.irq_bus_lock		= swimcu_irq_lock,
+	.irq_bus_sync_unlock	= swimcu_irq_sync_unlock,
+	.irq_disable		= swimcu_irq_disable,
+	.irq_enable		= swimcu_irq_enable,
+	.irq_set_type		= swimcu_irq_set_type,
+};
+
+void swimcu_irq_init(struct swimcu *swimcu, int irq_base)
+{
+	int i;
+
+	mutex_init(&swimcu->gpio_irq_lock);
+	swimcu->gpio_irq_base = irq_alloc_descs(-1, irq_base, SWIMCU_NUM_GPIO_IRQ, -1);
+	if (swimcu->gpio_irq_base < 0)
+	{
+		dev_warn(swimcu->dev, "Allocating irqs failed with %d\n",
+			swimcu->gpio_irq_base);
+		return;
+	}
+
+	/* register with genirq */
+	for (i = swimcu->gpio_irq_base; i < SWIMCU_NUM_GPIO_IRQ + swimcu->gpio_irq_base; i++)
+	{
+		irq_set_chip_data(i, swimcu);
+		irq_set_chip_and_handler(i, &swimcu_irq_chip, handle_simple_irq);
+		irq_set_nested_thread(i, 1);
+
+		/* ARM needs us to explicitly flag the IRQ as valid
+		 * and will set them noprobe when we do so. */
+#ifdef CONFIG_ARM
+		set_irq_flags(i, IRQF_VALID);
+#else
+		irq_set_noprobe(i);
+#endif
+	}
+}
 
 static int swimcu_gpio_probe(struct platform_device *pdev)
 {
@@ -215,15 +384,23 @@ static int swimcu_gpio_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	swimcu_irq_init(swimcu, pdata->gpio_irq_base);
 	platform_set_drvdata(pdev, swimcu_gpio);
 
 	return ret;
 }
 
+void swimcu_gpio_irq_exit(struct swimcu* swimcu)
+{
+	irq_free_descs(swimcu->gpio_irq_base, SWIMCU_NUM_GPIO_IRQ);
+}
+
 static int swimcu_gpio_remove(struct platform_device *pdev)
 {
 	struct swimcu_gpio_data *swimcu_gpio = platform_get_drvdata(pdev);
-	gpiochip_remove(&swimcu_gpio->gpio_chip);
+
+	swimcu_gpio_irq_exit(swimcu_gpio->swimcu);
+	(void) gpiochip_remove(&swimcu_gpio->gpio_chip);
 	return 0;
 }
 

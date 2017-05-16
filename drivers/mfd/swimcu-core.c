@@ -1,5 +1,5 @@
 /*
- * swimcu-core.c  --  Device access for Sierra Wireless WP76xx MCU
+ * swimcu-core.c  --  Device access for Sierra Wireless MCU
  *
  * adapted from:
  *
@@ -23,14 +23,14 @@
 #include <linux/interrupt.h>
 #include <linux/regmap.h>
 #include <linux/workqueue.h>
+#include <linux/notifier.h>
 
-#include <linux/sierra_gpio_wake_n.h>
 #include <linux/mfd/swimcu/core.h>
 #include <linux/mfd/swimcu/gpio.h>
 #include <linux/mfd/swimcu/pm.h>
 #include <linux/mfd/swimcu/mciprotocol.h>
 #include <linux/mfd/swimcu/mcidefs.h>
-
+#include <linux/sierra_gpio_wake_n.h>
 /*
  * SWIMCU Device IO
  */
@@ -38,28 +38,62 @@
 int swimcu_debug_mask = SWIMCU_DEFAULT_DEBUG_LOG;
 #endif
 
+#define MCI_ADC_SCALE_12_BIT    ((1 << 12) - 1)
+#define MCI_ADC_SCALE_10_BIT    ((1 << 10) - 1)
+#define MCI_ADC_SCALE_8_BIT     ((1 << 8 ) - 1)
+
+#define MCI_ADC_SCALE           MCI_ADC_SCALE_12_BIT
+#define MCI_ADC_RESOLUTION      MCI_PROTOCOL_ADC_RESOLUTION_12_BITS
+
 int swimcu_fault_mask = 0;
 int swimcu_fault_count = 0;
 
-/* WP76xx ADC2 and ADC3 provided by MCU */
+/* ADC provided by MCU */
 static const enum mci_protocol_adc_channel_e adc_chan_cfg[] = {
 	[SWIMCU_ADC_PTA12] = MCI_PROTOCOL_ADC0_SE0,
-	[SWIMCU_ADC_PTB1]  = MCI_PROTOCOL_ADC0_SE8
 };
 
-static struct mci_adc_config_s adc_config = {
-	.channel = MCI_PROTOCOL_ADC0_SE0,
-	.resolution_mode = MCI_PROTOCOL_ADC_RESOLUTION_12_BITS,
-	.low_power_conv  = MCI_PROTOCOL_ADC_LOW_POWER_CONV_DISABLE,
-	.high_speed_conv = MCI_PROTOCOL_ADC_HIGH_SPEED_CONV_DISABLE,
-	.sample_period = MCI_PROTOCOL_ADC_SAMPLE_PERIOD_ADJ_4,
-	.hw_average = true,
-	.sample_count = MCI_ADC_HW_AVERAGE_SAMPLES_32,
-	.trigger_mode = MCI_PROTOCOL_ADC_TRIGGER_MODE_SW,
-	.hw_compare.value1 = 0,
-	.hw_compare.value2 = 0,
-	.hw_compare.mode = MCI_PROTOCOL_ADC_COMPARE_MODE_DISABLED,
+static struct mci_adc_config_s adc_config[] = {
+	{
+		.channel = MCI_PROTOCOL_ADC0_SE0,
+		.resolution_mode = MCI_ADC_RESOLUTION,
+		.low_power_conv  = MCI_PROTOCOL_ADC_LOW_POWER_CONV_DISABLE,
+		.high_speed_conv = MCI_PROTOCOL_ADC_HIGH_SPEED_CONV_DISABLE,
+		.sample_period = MCI_PROTOCOL_ADC_SAMPLE_PERIOD_ADJ_4,
+		.hw_average = true,
+		.sample_count = MCI_ADC_HW_AVERAGE_SAMPLES_32,
+		.trigger_mode = MCI_PROTOCOL_ADC_TRIGGER_MODE_SW,
+		.trigger_type = MCI_PROTOCOL_ADC_TRIGGER_SOFTWARE,
+		.trigger_interval = 0,
+		.hw_compare.value1 = 0,
+		.hw_compare.value2 = 0,
+		.hw_compare.mode = MCI_PROTOCOL_ADC_COMPARE_MODE_DISABLED,
+	},
 };
+/************
+*
+* Name:     swimcu_get_adc_from_chan
+*
+* Purpose:  get swimcu adc index from mci protocol adc channel
+*
+* Parms:    chan - adc channel
+*
+* Return:   adc index corresponding to channel
+*
+* Abort:    none
+*
+************/
+int swimcu_get_adc_from_chan(int channel)
+{
+	enum swimcu_adc_index adc;
+
+	for (adc = SWIMCU_ADC_FIRST; adc < SWIMCU_NUM_ADC; adc++) {
+		if (channel == adc_chan_cfg[adc]) {
+			break;
+		}
+	}
+	return adc;
+}
 
 /************
 *
@@ -85,15 +119,105 @@ void swimcu_set_fault_mask(int fault)
 	}
 }
 
+/************
+ *
+ * Name:     swimcu_adc_set_trigger_mode
+ *
+ * Purpose:  set the trigger mode for a given ADC channel
+ *
+ * Parms:    adc       - 0 or 1
+ *           trigger   - 0 for software trigger, 1 for hardware timer trigger
+ *           interval  - time in ms between adc readings, only used when trigger is hardware
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+int swimcu_adc_set_trigger_mode (enum swimcu_adc_index adc,
+				int trigger, int interval)
+{
+	int ret = -EINVAL;
+
+	if (interval < SWIMCU_ADC_INTERVAL_MAX) {
+		adc_config[adc].trigger_mode = trigger;
+
+		if (MCI_PROTOCOL_ADC_TRIGGER_MODE_HW == trigger) {
+			adc_config[adc].trigger_type =
+				MCI_PROTOCOL_ADC_TRIGGER_LPTMR0;
+			adc_config[adc].trigger_interval = interval;
+		}
+		else {
+			adc_config[adc].trigger_type =
+				MCI_PROTOCOL_ADC_TRIGGER_SOFTWARE;
+		}
+		ret = 0;
+	}
+	return ret;
+}
 
 /************
  *
- * Name:     adc_init
+ * Name:     swimcu_adc_set_compare_mode
  *
- * Purpose:  initialize default MCU adc parameters
+ * Purpose:  setup the ADC hardware comparator
+ *
+ * Parms:    adc           - 0 or 1
+ *           mode          - compare function mode
+ *           compare_val1  - 1st trigger value in mV
+ *           compare_val2  - 2nd trigger value, only used for WITHIN and BEYOND compare modes
+ *
+ * Return:   0 if successful
+ *           -ERRNO otherwise
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+int swimcu_adc_set_compare_mode (enum swimcu_adc_index adc,
+				enum swimcu_adc_compare_mode mode,
+				unsigned compare_val1, unsigned compare_val2)
+{
+	int cv1;
+	int cv2;
+
+	if (compare_val1 > SWIMCU_ADC_VREF ||
+		compare_val2 > SWIMCU_ADC_VREF) {
+		return -EINVAL;
+	}
+
+	compare_val1 = (compare_val1 * MCI_ADC_SCALE) / SWIMCU_ADC_VREF;
+	compare_val2 = (compare_val2 * MCI_ADC_SCALE) / SWIMCU_ADC_VREF;
+
+	if (SWIMCU_ADC_COMPARE_WITHIN == mode ||
+		SWIMCU_ADC_COMPARE_BEYOND == mode) {
+		/* ADC CV1 register must always be the
+		* greatest value for range comparison */
+		cv1 = (compare_val1 > compare_val2) ? compare_val1 : compare_val2;
+		cv2 = (cv1 == compare_val1) ? compare_val2 : compare_val1;
+
+		adc_config[adc].hw_compare.value1 = cv1;
+		adc_config[adc].hw_compare.value2 = cv2;
+	} else {
+		/* CV2 is ignored for non-range compare functions */
+		adc_config[adc].hw_compare.value1 = compare_val1;
+	}
+
+	adc_config[adc].hw_compare.mode = mode;
+	return 0;
+}
+
+/************
+ *
+ * Name:     swimcu_adc_init_and_start
+ *
+ * Purpose:  Initialize MCU adc
  *
  * Parms:    swimcu - driver data block
- *           channel - 0 or 1
+ *           adc - a valid adc channel index
  *
  * Return:    0 if successful
  *           -ERRNO otherwise
@@ -103,24 +227,24 @@ void swimcu_set_fault_mask(int fault)
  * Notes:    called on startup or if adc read fails
  *
  ************/
-static int adc_init( struct swimcu *swimcu, int channel )
+int swimcu_adc_init_and_start(struct swimcu *swimcu, enum swimcu_adc_index adc)
 {
 	int rcode = 0;
 	int adc_mask;
 
-	if (channel < ARRAY_SIZE(adc_chan_cfg)) {
-		adc_mask = (1 << channel);
-		adc_config.channel = adc_chan_cfg[channel];
-		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == swimcu_adc_init(swimcu, &adc_config)) {
+	if (adc < ARRAY_SIZE(adc_chan_cfg)) {
+		adc_mask = (1 << adc);
+		/* Init command automatically starts the ADC */
+		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS ==
+			swimcu_adc_init(swimcu, &adc_config[adc])) {
 			swimcu->adc_init_mask |= adc_mask;
 		}
 		else {
 			swimcu->adc_init_mask &= ~adc_mask;
+			pr_err("%s: fail chan %d\n", __func__, adc);
 			rcode = -EIO;
-			pr_err("swimcu %s: fail chan %d\n", __func__, channel);
 		}
 	}
-
 	return rcode;
 }
 
@@ -189,7 +313,7 @@ int swimcu_read_adc( struct swimcu *swimcu, int channel )
 
 	mutex_lock(&swimcu->adc_mutex);
 	if (0 == (swimcu->adc_init_mask & adc_mask)) {
-		if (adc_init(swimcu, channel)) {
+		if (swimcu_adc_init_and_start(swimcu, channel)) {
 			pr_err("%s: fail to init chan %d\n", __func__, channel);
 			rcode = -EIO;
 			goto read_adc_exit;
@@ -205,7 +329,7 @@ int swimcu_read_adc( struct swimcu *swimcu, int channel )
 
 	if (ret != MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
 		pr_warn("%s restart failed on chan %d, try init\n", __func__, adc_chan);
-		if (adc_init(swimcu, channel)) {
+		if (swimcu_adc_init_and_start(swimcu, channel)) {
 			pr_err("%s: fail to init chan %d\n", __func__, channel);
 			rcode = -EIO;
 			goto read_adc_exit;
@@ -215,7 +339,7 @@ int swimcu_read_adc( struct swimcu *swimcu, int channel )
 	/* convert ADC value to mV */
 	if (swimcu_adc_get(swimcu, adc_chan, &adc_val) == MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
 		rcode = (int)((adc_val * SWIMCU_ADC_VREF) >>
-			      (adc_config.resolution_mode == MCI_PROTOCOL_ADC_RESOLUTION_8_BITS ? 8 : 12));
+				(adc_config[channel].resolution_mode == MCI_PROTOCOL_ADC_RESOLUTION_8_BITS ? 8 : 12));
 	}
 	else {
 		rcode = -EIO;
@@ -274,8 +398,6 @@ static int swimcu_process_events(struct swimcu *swimcu)
 				swimcu_log(EVENT, "%s: GPIO callback for port %d pin %d value %d\n", __func__,
 					events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
 				swimcu_gpio_callback(swimcu, events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin, events[i].data.gpio_irq.level);
-				swimcu_set_wakeup_source(MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS,
-					GET_WUSRC_VALUE(events[i].data.gpio_irq.port, events[i].data.gpio_irq.pin));
 			}
 			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_ADC) {
 				swimcu_log(EVENT, "%s: ADC completed callback for channel %d: value=%d\n", __func__,
@@ -314,7 +436,6 @@ static int swimcu_process_events(struct swimcu *swimcu)
 	return 0;
 }
 
-
 /************
  *
  * Name:     swimcu_event_trigger
@@ -333,9 +454,10 @@ static int swimcu_process_events(struct swimcu *swimcu)
  *
  ************/
 static int swimcu_event_trigger (struct notifier_block *self,
-                                unsigned long event, void *unused)
+				unsigned long event, void *unused)
 {
 	struct swimcu *swimcu = container_of(self, struct swimcu, nb);
+
 	return swimcu_process_events(swimcu);
 }
 
@@ -494,7 +616,6 @@ int swimcu_device_init(struct swimcu *swimcu)
 		/* first communication with MCU since statup */
 		swimcu_gpio_retrieve(swimcu); /* get gpio config from MCU */
 	}
-
 	swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_PING;
 
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_FW)) {
@@ -550,5 +671,5 @@ exit:
 }
 EXPORT_SYMBOL_GPL(swimcu_device_init);
 
-MODULE_DESCRIPTION("Sierra Wireless WPx5 MCU core driver");
+MODULE_DESCRIPTION("Sierra Wireless MCU core driver");
 MODULE_LICENSE("GPL");

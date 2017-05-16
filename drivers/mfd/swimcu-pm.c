@@ -1,5 +1,5 @@
 /*
- * swimcu-pm.c  --  Device access for Sierra Wireless WP76xx MCU power management.
+ * swimcu-pm.c  --  Device access for Sierra Wireless MCU power management.
  *
  * Copyright (c) 2016 Sierra Wireless, Inc.
  *
@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#include <linux/sysfs.h>
 
 #include <linux/gpio.h>
 
@@ -24,12 +25,52 @@
 #include <linux/mfd/swimcu/mcidefs.h>
 #include <mach/swimcu.h>
 
-
 /* generate extra debug logs */
 #ifdef SWIMCU_DEBUG
 module_param_named(
 	debug_mask, swimcu_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 #endif
+
+#define ADC_ATTR_SHOW(name)                                       	\
+	static ssize_t pm_adc_##name##_attr_show(struct kobject *kobj,  \
+		struct kobj_attribute *attr, char *buf)                 \
+	{                                                               \
+		unsigned int value = 0;                                 \
+		enum swimcu_adc_index adc;                              \
+		enum wusrc_index wi = find_wusrc_index_from_kobj(kobj); \
+	                                                                \
+		if (WUSRC_INVALID != wi) {                              \
+			adc = wusrc_param[wi].id;                       \
+			value = adc_trigger_config[adc].name;           \
+		}                                                       \
+		return scnprintf(buf, PAGE_SIZE, "%d\n", value);        \
+	}
+
+#define ADC_ATTR_STORE(name)                                      	\
+	static ssize_t pm_adc_##name##_attr_store(struct kobject *kobj, \
+		struct kobj_attribute *attr, char *buf, size_t count)   \
+	{                                                               \
+		unsigned int value = 0;                                 \
+		enum swimcu_adc_index adc;                              \
+		enum wusrc_index wi = find_wusrc_index_from_kobj(kobj); \
+		int ret;						\
+	                                                                \
+		if (WUSRC_INVALID == wi) {                              \
+			return -EINVAL; 			        \
+		}                                                       \
+		adc = wusrc_param[wi].id;				\
+		ret = kstrtouint(buf, 0, &value);                       \
+		if (!ret) {                                             \
+			if (value <= SWIMCU_ADC_VREF) {			\
+				adc_trigger_config[adc].name = value;   \
+				ret = count;				\
+			}						\
+			else {						\
+				ret = -ERANGE;				\
+			}						\
+		}							\
+		return ret;						\
+	};
 
 /* modem power state in low power mode, default off */
 static int swimcu_pm_mdm_pwr = MCI_PROTOCOL_MDM_STATE_OFF;
@@ -81,10 +122,11 @@ static int pm_enable = SWIMCU_PM_OFF;
 enum wusrc_index {
 	WUSRC_INVALID = -1,
 	WUSRC_MIN = 0,
-	WUSRC_GPIO_U3 = WUSRC_MIN,
-	WUSRC_GPIO_U5 = 1,
+	WUSRC_GPIO36 = WUSRC_MIN,
+	WUSRC_GPIO38 = 1,
 	WUSRC_TIMER = 2,
-	WUSRC_MAX = WUSRC_TIMER,
+	WUSRC_ADC2 = 3,
+	WUSRC_MAX = WUSRC_ADC2,
 };
 
 static const struct wusrc_param {
@@ -92,19 +134,31 @@ static const struct wusrc_param {
 	int id;
 	uint32_t mask;
 } wusrc_param[] = {
-	[WUSRC_GPIO_U3] = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS, SWIMCU_GPIO_PTA0, MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTA0},
-	[WUSRC_GPIO_U5] = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS, SWIMCU_GPIO_PTB0, MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTB0},
+	[WUSRC_GPIO36] = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS, SWIMCU_GPIO_PTA0, MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTA0},
+	[WUSRC_GPIO38] = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS, SWIMCU_GPIO_PTB0, MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTB0},
 	[WUSRC_TIMER]  = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_TIMER, 0, 0},
+	[WUSRC_ADC2]   = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC, SWIMCU_ADC_PTA12, MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_PTA12},
 };
 
 static struct wusrc_value {
 	struct kobject *kobj;
 	int triggered;
 } wusrc_value[] = {
-	[WUSRC_GPIO_U3] = {NULL, 0},
-	[WUSRC_GPIO_U5] = {NULL, 0},
+	[WUSRC_GPIO36] = {NULL, 0},
+	[WUSRC_GPIO38] = {NULL, 0},
 	[WUSRC_TIMER]  = {NULL, 0},
+	[WUSRC_ADC2]   = {NULL, 0},
 };
+
+static struct adc_trigger_config {
+	unsigned int above;
+	unsigned int below;
+	bool select;
+} adc_trigger_config[] = {
+	[SWIMCU_ADC_PTA12] = {0, 1800, false},
+};
+
+static uint32_t adc_interval = 0;
 
 /************
 *
@@ -115,7 +169,7 @@ static struct wusrc_value {
 * Parms:    kobj - kobject ptr of the sysfs node
 *
 * Return:   a valid index if found
-*	    -1 if not found
+*           -1 if not found
 *
 * Abort:    none
 *
@@ -145,10 +199,10 @@ static enum wusrc_index find_wusrc_index_from_kobj(struct kobject *kobj)
 * Purpose:  Match the wusrc index from the provided type/id
 *
 * Parms:    type - gpio or timer
-*	    id - if gpio, the gpio number (0 - 7)
+*           id - if gpio, the gpio number (0 - 7)
 *
 * Return:   a valid index if found
-*	    -1 if not found
+*           -1 if not found
 *
 * Abort:    none
 *
@@ -178,10 +232,10 @@ static enum wusrc_index find_wusrc_index_from_id(enum mci_protocol_wakeup_source
 * Purpose:  Configure MCU with triggers and enter ultra low power mode
 *
 * Parms:    swimcu - device driver data
-*	    pm - 0 (do nothing) or 1 (initiate power down)
+*           pm - 0 (do nothing) or 1 (initiate power down)
 *
 * Return:   0 if successful
-*	    -ERRNO otherwise
+*           -ERRNO otherwise
 *
 * Abort:    none
 *
@@ -197,6 +251,9 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	uint32_t wu_pin_bits = 0;
 	struct mci_pm_profile_config_s pm_config;
 	u16 wu_source = 0;
+	enum swimcu_adc_index adc_wu_src = SWIMCU_ADC_INVALID;
+	enum swimcu_adc_compare_mode adc_compare_mode;
+	int adc_bitmask;
 
 	if (pm == SWIMCU_PM_OFF) {
 		swimcu_log(PM, "%s: disable\n", __func__);
@@ -204,7 +261,7 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	}
 
 	if (pm == SWIMCU_PM_BOOT_SOURCE) {
-		/* setup GPIO wakeup sources */
+		/* setup GPIO and ADC wakeup sources */
 		for( wi = 0; wi < ARRAY_SIZE(wusrc_param); wi++ ) {
 			if( wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS ) {
 				gpio = wusrc_param[wi].id;
@@ -225,8 +282,13 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 					wu_pin_bits |= wusrc_param[wi].mask;
 					gpio_cnt++;
 				}
+			} else if (MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC == wusrc_param[wi].type &&
+				   adc_trigger_config[wusrc_param[wi].id].select) {
+					adc_wu_src = wusrc_param[wi].id;
+					adc_bitmask = wusrc_param[wi].mask;
 			}
 		}
+
 		if (gpio_cnt > 0) {
 			wu_config.source_type = MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS;
 			wu_config.args.pins = wu_pin_bits;
@@ -237,7 +299,7 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 				ret = -EIO;
 				goto wu_fail;
 			}
-			wu_source |= (u16)MCI_WAKEUP_SOURCE_TYPE_EXT_PINS;
+			wu_source |= (u16)MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS;
 			swimcu_log(PM, "%s: wu on pins 0x%x\n", __func__, wu_pin_bits);
 		}
 
@@ -251,9 +313,43 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 				ret = -EIO;
 				goto wu_fail;
 			}
-			wu_source |= (u16)MCI_WAKEUP_SOURCE_TYPE_TIMER_1;
+			wu_source |= (u16)MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_TIMER;
 			swimcu_log(PM, "%s: wu on timer %u\n", __func__, wakeup_time);
 		}
+		if (SWIMCU_ADC_INVALID != adc_wu_src) {
+			wu_config.source_type = MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC;
+			wu_config.args.channel = adc_bitmask;
+
+			swimcu_adc_set_trigger_mode(adc_wu_src,
+						   MCI_PROTOCOL_ADC_TRIGGER_MODE_HW,
+					           adc_interval);
+			/*
+			* if above > below, then trigger when value falls in the range (0, below) or (above, 1800)
+			* if above <= below, trigger when value falls in the range (above, below)
+			*/
+			if (adc_trigger_config[adc_wu_src].above >
+				adc_trigger_config[adc_wu_src].below) {
+				adc_compare_mode = MCI_PROTOCOL_ADC_COMPARE_MODE_BEYOND;
+			} else {
+				adc_compare_mode = MCI_PROTOCOL_ADC_COMPARE_MODE_WITHIN;
+			}
+			swimcu_adc_set_compare_mode(adc_wu_src,
+						    adc_compare_mode,
+						    adc_trigger_config[adc_wu_src].above,
+						    adc_trigger_config[adc_wu_src].below);
+			swimcu_adc_init_and_start(swimcu, adc_wu_src);
+
+			if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+				(rc = swimcu_wakeup_source_config(swimcu, &wu_config,
+					MCI_PROTOCOL_WAKEUP_SOURCE_OPTYPE_SET))) {
+				pr_err("%s: adc wu fail %d\n", __func__, rc);
+				ret = -EIO;
+				goto wu_fail;
+			}
+			wu_source |= (u16)MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC;
+			swimcu_log(PM, "%s: wu on adc %d\n", __func__, adc_wu_src);
+		}
+
 	}
 
 	if ((wu_source != 0) || (pm == SWIMCU_PM_POWER_SWITCH)) {
@@ -285,7 +381,8 @@ wu_fail:
 	for( wi = 0; wi < ARRAY_SIZE(wusrc_param); wi++ ) {
 		if( wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS ) {
 			gpio = wusrc_param[wi].id;
-			if (swimcu_gpio_get_trigger(gpio) !=  MCI_PIN_IRQ_DISABLED) { /* configured for wakeup */
+			if (swimcu_gpio_get_trigger(gpio) !=  MCI_PIN_IRQ_DISABLED) {
+				/* configured for wakeup */
 				ext_gpio = SWIMCU_GPIO_TO_SYS(gpio);
 				gpio_free(ext_gpio);
 				swimcu_log(PM, "%s: free %d\n", __func__, gpio);
@@ -296,9 +393,9 @@ wu_fail:
 	return ret;
 }
 
-/* sysfs entries to set boot_source GPIO triggers for inputs PTA0 (WP76xx gpioU3) and PTB0 (WP76xx gpioU5)*/
+/* sysfs entries to set boot_source GPIO triggers for inputs PTA0 (gpio36) and PTB0 (gpio38) */
 static ssize_t pm_gpio_attr_show(
-        struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	enum wusrc_index wi;
 	enum mci_pin_irqc_type_e irqc_type;
@@ -335,7 +432,7 @@ static ssize_t pm_gpio_attr_show(
 };
 
 static ssize_t pm_gpio_attr_store(struct kobject *kobj,
-        struct kobj_attribute *attr, const char *buf, size_t count)
+	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	enum wusrc_index wi;
 	int ti;
@@ -343,7 +440,7 @@ static ssize_t pm_gpio_attr_store(struct kobject *kobj,
 
 	wi = find_wusrc_index_from_kobj(kobj);
 	if ((wi != WUSRC_INVALID) &&
-	    (wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS)) {
+		(wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS)) {
 		gpio = wusrc_param[wi].id;
 	}
 	else {
@@ -373,7 +470,7 @@ static ssize_t pm_gpio_attr_store(struct kobject *kobj,
 };
 
 static ssize_t pm_timer_timeout_attr_show(
-        struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "%u\n", wakeup_time);
 }
@@ -398,8 +495,8 @@ static ssize_t pm_timer_timeout_attr_store(struct kobject *kobj,
 	return ret;
 };
 
-static ssize_t pm_enable_attr_store(struct kobject *kobj,
-        struct kobj_attribute *attr, const char *buf, size_t count)
+static ssize_t enable_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret;
 	int tmp_enable;
@@ -410,11 +507,11 @@ static ssize_t pm_enable_attr_store(struct kobject *kobj,
 			ret = -ERANGE;
 		}
 		else if ((pm_enable > SWIMCU_PM_OFF) ||
-						/* ULPM already initiated */
-						(0 == (ret = pm_set_mcu_ulpm_enable(swimcu, tmp_enable)))) {
-						/* send ULPM command */
-						pm_enable = tmp_enable;
-						ret = count;
+			/* ULPM already initiated */
+			(0 == (ret = pm_set_mcu_ulpm_enable(swimcu, tmp_enable)))) {
+			/* send ULPM command */
+			pm_enable = tmp_enable;
+			ret = count;
 		}
 	}
 	if (ret < 0)
@@ -422,8 +519,8 @@ static ssize_t pm_enable_attr_store(struct kobject *kobj,
 	return ret;
 };
 
-static ssize_t fw_update_attr_store(struct kobject *kobj,
-																		struct kobj_attribute *attr, const char *buf, size_t count)
+static ssize_t update_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int ret;
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_firmware_kobj);
@@ -439,8 +536,8 @@ static ssize_t fw_update_attr_store(struct kobject *kobj,
 	return ret;
 };
 
-static ssize_t fw_version_attr_show(
-        struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+static ssize_t version_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_firmware_kobj);
 
@@ -448,8 +545,8 @@ static ssize_t fw_version_attr_show(
 	return scnprintf(buf, PAGE_SIZE, "%03d.%03d\n", swimcu->version_major, swimcu->version_minor);
 }
 
-static ssize_t pm_triggered_attr_show(
-        struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+static ssize_t triggered_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	int triggered = 0;
 	enum wusrc_index wi = find_wusrc_index_from_kobj(kobj);
@@ -462,14 +559,80 @@ static ssize_t pm_triggered_attr_show(
 	return scnprintf(buf, PAGE_SIZE, "%d\n", triggered);
 }
 
+ADC_ATTR_SHOW(above)
+ADC_ATTR_SHOW(below)
+ADC_ATTR_SHOW(select)
+
+ADC_ATTR_STORE(above)
+ADC_ATTR_STORE(below)
+
+static ssize_t pm_adc_select_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int select = 0;
+	enum swimcu_adc_index adc;
+	enum wusrc_index wi = find_wusrc_index_from_kobj(kobj);
+	int ret = -EINVAL;
+	int i;
+
+	if (WUSRC_INVALID == wi) {
+		return ret;
+	}
+
+	adc = wusrc_param[wi].id;
+	if (0 == (ret = kstrtouint(buf, 0, &select))) {
+		if (select > 1) {
+			ret = -EINVAL;
+		}
+	}
+
+	for (i = 0; i < SWIMCU_NUM_ADC; i++) {
+		if (select && adc_trigger_config[i].select && (i != adc)) {
+			pr_err("%s: cannot select more than 1 adc as boot_source", __func__);
+			ret = -EPERM;
+		}
+	}
+
+	if (!ret) {
+		adc_trigger_config[adc].select = select;
+		ret = count;
+	}
+	return ret;
+};
+
+static ssize_t pm_adc_interval_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%u\n", adc_interval);
+}
+
+static ssize_t pm_adc_interval_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	unsigned int interval;
+
+	if (0 == (ret = kstrtouint(buf, 0, &interval))) {
+		if (interval <= MAX_WAKEUP_TIME) {
+			adc_interval = interval;
+			return count;
+		}
+		else {
+			ret = -ERANGE;
+		}
+	}
+	pr_err("%s: invalid input %s ret %d\n", __func__, buf, ret);
+	return ret;
+};
+
 /************
 *
 * Name:     swimcu_set_wakeup_source
 *
 * Purpose:  Store the wakeup source to be read from triggered node
 *
-* Parms:    type - timer or gpio
-*	    value - port/pin if gpio type
+* Parms:    type - type of the wakeup source
+*           value - information of the wakeup source (type-dependent)
 *
 * Return:   Nothing
 *
@@ -478,27 +641,29 @@ static ssize_t pm_triggered_attr_show(
 ************/
 void swimcu_set_wakeup_source(enum mci_protocol_wakeup_source_type_e type, u16 value)
 {
-	enum wusrc_index wi;
-	int port, pin;
-	enum swimcu_gpio_index gpio;
+	enum wusrc_index wi = WUSRC_INVALID;
 
 	swimcu_log(PM, "%s: type %d val 0x%x\n", __func__, type, value);
 
 	if (type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_TIMER) {
-		wusrc_value[WUSRC_TIMER].triggered = 1;
+		wi = WUSRC_TIMER;
+	}
+	else if (type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC) {
+		enum swimcu_adc_index adc = swimcu_get_adc_from_chan(value);
+		wi = find_wusrc_index_from_id(type, adc);
+	}
+	else if (type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS){
+		int port = GET_WUSRC_PORT(value);
+		int pin = GET_WUSRC_PIN(value);
+		enum swimcu_gpio_index gpio = swimcu_get_gpio_from_port_pin(port, pin);
+		wi = find_wusrc_index_from_id(type, gpio);
+	}
+	if (wi != WUSRC_INVALID) {
+		swimcu_log(PM, "%s: %d\n", __func__, wi);
+		wusrc_value[wi].triggered = 1;
 	}
 	else {
-		port = GET_WUSRC_PORT(value);
-		pin = GET_WUSRC_PIN(value);
-		gpio = swimcu_get_gpio_from_port_pin(port, pin);
-		wi = find_wusrc_index_from_id(type, gpio);
-		if (wi != WUSRC_INVALID) {
-			swimcu_log(PM, "%s: %d\n", __func__, wi);
-			wusrc_value[wi].triggered = 1;
-		}
-		else {
-			pr_err("%s: unknown wakeup pin 0x%x\n", __func__, value);
-		}
+		pr_err("%s: unknown wakeup pin 0x%x\n", __func__, value);
 	}
 }
 
@@ -521,55 +686,56 @@ void swimcu_set_reset_source(enum mci_protocol_reset_source_e value)
 	swimcu_reset_source = value;
 }
 
-/* MCU has 2 interruptible GPIOs, PTA0 and PTB0, that map to index 2 and 4 respectively on gpiochip100,
- * which in turn appear as GPIO36 and 38 on the WP76xx */
-static const struct kobj_attribute pm_gpio_edge_attr = {
-	.attr = {
-		.name = "edge",
-		.mode = S_IRUGO | S_IWUSR | S_IWGRP },
-	.show = &pm_gpio_attr_show,
-	.store = &pm_gpio_attr_store,
+/* MCU has 2 interruptible GPIOs, PTA0 and PTB0 that map to index 2 and 4
+ * respectively on gpiochip200, which in turn appear as GPIO36 and 38 on the WP76xx */
+static const struct kobj_attribute pm_gpio_edge_attr[] = {
+	__ATTR(edge,
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		&pm_gpio_attr_show,
+		&pm_gpio_attr_store),
 };
 
-static const struct kobj_attribute pm_triggered_attr = {
-	.attr = {
-		.name = "triggered",
-		.mode = S_IRUGO },
-	.show = &pm_triggered_attr_show,
-};
+static const struct kobj_attribute pm_triggered_attr = __ATTR_RO(triggered);
 
 /* sysfs entries to set boot_source timer timeout value */
-static const struct kobj_attribute pm_timer_timeout_attr = {
-	.attr = {
-		.name = "timeout",
-		.mode = S_IRUGO | S_IWUSR | S_IWGRP },
-	.show = &pm_timer_timeout_attr_show,
-	.store = &pm_timer_timeout_attr_store,
+static const struct kobj_attribute pm_timer_timeout_attr[] = {
+	__ATTR(timeout,
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		&pm_timer_timeout_attr_show,
+		&pm_timer_timeout_attr_store),
 };
 
 /* sysfs entries to set boot_source enable */
-static const struct kobj_attribute pm_enable_attr = {
-	.attr = {
-		.name = "enable",
-		.mode = S_IRUGO | S_IWUSR | S_IWGRP },
-	.store = &pm_enable_attr_store,
-};
+static const struct kobj_attribute pm_enable_attr = __ATTR_WO(enable);
 
 /* sysfs entries to initiate firmware upgrade */
-static const struct kobj_attribute fw_update_attr = {
-	.attr = {
-		.name = "update",
-		.mode = S_IRUGO | S_IWUSR | S_IWGRP },
-	.store = &fw_update_attr_store,
-};
+static const struct kobj_attribute fw_update_attr = __ATTR_WO(update);
 
 /* sysfs entry to read current mcu firmware version */
-static const struct kobj_attribute fw_version_attr = {
-	.attr = {
-		.name = "version",
-		.mode = S_IRUGO },
-	.show = &fw_version_attr_show,
+static const struct kobj_attribute fw_version_attr = __ATTR_RO(version);
+
+static const struct kobj_attribute pm_adc_trig_attr[] = {
+	__ATTR(below,
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		&pm_adc_below_attr_show,
+		&pm_adc_below_attr_store),
+
+	__ATTR(above,
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		&pm_adc_above_attr_show,
+		&pm_adc_above_attr_store),
+
+	__ATTR(select,
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		&pm_adc_select_attr_show,
+		&pm_adc_select_attr_store),
 };
+
+static const struct kobj_attribute pm_adc_interval_attr = \
+	__ATTR(interval,
+		S_IRUGO | S_IWUSR | S_IWGRP,
+		&pm_adc_interval_attr_show,
+		&pm_adc_interval_attr_store);
 
 /************
 *
@@ -577,7 +743,7 @@ static const struct kobj_attribute fw_version_attr = {
 *
 * Purpose:  Remove sysfs tree under /sys/module/swimcu_pm
 *
-* Parms:    swimcu     - device data ptr
+* Parms:    swimcu - device data ptr
 *
 * Return:   nothing
 *
@@ -598,16 +764,14 @@ void swimcu_pm_sysfs_deinit(struct swimcu *swimcu)
 *
 * Purpose:  Setup sysfs tree under /sys/module/swimcu_pm
 *
-* Parms:    swimcu     - device data ptr
-*		       - contains kobj data so attr functions
-*			 can retrieve this structure to access
-*			 the driver (e.g. i2c)
+* Parms:    swimcu - device data ptr contains kobj data so attr functions
+*                    can retrieve this structure to access the driver (e.g. i2c)
 *           func_flags - select which attributes to init
-*			 SWIMCU_FUNC_FLAG_FWUPD - firmware
-*			 SWIMCU_FUNC_FLAG_PM - boot_source
+*                        SWIMCU_FUNC_FLAG_FWUPD - firmware
+*                        SWIMCU_FUNC_FLAG_PM - boot_source
 *
 * Return:   0 if successful
-			-ERRNO otherwise
+*           -ERRNO otherwise
 *
 * Abort:    none
 *
@@ -615,17 +779,21 @@ void swimcu_pm_sysfs_deinit(struct swimcu *swimcu)
 int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 {
 	struct kobject *module_kobj;
-	static struct boot_sources_s {
+	struct boot_sources_s {
 		struct kobject **kobj;
+		struct kobject *kobj_parent;
 		const struct kobj_attribute *custom_attr;
 		char *name;
+		unsigned int num_cust_kobjs;
 	} boot_source[] = {
-		{&wusrc_value[WUSRC_GPIO_U3].kobj, &pm_gpio_edge_attr, "gpioU3"},
-		{&wusrc_value[WUSRC_GPIO_U5].kobj, &pm_gpio_edge_attr, "gpioU5"},
-		{&wusrc_value[WUSRC_TIMER].kobj, &pm_timer_timeout_attr, "timer"},
+		{&wusrc_value[WUSRC_GPIO36].kobj, &swimcu->pm_boot_source_kobj, pm_gpio_edge_attr, "gpio36", ARRAY_SIZE(pm_gpio_edge_attr)},
+		{&wusrc_value[WUSRC_GPIO38].kobj, &swimcu->pm_boot_source_kobj, pm_gpio_edge_attr, "gpio38", ARRAY_SIZE(pm_gpio_edge_attr)},
+		{&wusrc_value[WUSRC_TIMER].kobj, &swimcu->pm_boot_source_kobj, pm_timer_timeout_attr, "timer", ARRAY_SIZE(pm_timer_timeout_attr)},
+		{&wusrc_value[WUSRC_ADC2].kobj, &swimcu->pm_boot_source_adc_kobj, pm_adc_trig_attr, "adc2", ARRAY_SIZE(pm_adc_trig_attr)},
 	};
 
 	int i;
+	int j;
 	int ret;
 
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
@@ -671,19 +839,24 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 			ret = -ENOMEM;
 			goto sysfs_add_exit;
 		}
-
+		ret = kobject_init_and_add(&swimcu->pm_boot_source_adc_kobj, &ktype, &swimcu->pm_boot_source_kobj, "adc");
+		if (ret) {
+			pr_err("%s: cannot create adc kobject for boot_source\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+		ret = sysfs_create_file(&swimcu->pm_boot_source_adc_kobj, &pm_adc_interval_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create interval file for adc\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
 		/* populate boot_source sysfs tree */
 		for (i = 0; i < ARRAY_SIZE(boot_source); i++) {
 			swimcu_log(PM, "%s: create kobj %d for %s", __func__, i, boot_source[i].name);
-			*boot_source[i].kobj = kobject_create_and_add(boot_source[i].name, &swimcu->pm_boot_source_kobj);
+			*boot_source[i].kobj = kobject_create_and_add(boot_source[i].name, boot_source[i].kobj_parent);
 			if (!*boot_source[i].kobj) {
 				pr_err("%s: cannot create boot_source kobject for %s\n", __func__, boot_source[i].name);
-				ret = -ENOMEM;
-				goto sysfs_add_exit;
-			}
-			ret = sysfs_create_file(*boot_source[i].kobj, &boot_source[i].custom_attr->attr);
-			if (ret) {
-				pr_err("%s: cannot create custom file for %s\n", __func__, boot_source[i].name);
 				ret = -ENOMEM;
 				goto sysfs_add_exit;
 			}
@@ -692,6 +865,14 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 				pr_err("%s: cannot create triggered file for %s\n", __func__, boot_source[i].name);
 				ret = -ENOMEM;
 				goto sysfs_add_exit;
+			}
+			for (j = 0; j < boot_source[i].num_cust_kobjs; j++) {
+				ret = sysfs_create_file(*boot_source[i].kobj, &boot_source[i].custom_attr[j].attr);
+				if (ret) {
+					pr_err("%s: cannot create custom file for %s\n", __func__, boot_source[i].name);
+					ret = -ENOMEM;
+					goto sysfs_add_exit;
+				}
 			}
 		}
 

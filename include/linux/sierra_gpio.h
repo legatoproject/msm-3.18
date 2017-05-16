@@ -23,5 +23,4 @@ struct ext_gpio_map{
 #define NR_EXT_GPIOS_AR ARRAY_SIZE(ext_gpio_ar)
 #define NR_EXT_GPIOS_MFT ARRAY_SIZE(ext_gpio_mft)
 #define NR_EXT_GPIOS_WP ARRAY_SIZE(ext_gpio_wp)
-
 #endif /* __LINUX_SIERRA_GPIO_H */

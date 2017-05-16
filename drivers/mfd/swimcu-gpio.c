@@ -1,5 +1,5 @@
 /*
- * swimcu-gpio.c  --  Device access for Sierra Wireless WP76xx MCU.
+ * swimcu-gpio.c  --  Device access for Sierra Wireless MCU.
  *
  * adapted from:
  * wm8350-core.c  --  Device access for Wolfson WM8350
@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/errno.h>
-#include<linux/string.h>
+#include <linux/string.h>
 
 #include <linux/mfd/swimcu/core.h>
 #include <linux/mfd/swimcu/gpio.h>
@@ -40,10 +40,7 @@ static struct {
 		struct gpio_in_cfg in;
 		struct gpio_out_cfg out;
 	} parm;
-} gpio_cfg[] = {
-	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
-	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
-	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
+} gpio_cfg[SWIMCU_NUM_GPIO] = {
 	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
 	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
 	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
@@ -51,22 +48,63 @@ static struct {
 	{ MCI_MCU_PIN_FUNCTION_DISABLED, MCI_PIN_IRQ_DISABLED },
 };
 
-/* WP76xx GPIOs provided by MCU occur in the range 34 - 41
- * external gpio number is the offset from GPIO34 */
 static const struct {
 	int port;
 	int pin;
 	bool irqc_support;
-} gpio_map[] = {
-	{ 0, 4, false }, /* GPIO U1 = PTA4 */
-	{ 0, 3, false }, /* GPIO U2 = PTA3 */
-	{ 0, 0, true  }, /* GPIO U3 = PTA0 */
-	{ 0, 2, false }, /* GPIO U4 = PTA2 */
-	{ 1, 0, true  }, /* GPIO U5 = PTB0 */
-	{ 0, 7, true  }, /* GPIO U6 = PTA7 */
-	{ 0, 6, false }, /* GPIO U7 = PTA6 */
-	{ 0, 5, false }  /* GPIO U8 = PTA5 */
+	enum swimcu_gpio_irq_index irq;
+} gpio_map[SWIMCU_NUM_GPIO] = {
+	{ 0, 0, true,  SWIMCU_GPIO_PTA0_IRQ },/* GPIO 36 = PTA0 */
+	{ 0, 2, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 37 = PTA2 */
+	{ 1, 0, true,  SWIMCU_GPIO_PTB0_IRQ },/* GPIO 38 = PTB0 */
+	{ 0, 6, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 40 = PTA6 */
+	{ 0, 5, false, SWIMCU_GPIO_NO_IRQ },  /* GPIO 41 = PTA5 */
 };
+
+/************
+ *
+ * Name:     swimcu_get_gpio_from_irq
+ *
+ * Purpose:  return index into gpio_map given irq number
+ *
+ * Parms:    irq - the valid irq number
+ *
+ * Return:   gpio - a valid gpio index on success
+ *           SWIMCU_GPIO_INVALID (SWIMCU_NUM_GPIO) on failure
+ *
+ * Abort:    none
+ *
+ ************/
+enum swimcu_gpio_index swimcu_get_gpio_from_irq(enum swimcu_gpio_irq_index irq)
+{
+	enum swimcu_gpio_index gpio;
+
+	for (gpio = SWIMCU_GPIO_FIRST; gpio < SWIMCU_NUM_GPIO; gpio++) {
+		if (irq == gpio_map[gpio].irq) {
+			break;
+		}
+	}
+	return gpio;
+}
+
+/************
+ *
+ * Name:     swimcu_get_irq_from_gpio
+ *
+ * Purpose:  return irq number given gpio index
+ *
+ * Parms:    gpio - the valid gpio index
+ *
+ * Return:   irq - the valid irq on success
+ *           -1 if pin does not support interrupts
+ *
+ * Abort:    none
+ *
+ ************/
+inline enum swimcu_gpio_irq_index swimcu_get_irq_from_gpio(enum swimcu_gpio_index gpio)
+{
+	return gpio_map[gpio].irq;
+}
 
 /************
  *
@@ -77,8 +115,8 @@ static const struct {
  * Parms:    port - 0 or 1 corresponding to PTA or PTB
  *           pin - 0 to 7 for pin # on that port
  *
- * Return:   gpio index - 0 to 7 on success
- *           8 on failure
+ * Return:   gpio - a valid gpio index on success
+ *           SWIMCU_GPIO_INVALID (SWIMCU_NUM_GPIO) on failure
  *
  * Abort:    none
  *
@@ -87,7 +125,7 @@ enum swimcu_gpio_index swimcu_get_gpio_from_port_pin(int port, int pin)
 {
 	enum swimcu_gpio_index gpio;
 
-	for (gpio = SWIMCU_GPIO_FIRST; gpio <= SWIMCU_GPIO_LAST; gpio++) {
+	for (gpio = SWIMCU_GPIO_FIRST; gpio < SWIMCU_NUM_GPIO; gpio++) {
 		if((port == gpio_map[gpio].port) && (pin == gpio_map[gpio].pin))
 			break;
 	}
@@ -98,7 +136,7 @@ enum swimcu_gpio_index swimcu_get_gpio_from_port_pin(int port, int pin)
  *
  * Name:     swimcu_gpio_callback
  *
- * Purpose:  callback for gpio irq event (stub for now)
+ * Purpose:  callback for gpio irq event
  *
  * Parms:    swimcu - device data struct
  *           port - 0 or 1 corresponding to PTA or PTB
@@ -113,7 +151,10 @@ enum swimcu_gpio_index swimcu_get_gpio_from_port_pin(int port, int pin)
 void swimcu_gpio_callback(struct swimcu *swimcu, int port, int pin, int level)
 {
 	enum swimcu_gpio_index gpio = swimcu_get_gpio_from_port_pin(port, pin);
+	enum swimcu_gpio_irq_index swimcu_irq = swimcu_get_irq_from_gpio(gpio);
 
+	/* Handle work related to gpio irq */
+	swimcu_gpio_work(swimcu, swimcu_irq);
 	swimcu_log(GPIO, "%s: gpio %d level = %d\n", __func__, gpio, level);
 }
 
@@ -123,7 +164,7 @@ void swimcu_gpio_callback(struct swimcu *swimcu, int port, int pin, int level)
  *
  * Purpose:  set the irq trigger for a particular gpio
  *
- * Parms:    gpio index - 0 to 7
+ * Parms:    gpio - a valid gpio index
  *           irq control type (rising, falling, etc).
  *
  * Return:   0 if success
@@ -136,9 +177,9 @@ int swimcu_gpio_set_trigger(int gpio, enum mci_pin_irqc_type_e irqc_type)
 {
 	if (gpio < SWIMCU_NUM_GPIO) {
 		if (!(gpio_map[gpio].irqc_support) ||
-		     /* currently exported as output */
-		     ((gpio_cfg[gpio].mux == MCI_MCU_PIN_FUNCTION_GPIO) &&
-		      (gpio_cfg[gpio].dir == MCI_MCU_PIN_DIRECTION_OUTPUT))) {
+		/* currently exported as output */
+		((gpio_cfg[gpio].mux == MCI_MCU_PIN_FUNCTION_GPIO) &&
+		(gpio_cfg[gpio].dir == MCI_MCU_PIN_DIRECTION_OUTPUT))) {
 			swimcu_log(GPIO, "%s: failed gpio %d\n", __func__, gpio);
 			return -EPERM;
 		}
@@ -157,7 +198,7 @@ int swimcu_gpio_set_trigger(int gpio, enum mci_pin_irqc_type_e irqc_type)
  *
  * Purpose:  get the irq trigger for a particular gpio
  *
- * Parms:    gpio index - 0 to 7
+ * Parms:    gpio - a valid gpio index
  *
  * Return:   irq control type (rising, falling, etc).
  *
@@ -183,7 +224,7 @@ enum mci_pin_irqc_type_e swimcu_gpio_get_trigger(int gpio)
  *
  * Parms:    swimcu - device data struct
  *           action - get value is only option
- *           gpio index - 0 to 7
+ *           gpio - a valid gpio index
  *           value ptr - returns value
  *
  * Return:   0 if success
@@ -226,7 +267,7 @@ int swimcu_gpio_get(struct swimcu *swimcu, int action, int gpio, int *value)
  *
  * Parms:    swimcu - device data struct
  *           action - property to set
- *           gpio index - 0 to 7
+ *           gpio - a valid gpio index
  *           value - value to set (depends on action)
  *
  * Return:   0 if success
@@ -349,7 +390,7 @@ int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value)
  * Purpose:  initialize MCU pin as gpio
  *
  * Parms:    swimcu - device data struct
- *           gpio index - 0 to 7
+ *           gpio - a valid gpio index
  *
  * Return:   0 if success
  *           -ERRNO otherwise
@@ -460,7 +501,7 @@ void swimcu_gpio_retrieve( struct swimcu *swimcu )
  * Purpose:  return MCU pin to uninitialized
  *
  * Parms:    swimcu - device data struct
- *           gpio index - 0 to 7
+ *           gpio - a valid gpio index
  *
  * Return:   0 if success
  *           -ERRNO otherwise

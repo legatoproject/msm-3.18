@@ -121,7 +121,7 @@ enum mci_pin_irqc_type_e {
 
 /************
 *
-* Name:     mci_mcu_pin_slwe_rate_e
+* Name:     mci_mcu_pin_slew_rate_e
 *
 * Purpose:  Enumerate MCU output pin slew rate.
 *
@@ -155,7 +155,7 @@ enum mci_mcu_pin_level_e
 
 /************
 *
-* Name:     mci_mcu_pin_slwe_rate_e
+* Name:     mci_mcu_pin_slew_rate_e
 *
 * Purpose:  Enumerate MCU output pin drive strength.
 *
@@ -314,25 +314,6 @@ enum mci_adc_compare_e
 
 /************
 *
-* Name:     mci_wakeup_source_type_e - wakeup source from low power mode
-*
-* Purpose:  Enumerate the wakeup source used to wake the device up from a low power mode
-*
-* Members:  See below
-*
-* Note:
-*
-************/
-enum mci_wakeup_source_type_e
-{
-  MCI_WAKEUP_SOURCE_TYPE_EXT_PINS = 0x01, /* External GPIO pin */
-  MCI_WAKEUP_SOURCE_TYPE_TIMER_1  = 0x02, /* Timer with fixed milli-second tick */
-  MCI_WAKEUP_SOURCE_TYPE_TIMER_2  = 0x04, /* Timer with adjustable tick length */
-  MCI_WAKEUP_SOURCE_TYPE_ADC      = 0x08, /* ADC results comparison */
-};
-
-/************
-*
 * Name:     mci_timer_tick_e - mci timer tick length
 *
 * Purpose:  Enumerate the duration of a timer tick for MCI_WAKEUP_SOURCE_TYPE_TIMER_2
@@ -476,6 +457,8 @@ struct mci_adc_config_s
   enum mci_protocol_adc_resolution_mode_e   resolution_mode;  /* conversion result resolution */
   enum mci_protocol_adc_high_speed_conv_e   high_speed_conv;  /* faster conversion mode */
   enum mci_protocol_adc_trigger_mode_e      trigger_mode;     /* conversion trigger mode */
+  enum mci_protocol_adc_trigger_e           trigger_type;
+  uint16_t                                  trigger_interval;
   uint8_t                                   sample_count;
   bool                                      hw_average;
   struct mci_adc_compare_scheme_s           hw_compare;
@@ -498,6 +481,7 @@ struct mci_adc_compare_config_s
 {
   enum mci_protocol_adc_channel_e               channel;
   struct mci_adc_compare_scheme_s               compare;
+  unsigned int                                  interval; /* ADC sampling interval */
 };
 
 /************
@@ -517,7 +501,7 @@ struct mci_wakeup_source_config_s
   {
     uint32_t                           pins;     /* external pin (in bitmask) */
     uint32_t                           timeout;  /* timer wakeup  */
-    struct mci_adc_compare_config_s    adc;      /* adc wakeup source */
+    uint32_t                           channel;   /* ADC wakeup */
   } args;
 };
 

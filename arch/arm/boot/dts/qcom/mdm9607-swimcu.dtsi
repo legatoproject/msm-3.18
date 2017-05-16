@@ -14,8 +14,8 @@
 	swimcu@3a{
 		compatible = "swimcu,mkl03";
 		reg = <0x3a>;
-		swimcu,nr-gpio = <8>;
-		swimcu,nr-adc = <2>;
+		swimcu,nr-gpio = <5>;
+		swimcu,nr-adc = <1>;
 		swimcu,adc-base = <2>;
 
 		swimcu,func-fwupd-en = /bits/ 8 <1>;

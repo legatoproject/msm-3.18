@@ -578,6 +578,7 @@ enum mci_protocol_adc_compare_mode_e
 enum mci_protocol_adc_trigger_e
 {
   MCI_PROTOCOL_ADC_TRIGGER_SOFTWARE      = 0xFF,  /* ADC started by SW command */
+  MCI_PROTOCOL_ADC_TRIGGER_LPTMR0        = 0x8E,  /* LPTMR timeout event */
 };
 
 /* Number of parameters and results per ADC operration type */
@@ -605,8 +606,8 @@ enum mci_protocol_adc_trigger_e
 #define MCI_PROTOCOL_ADC_SAMPLE_COUNT_MASK             0x00FF0000
 #define MCI_PROTOCOL_ADC_SAMPLE_COUNT_SHIFT            16
 
-#define MCI_PROTOCOL_ADC_SAMPLE_MODE_MASK              0x01000000
-#define MCI_PROTOCOL_ADC_SAMPLE_MODE_SHIFT             24
+#define MCI_PROTOCOL_ADC_TRIGGER_MASK                  0xFF000000
+#define MCI_PROTOCOL_ADC_TRIGGER_SHIFT                 24
 
 /* Bit fields of the second parameter for adc configuration operation
 */
@@ -725,12 +726,13 @@ enum mci_protocol_wakeup_source_type_e
 /* bitmask representation of the external wakeup pins */
 #define MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_NONE    0x0
 #define MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTA0    0x00000001
-#define MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTA7    0x00000080
 #define MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTB0    0x00010000
 #define MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_ALL     \
                              (MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTA0 | \
-                              MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTA7 | \
                               MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTB0)
+
+#define MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_NONE   0x00
+#define MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_PTA12  0x00001000
 
 /* Number of parameters and results per PM operation type */
 #define MCI_PROTOCOL_WAKEUP_SOURCE_SET_PARAMS_COUNT     2

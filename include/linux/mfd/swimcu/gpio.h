@@ -29,18 +29,15 @@
 /*
  * GPIO Port index.
  * Supported GPIOs ordered according to external GPIO mapping.
- * PTA12 and PTB1 are reserved for ADC.
+ * PTA12 is reserved for ADC.
  */
 enum swimcu_gpio_index
 {
 	SWIMCU_GPIO_FIRST = 0,
-	SWIMCU_GPIO_PTA4 = SWIMCU_GPIO_FIRST, /* GPIOU1 */
-	SWIMCU_GPIO_PTA3, /* GPIOU2 */
-	SWIMCU_GPIO_PTA0, /* GPIOU3 */
-	SWIMCU_GPIO_PTA2, /* GPIOU4 */
-	SWIMCU_GPIO_PTB0, /* GPIOU5 */
-	SWIMCU_GPIO_PTA7, /* GPIOU6 */
-	SWIMCU_GPIO_PTA6, /* GPIOU7 */
+	SWIMCU_GPIO_PTA0 = SWIMCU_GPIO_FIRST, /* GPIO36 */
+	SWIMCU_GPIO_PTA2, /* GPIO37 */
+	SWIMCU_GPIO_PTB0, /* GPIO38 */
+	SWIMCU_GPIO_PTA6, /* GPIO40 */
 	SWIMCU_GPIO_PTA5, /* GPIO41 */
 	SWIMCU_GPIO_LAST = SWIMCU_GPIO_PTA5,
 	SWIMCU_NUM_GPIO = SWIMCU_GPIO_LAST+1,
@@ -49,9 +46,9 @@ enum swimcu_gpio_index
 
 enum swimcu_gpio_irq_index
 {
-	SWIMCU_GPIO_PTA0_IRQ = 0, /* GPIOU3 */
-	SWIMCU_GPIO_PTB0_IRQ, /* GPIOU5 */
-	SWIMCU_GPIO_PTA7_IRQ, /* GPIOU6 */
+	SWIMCU_GPIO_NO_IRQ = -1,  /* GPIO does not support IRQ */
+	SWIMCU_GPIO_PTA0_IRQ = 0, /* GPIO36 */
+	SWIMCU_GPIO_PTB0_IRQ,     /* GPIO38 */
 	SWIMCU_NUM_GPIO_IRQ
 };
 
@@ -59,6 +56,10 @@ enum swimcu_gpio_irq_index
  * MCU GPIO map port/pin to gpio index.
  */
 enum swimcu_gpio_index swimcu_get_gpio_from_port_pin(int port, int pin);
+
+enum swimcu_gpio_index swimcu_get_gpio_from_irq(enum swimcu_gpio_irq_index irq);
+
+enum swimcu_gpio_irq_index swimcu_get_irq_from_gpio(enum swimcu_gpio_index gpio);
 
 struct swimcu;
 
@@ -79,5 +80,7 @@ void swimcu_gpio_retrieve( struct swimcu *swimcu );
 int swimcu_gpio_get(struct swimcu *swimcu, int action, int gpio, int *value);
 
 int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value);
+
+void swimcu_gpio_work(struct swimcu *swimcu, enum swimcu_gpio_irq_index irq);
 
 #endif
