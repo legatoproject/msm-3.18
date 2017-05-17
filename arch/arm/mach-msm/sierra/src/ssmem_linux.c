@@ -194,7 +194,8 @@ _local long ssmem_dev_ioctl(
   unsigned        cmd,
   unsigned long   arg)
 {
-  struct ssmem_ioctl_req_s __user *ioctl_user_reqp = NULL, local_req;
+  struct ssmem_ioctl_req_s __user *ioctl_user_reqp = NULL;
+  struct ssmem_ioctl_req_s local_req;
   uint8_t *user_datap;
   int rc = 0, user_size;
 
@@ -228,8 +229,8 @@ _local long ssmem_dev_ioctl(
       }
 
       /* success, copy to user if required */
-      if (ioctl_user_reqp->user_datap &&
-          copy_to_user(ioctl_user_reqp->user_datap, user_datap, local_req.user_size))
+      if (local_req.user_datap &&
+          copy_to_user(local_req.user_datap, user_datap, local_req.user_size))
       {
         SWI_PRINT(SWI_ERROR, "copy_to_user failed");
         rc = -EFAULT;
@@ -262,8 +263,8 @@ _local long ssmem_dev_ioctl(
           break;
         }
 
-        if (ioctl_user_reqp->user_datap &&
-            copy_to_user(ioctl_user_reqp->user_datap, user_datap, user_size))
+        if (local_req.user_datap &&
+            copy_to_user(local_req.user_datap, user_datap, user_size))
         {
           SWI_PRINT(SWI_ERROR, "copy_to_user failed");
           rc = -EFAULT;
@@ -303,8 +304,8 @@ _local long ssmem_dev_ioctl(
       }
 
       /* update region data and metadata */
-      if (ioctl_user_reqp->user_datap &&
-          (copy_from_user(user_datap, ioctl_user_reqp->user_datap, user_size) ||
+      if (local_req.user_datap &&
+          (copy_from_user(user_datap, local_req.user_datap, user_size) ||
            !ssmem_meta_update(local_req.region_id)))
       {
         SWI_PRINT(SWI_ERROR, "update region failed");
