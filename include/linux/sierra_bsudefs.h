@@ -40,6 +40,8 @@ enum bshwtype
 	BSWP7607,               /* 0x12 - WP7607 */
 	BSWP7607_1,             /* 0x13 - WP7607-1 */
 	BSWP7607_2,             /* 0x14 - WP7607-2 */
+	BSWP7700,               /* 0x15 - WP7700 */
+	BSWP7702,               /* 0x16 - WP7702 */
 	BSHWUNKNOWN,            /* Unknown HW */
 	BSHWINVALID = 0xFF      /* Invalid HW */
 };
