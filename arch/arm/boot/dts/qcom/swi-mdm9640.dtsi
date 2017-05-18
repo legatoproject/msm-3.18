@@ -420,6 +420,31 @@
 		};
 	};
 
+	blsp1_uart1_ls{
+		uart1_console_tx_active_ls: uart1_console_tx_active_ls {
+			mux {
+				pins = "gpio20";
+				function = "blsp_uart_tx_b1";
+			};
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		uart1_console_rx_active_ls: uart1_console_rx_active_ls {
+			mux {
+				pins = "gpio21";
+				function = "blsp_uart_rx_b1";
+			};
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
 		uart2_console_active: uart2_console_active {
 			mux {
 				pins = "gpio4", "gpio5";
@@ -819,7 +844,11 @@
 };
 
 &blsp1_uart1_ls {
-	status = "disabled";
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_console_tx_active_ls &uart1_console_rx_active_ls>;
+	qcom,tx-gpio = <&tlmm_pinmux 20 0>;
+	qcom,rx-gpio= <&tlmm_pinmux 21 0>;
 };
 
 &blsp1_uart1 {
