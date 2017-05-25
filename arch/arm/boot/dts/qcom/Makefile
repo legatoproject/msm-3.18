@@ -254,8 +254,8 @@ dtb-$(CONFIG_ARCH_MSM8953) += msm8953-sim.dtb \
 
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-mtp.dtb \
 	mdm9607-swi-ar.dtb \
-	mdm9607-swi-wp.dtb \
-	mdm9607-swi-ar-mft.dtb
+	mdm9607-wp76xx-mangoh-green.dtb \
+	mdm9206-wp77xx-mangoh-green.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
