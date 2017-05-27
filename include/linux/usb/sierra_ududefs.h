@@ -71,8 +71,10 @@ static const struct ud_usb_interface ud_interface_68A2[] = {
 	{	18,		"g_audio"			},
 	{	19,		"cdc_ethernet"			},
 	{	20,		"cdc_ethernet"			},
-	{	21,		"cdc_network"			},	/* NCM */
 	{	22,		"cdc_network"			},	/* NCM */
+	{	23,		"cdc_network"			},	/* NCM */
+	{	24,		"cdc_eem"			},	/* EEM */
+
 };
 
 static const struct ud_usb_interface ud_interface_68B1[] = {
