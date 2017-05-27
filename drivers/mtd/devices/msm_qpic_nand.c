@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, 2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1980,6 +1980,7 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 	size_t len;
 	size_t actual_len, ret_len;
 	int is_euclean = 0;
+	int is_ebadmsg = 0;
 
 	actual_len = ops->len;
 	ret_len = 0;
@@ -2017,9 +2018,15 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 			err = 0;
 		}
 
+		if (err == -EBADMSG) {
+			is_ebadmsg = 1;
+			err = 0;
+		}
+
 		if (err < 0) {
-			/* Clear previously set EUCLEAN */
+			/* Clear previously set EUCLEAN / EBADMSG */
 			is_euclean = 0;
+			is_ebadmsg = 0;
 			ret_len = ops->retlen;
 			break;
 		}
@@ -2043,6 +2050,10 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 out:
 	if (is_euclean == 1)
 		err = -EUCLEAN;
+
+	/* Snub EUCLEAN if we also have EBADMSG */
+	if (is_ebadmsg == 1)
+		err = -EBADMSG;
 	return err;
 }
 
@@ -2055,6 +2066,7 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 {
 	int ret;
 	int is_euclean = 0;
+	int is_ebadmsg = 0;
 	struct mtd_oob_ops ops;
 	unsigned char *bounce_buf = NULL;
 
@@ -2093,9 +2105,14 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 					is_euclean = 1;
 					ret = 0;
 				}
+				if (ret == -EBADMSG) {
+					is_ebadmsg = 1;
+					ret = 0;
+				}
 				if (ret < 0) {
-					/* Clear previously set EUCLEAN */
+					/* Clear previously set errors */
 					is_euclean = 0;
+					is_ebadmsg = 0;
 					break;
 				}
 
@@ -2135,6 +2152,11 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 out:
 	if (is_euclean == 1)
 		ret = -EUCLEAN;
+
+	/* Snub EUCLEAN if we also have EBADMSG */
+	if (is_ebadmsg == 1)
+		ret = -EBADMSG;
+
 	return ret;
 }
 
