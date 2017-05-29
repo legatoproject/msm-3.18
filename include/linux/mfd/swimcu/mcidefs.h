@@ -673,6 +673,14 @@ extern enum mci_protocol_status_code_e swimcu_event_query(
                                 struct mci_event_s *eventp,
                                 int                *countp);
 
+extern enum mci_protocol_status_code_e swimcu_pm_wait_time_config(
+				struct swimcu* swimcu,
+				uint32_t wait_sync_time,
+				uint32_t wait_pwr_off_time);
+
+extern enum mci_protocol_status_code_e swimcu_pm_pwr_off(
+				struct swimcu* swimcu);
+
 /*
  * MCU GPIO set/get IRQ trigger value.
  */

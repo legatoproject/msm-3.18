@@ -25,6 +25,7 @@
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
 #include <linux/gpio.h>
+#include <linux/reboot.h>
 
 #include <linux/mfd/swimcu/core.h>
 #include <linux/mfd/swimcu/gpio.h>
@@ -773,6 +774,16 @@ int swimcu_device_init(struct swimcu *swimcu)
 				swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_GPIO;
 			}
 		}
+	}
+
+	if(!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_REBOOT)) {
+		swimcu->reboot_nb.notifier_call = pm_reboot_call;
+		ret = register_reboot_notifier(&(swimcu->reboot_nb));
+		if (ret) {
+			pr_err("%s: Failed to register reboot notifier\n", __func__);
+			goto exit;
+		}
+		swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_REBOOT;
 	}
 
 	if(pdata->func_flags & SWIMCU_FUNC_FLAG_EVENT) {

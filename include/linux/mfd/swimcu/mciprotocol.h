@@ -832,9 +832,11 @@ enum mci_protocol_mdm_state_e
 ************/
 enum mci_protocol_pm_optype_e
 {
-  MCI_PROTOCOL_PM_OPTYPE_INVALID,
-  MCI_PROTOCOL_PM_OPTYPE_SET,      /* to config the power management profile */
-  MCI_PROTOCOL_PM_OPTYPE_GET,      /* to get the configed power management profile */
+  MCI_PROTOCOL_PM_OPTYPE_INVALID        = 0x0, /* placeholder */
+  MCI_PROTOCOL_PM_OPTYPE_SET            = 0x1, /* to config the power management profile */
+  MCI_PROTOCOL_PM_OPTYPE_GET            = 0x2, /* to get the configed power management profile */
+  MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG = 0x3, /* to config wait times for power off sequence */
+  MCI_PROTOCOL_PM_POWER_OFF_SYNC        = 0x4, /* to synchronize the completion of power off sequence */
 };
 
 #define MCI_PROTOCOL_PM_SET_PARAMS_COUNT              3
@@ -843,6 +845,17 @@ enum mci_protocol_pm_optype_e
 
 #define MCI_PROTOCOL_PM_GET_PARAMS_COUNT              1
 #define MCI_PROTOCOL_PM_GET_RESULTS_COUNT             3
+
+/* For the MCI_PROTOCOL_PM_OPTYPE_POWER_OFF_TIME_CONFIG request, in addition to the OPTYPE,
+*  the second parameter encodes the max wait time for possible arrival of the SYNC message.
+*  the third parameter encodes the  wait time before switching off the MDM power supply.
+*/
+#define MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_PARAMS_COUNT  3
+#define MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_RESULT_COUNT  0
+
+/* No additional parameters for the MCI_PROTOCOL_PM_OPTYPE_POWER_OFF_SYNC indication */
+#define MCI_PROTOCOL_PM_POWER_OFF_SYNC_PARAMS_COUNT         1
+#define MCI_PROTOCOL_PM_POWER_OFF_SYNC_RESULT_COUNT         0
 
 /* Bit fields of the first parameter: wakeup source type and operation type
 *  PM_OPTYPE:      bits [ 0, 7] - operation type

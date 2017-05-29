@@ -1453,6 +1453,77 @@ enum mci_protocol_status_code_e swimcu_wakeup_source_config(
 
 /************
  *
+ * Name:     swimcu_pm_pwr_off
+ *
+ * Purpose:  Signal MCU that it is safe to power off
+ *
+ * Parms:    None
+ *
+ * Return:   MCI_PROTOCOL_STATUS_CODE_SUCCESS if successful;
+ *           other status code otherwise.
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+enum mci_protocol_status_code_e swimcu_pm_pwr_off(struct swimcu *swimcu)
+{
+	enum mci_protocol_status_code_e s_code;
+	uint8_t count = MCI_PROTOCOL_PM_POWER_OFF_SYNC_PARAMS_COUNT;
+	uint32_t buffer[MCI_PROTOCOL_PM_POWER_OFF_SYNC_PARAMS_COUNT];
+
+	buffer[0] = (uint32_t)MCI_PROTOCOL_PM_POWER_OFF_SYNC;
+
+	swimcu_log(PROT, "%s: sending safe shutdown signal",__func__);
+	s_code = mci_protocol_command(swimcu, MCI_PROTOCOL_COMMAND_TAG_APPL_PM_SERVICE,
+		buffer, 0, &count, 0x00);
+	return s_code;
+}
+
+/************
+ *
+ * Name:     swimcu_pm_wait_time_config
+ *
+ * Purpose:  Specify the time until power off after ULPM is configured
+ *
+ * Parms:    swimcu            - pointer to the swimcu data structure
+ *           wait_sync_time    - time in milliseconds until the MDM sync is complete
+ *           wait_pwr_off_time - time in milliseconds until power can be removed after
+ *                               sync is complete
+ *
+ * Return:   MCI_PROTOCOL_STATUS_CODE_SUCCESS if successful;
+ *           other status code otherwise.
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+enum mci_protocol_status_code_e swimcu_pm_wait_time_config(
+	struct swimcu *swimcu,
+	uint32_t wait_sync_time,
+	uint32_t wait_pwr_off_time)
+{
+	enum mci_protocol_status_code_e s_code;
+	uint8_t count = MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_PARAMS_COUNT;
+	uint32_t buffer[MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_PARAMS_COUNT];
+	uint32_t bitfield;
+
+	buffer[0] = (uint32_t)MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG;
+	buffer[1] = wait_sync_time;
+	buffer[2] = wait_pwr_off_time;
+
+	swimcu_log(PROT, "%s: configuring PM wait sync time %08x %8x %8x\n",
+		__func__, buffer[0], buffer[1], buffer[2]);
+
+	s_code = mci_protocol_command(swimcu, MCI_PROTOCOL_COMMAND_TAG_APPL_PM_SERVICE,
+		buffer, MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX, &count, 0x00);
+	return s_code;
+}
+
+/************
+ *
  * Name:     mci_appl_pm_profile_config
  *
  * Purpose:  To encode the profile configuration

@@ -32,4 +32,7 @@ void swimcu_set_wakeup_source(enum mci_protocol_wakeup_source_type_e type, u16 v
 void swimcu_set_reset_source(enum mci_protocol_reset_source_e value);
 
 void wake_n_set_callback(void (*event_cb)(void));
+
+int pm_reboot_call(struct notifier_block *this, unsigned long code, void* cmd);
+
 #endif

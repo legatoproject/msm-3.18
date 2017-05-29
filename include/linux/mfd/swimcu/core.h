@@ -71,6 +71,7 @@ enum swimcu_adc_compare_mode
 #define SWIMCU_DRIVER_INIT_FW        (1 << 3)
 #define SWIMCU_DRIVER_INIT_PM        (1 << 4)
 #define SWIMCU_DRIVER_INIT_GPIO      (1 << 5)
+#define SWIMCU_DRIVER_INIT_REBOOT    (1 << 6)
 
 #define SWIMCU_DEBUG
 
@@ -147,6 +148,7 @@ struct swimcu {
 	struct mutex gpio_irq_lock;
 
 	struct notifier_block nb;
+	struct notifier_block reboot_nb;
 
 	struct kobject pm_boot_source_kobj;
 	struct kobject pm_firmware_kobj;

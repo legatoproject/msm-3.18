@@ -15,6 +15,8 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/kmod.h>
+#include <linux/reboot.h>
 
 #include <linux/gpio.h>
 
@@ -163,6 +165,13 @@ static struct adc_trigger_config {
 };
 
 static uint32_t adc_interval = 0;
+static const char * const poweroff_argv[] = {"/sbin/poweroff", NULL};
+
+#define SWIMCU_PM_WAIT_SYNC_TIME 40000
+#define PM_STATE_IDLE     0
+#define PM_STATE_SYNC     1
+#define PM_STATE_SHUTDOWN 2
+static int swimcu_pm_state = PM_STATE_IDLE;
 
 /************
 *
@@ -231,6 +240,106 @@ static enum wusrc_index find_wusrc_index_from_id(enum mci_protocol_wakeup_source
 
 /************
 *
+* Name:     pm_ulpm_config
+*
+* Purpose:  Configure MCU for ULPM and select wakeup sources
+*
+* Parms:    swimcu - device driver data
+*	    wu_source  - bitmask of wakeup sources
+*
+* Return:   0 if successful
+*	    -ERRNO otherwise
+
+* Abort:    none
+*
+************/
+static int pm_ulpm_config(struct swimcu* swimcu, u16 wu_source)
+{
+
+	struct mci_pm_profile_config_s pm_config;
+	int ret = 0;
+	int rc;
+
+	pm_config.active_power_mode = MCI_PROTOCOL_POWER_MODE_RUN;
+	pm_config.active_idle_time = 100;
+	pm_config.standby_power_mode = MCI_PROTOCOL_POWER_MODE_VLPS;
+	pm_config.standby_mdm_state = swimcu_pm_mdm_pwr;
+	pm_config.standby_wakeup_sources = wu_source;
+	pm_config.mdm_on_conds_bitset_any = 0;
+	pm_config.mdm_on_conds_bitset_all = 0;
+
+	swimcu_log(PM, "%s: pm prof cfg src=%x\n", __func__, wu_source);
+	if(MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+	  (rc = swimcu_pm_profile_config(swimcu, &pm_config,
+		MCI_PROTOCOL_PM_OPTYPE_SET))) {
+		pr_err("%s: pm enable fail %d\n", __func__, rc);
+		ret = -EIO;
+	}
+	return ret;
+}
+
+/************
+*
+* Name:     pm_reboot_call
+*
+* Purpose:  Handler for reboot notifier
+*
+* Parms:    this - notifier block associated with this handler
+*           code - reboot code. We are only interested in SYS_POWER_OFF
+*           cmd  - not used.
+*
+* Return:   0 always
+*
+* Abort:    none
+*
+************/
+int pm_reboot_call(
+	struct notifier_block *this, unsigned long code, void *cmd)
+{
+	int rc;
+	struct swimcu* swimcu = container_of(this, struct swimcu, reboot_nb);
+
+	if (SYS_POWER_OFF == code)
+	{
+		switch(swimcu_pm_state) {
+		case PM_STATE_SYNC:
+			/*
+			 * ULPM has been configured,
+			 * notify MCU that it is safe to remove power
+			 */
+			if(MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+			  (rc = swimcu_pm_pwr_off(swimcu))) {
+				pr_err("%s: pm poweroff fail %d\n", __func__, rc);
+			}
+			break;
+
+		case PM_STATE_IDLE:
+			/*
+			 * Userspace is already shutdown at this point,
+			 * so we can set a sync wait time of 0 to shutdown
+			 * immediately after ULPM is configured
+			 */
+			if (MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+                           (rc = swimcu_pm_wait_time_config(swimcu, 0, 0))) {
+				pr_err("%s: pm wait_time_config failed %d\n", __func__, rc);
+			}
+
+			if(MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+                          (rc = pm_ulpm_config(swimcu, 0))) {
+				pr_err("%s: pm ulpm_config fail %d\n", __func__, rc);
+			}
+			break;
+
+		case PM_STATE_SHUTDOWN:
+		default:
+			break;
+		}
+	}
+	return NOTIFY_DONE;
+}
+
+/************
+*
 * Name:     swimcu_pm_ulpm_enable
 *
 * Purpose:  Configure MCU with triggers and enter ultra low power mode
@@ -253,7 +362,6 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	int gpio, ext_gpio;
 	int gpio_cnt = 0;
 	uint32_t wu_pin_bits = 0;
-	struct mci_pm_profile_config_s pm_config;
 	u16 wu_source = 0;
 	enum swimcu_adc_index adc_wu_src = SWIMCU_ADC_INVALID;
 	enum swimcu_adc_compare_mode adc_compare_mode;
@@ -357,20 +465,30 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	}
 
 	if ((wu_source != 0) || (pm == SWIMCU_PM_POWER_SWITCH)) {
-		pm_config.active_power_mode = MCI_PROTOCOL_POWER_MODE_RUN;
-		pm_config.active_idle_time = 100;
-		pm_config.standby_power_mode = MCI_PROTOCOL_POWER_MODE_VLPS;
-		pm_config.standby_mdm_state = swimcu_pm_mdm_pwr;
-		pm_config.standby_wakeup_sources = wu_source;
-		pm_config.mdm_on_conds_bitset_any = 0;
-		pm_config.mdm_on_conds_bitset_all = 0;
-		swimcu_log(PM, "%s: pm prof cfg src=%x\n", __func__, wu_source);
-		if( MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
-			(rc = swimcu_pm_profile_config(swimcu, &pm_config,
-			MCI_PROTOCOL_PM_OPTYPE_SET))) {
+		pr_info("%s: sending wait_time_config", __func__);
+		rc = swimcu_pm_wait_time_config(swimcu,
+				SWIMCU_PM_WAIT_SYNC_TIME, 0);
+		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == rc) {
+			swimcu_pm_state = PM_STATE_SYNC;
+		}
+
+		else if(MCI_PROTOCOL_STATUS_CODE_UNKNOWN_COMMAND == rc) {
+			pr_info("%s: pm wait_time_config not recognized by MCU, \
+				proceed with legacy shutdown\n", __func__);
+			swimcu_pm_state = PM_STATE_SHUTDOWN;
+		}
+
+		pr_info("%s: sending ulpm_config", __func__);
+		if(MCI_PROTOCOL_STATUS_CODE_SUCCESS !=
+		   (rc = pm_ulpm_config(swimcu, wu_source))) {
 			pr_err("%s: pm enable fail %d\n", __func__, rc);
 			ret = -EIO;
 			goto wu_fail;
+		}
+
+		if(PM_STATE_SYNC == swimcu_pm_state) {
+			call_usermodehelper(poweroff_argv[0],
+				poweroff_argv, NULL, UMH_NO_WAIT);
 		}
 	}
 	else {
