@@ -873,6 +873,8 @@ struct __attribute__((packed)) bc_update_status_s
 *     1.1.4, DS_RESTORE_EFS_SANITY_FROM_LK request DS_RESTORE_EFS_SANITY for bad image detected in lk. Need to swap system and restore efs.
 *     1.1.5, DS_RESTORE_EFS_SANITY_FROM_KERNEL request DS_RESTORE_EFS_SANITY for bad image detected in kernel. Need to swap system and restore efs.
 *     1.1.6, DS_RESTORE_EFS_SANITY_FROM_SBL request DS_RESTORE_EFS_SANITY for bad image detected in sbl. Need to swap system and restore efs.
+*     1.1.7, DS_RESTORE_EFS_3TIMES_ABNORMAL_REBOOT request for 3 times abnormal reboot.
+*     1.1.8, DS_RESTORE_EFS_CHECK_VALID_BACKUPS_TEST type is request for check backups in SBL.
 *   1.2, DS_RESTORE_EFS_ANYWAY:
 *     1.2.1, Should restore efs no matter mirror/non-mirror systerm.
 *
@@ -881,11 +883,13 @@ struct __attribute__((packed)) bc_update_status_s
 enum ds_efs_restore_type
 {
   DS_RESTORE_EFS_TYPE_MIN,
-  DS_RESTORE_EFS_SANITY             = 1,    /* restore efs sanity, request for 6 times abnormal reset */
-  DS_RESTORE_EFS_ANYWAY             = 2,    /* restore efs anyway */
-  DS_RESTORE_EFS_SANITY_FROM_LK     = 3,    /* restore efs sanity, request from lk */
-  DS_RESTORE_EFS_SANITY_FROM_KERNEL = 4,    /* restore efs sanity, request from kernel */
-  DS_RESTORE_EFS_SANITY_FROM_SBL    = 5,    /* restore efs sanity, request from sbl */
+  DS_RESTORE_EFS_SANITY = 1,            /* restore efs sanity, request for 6 times abnormal reset */
+  DS_RESTORE_EFS_ANYWAY,                /* restore efs anyway */
+  DS_RESTORE_EFS_SANITY_FROM_LK,        /* restore efs sanity, request from lk */
+  DS_RESTORE_EFS_SANITY_FROM_KERNEL,    /* restore efs sanity, request from kernel */
+  DS_RESTORE_EFS_SANITY_FROM_SBL,       /* restore efs sanity, request from sbl */
+  DS_RESTORE_EFS_3TIMES_ABNORMAL_REBOOT,/* restore efs request for 3 times abnormal reboot */
+  DS_RESTORE_EFS_CHECK_VALID_BACKUPS_TEST,/* restore efs request to check valid efs backups of current system */
   DS_RESTORE_EFS_TYPE_MAX,
 
 };
@@ -900,12 +904,64 @@ enum bl_erestore_info_type
   BL_RESTORE_INFO_MAX = BL_RESTORE_INFO_RESTORE_TYPE,
 };
 
+/* Stags for efs restore.
+ * Description of the stage of EFS restore processing.
+ * BL_RESTORE_INFO_STAGE_TRIGGERED  : if efs restore request from LK/KERNEL/SBL or abnormally reboot, EFS need to be restore.
+ *                                    System will enter this state.
+ *                                    If the system enter this stage for the second time, means that the module abnormally
+ *                                    reboot again before enter modem. In this case need to try to restore EFS again.
+ * BL_RESTORE_INFO_STAGE_EFSERASED  : if system enter module and crash to reboot brefore efs restore, system will erase
+ *                                    efs. The privious state must be BL_RESTORE_INFO_STAGE_MDMOK
+ * BL_RESTORE_INFO_STAGE_MDMOK      : this state will be set when modem bootup in the efs restore processing. The previous
+ *                                    state maybe BL_RESTORE_INFO_STAGE_TRIGGERED or BL_RESTORE_INFO_STAGE_EFSERASED. In this
+ *                                    state, modem will try to restore efs, if successed, the next state will be BL_RESTORE_INFO_STAGE_RESTORED_FAILED or BL_RESTORE_INFO_STAGE_RESTORED_OK.
+ *                                    Or system will check the system to determin  wether need to erase efs. If erase the EFS, enter
+ *                                    BL_RESTORE_INFO_STAGE_EFSERASED stage.
+ * BL_RESTORE_INFO_STAGE_RESTORED_FAILED: system will enter this state when efs restore failed.
+ * BL_RESTORE_INFO_STAGE_RESTORED_OK: system will enter this state when efs restore OK.
+ * --------------------------------------------------------------------------------------------------------------------------------
+ *
+ * EFS request for 6 times abnormal reboot   |===============||
+ * Non-mirror system and having valid backups|               ||
+ *                                                           ||
+ * EFS request frome LK/SBL/KERNEL           |==============>||
+ * EFS request for 3 times abnormal reboot   |               ||
+ * Non-mirror system and having valid backups|               ||
+ *                                                           ||
+ *                                          _ _ _ _ _ _      ||
+ *                                         | _ _ _ _ _ |     ||
+ * Enter BL_RESTORE_INFO_STAGE_TRIGGERED   ||         ||     \/
+ * for 2 times, means modem can not boot   ||        BL_RESTORE_INFO_STAGE_TRIGGERED
+ * up normally. Try again                  ||          /\    ||
+ *                                         ||_ _ _ _ _ ||    ||
+ *                                         |_ _ _ _ _ _ |    ||
+ *                                                           ||
+ *                                          _ _ _ _ _ _      ||
+ *                                         | _ _ _ _ _ |     ||
+ *                                         ||         ||     \/
+ *                                         ||        BL_RESTORE_INFO_STAGE_MDMOK =================> BL_RESTORE_INFO_STAGE_EFSERASED
+ *                                         ||         /\   ||      ||         /\                                      ||
+ *                                         ||_ _ _ _ _||   ||      ||         ||                                      ||
+ *                                         |_ _ _ _ _ _|   ||      ||         ||_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ||
+ *                                                         ||      ||         |_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ __|
+ *                                                         \/      \/
+ *                       BL_RESTORE_INFO_STAGE_RESTORED_FAILED   BL_RESTORE_INFO_STAGE_RESTORED_OK
+ *                                                         ||      ||
+ *                                                         ||      ||
+ *                                                         \/      \/
+ *                                                       DS_FLAG_NOT_SET
+ *
+ *----------------------------------------------------------------------------------------------------------------------------------
+ */
 enum bl_erestore_info_stage
 {
   BL_RESTORE_INFO_STAGE_MIN = 1,
-  BL_RESTORE_INFO_STAGE_EFSERASED = BL_RESTORE_INFO_MIN,
-  BL_RESTORE_INFO_STAGE_RESTORED,
-  BL_RESTORE_INFO_STAGE_MAX = BL_RESTORE_INFO_STAGE_RESTORED,
+  BL_RESTORE_INFO_STAGE_TRIGGERED = BL_RESTORE_INFO_MIN,
+  BL_RESTORE_INFO_STAGE_EFSERASED,
+  BL_RESTORE_INFO_STAGE_MDMOK,
+  BL_RESTORE_INFO_STAGE_RESTORED_FAILED,
+  BL_RESTORE_INFO_STAGE_RESTORED_OK,
+  BL_RESTORE_INFO_STAGE_MAX = BL_RESTORE_INFO_STAGE_RESTORED_OK,
 };
 
 struct __attribute__((packed)) ds_smem_erestore_info
