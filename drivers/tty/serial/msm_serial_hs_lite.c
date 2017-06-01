@@ -97,12 +97,6 @@ struct msm_hsl_port {
 	u32			bus_perf_client;
 	/* BLSP UART required BUS Scaling data */
 	struct msm_bus_scale_pdata *bus_scale_table;
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	unsigned int		tx_fifothreshold;/* tx fifo threshold */
-	unsigned int		rx_fifothreshold;/* rx fifo threshold */
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 };
 
 #define UARTDM_VERSION_11_13	0
@@ -959,24 +953,11 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 	 * whereas it is consider to be in Bytes for UART Core.
 	 * Hence configuring Rx Watermark as 48 Words.
 	 */
-/* SWISTART */
-#ifndef CONFIG_SIERRA
 	watermark = (port->fifosize * 3) / 4;
-#else
-	watermark = msm_hsl_port->rx_fifothreshold;
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	msm_hsl_write(port, watermark, regmap[vid][UARTDM_RFWR]);
 
 	/* set TX watermark */
-/* SWISTART */
-#ifndef CONFIG_SIERRA
 	msm_hsl_write(port, 0, regmap[vid][UARTDM_TFWR]);
-#else
-	msm_hsl_write(port, msm_hsl_port->tx_fifothreshold,
-			regmap[vid][UARTDM_TFWR]);
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 
 	msm_hsl_write(port, CR_PROTECTION_EN, regmap[vid][UARTDM_CR]);
 	msm_hsl_reset(port);
@@ -1357,12 +1338,6 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.fifosize = 64,
 			.line = 0,
 		},
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-		.tx_fifothreshold = 0,
-		.rx_fifothreshold = 48,
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	},
 	{
 		.uart = {
@@ -1372,12 +1347,6 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.fifosize = 64,
 			.line = 1,
 		},
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-		.tx_fifothreshold = 0,
-		.rx_fifothreshold = 48,
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	},
 	{
 		.uart = {
@@ -1387,12 +1356,6 @@ static struct msm_hsl_port msm_hsl_uart_ports[] = {
 			.fifosize = 64,
 			.line = 2,
 		},
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-		.tx_fifothreshold = 0,
-		.rx_fifothreshold = 48,
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	},
 };
 
@@ -1680,116 +1643,6 @@ static DEVICE_ATTR(console, S_IWUSR | S_IRUGO, show_msm_console,
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-/* show_msm_fifo_rx - provide serial fifo rx size. */
-static ssize_t show_msm_fifo_rx(struct device *dev,
-                                struct device_attribute *attr, char *buf)
-{
-	struct uart_port *port;
-
-	struct platform_device *pdev = to_platform_device(dev);
-	port = get_port_from_line(get_line(pdev));
-	return snprintf(buf, sizeof(UART_TO_MSM(port)->rx_fifothreshold),
-			"%d\n", UART_TO_MSM(port)->rx_fifothreshold);
-}
-
-/*
- * set_msm_fifo_rx - allow to set serial fifo rx size.
- */
-
-static ssize_t set_msm_fifo_rx(struct device *dev,
-                                struct device_attribute *attr,
-                                const char *buf, size_t count)
-{
-	int err, set_size;
-	struct uart_port *port;
-	unsigned int vid;
-
-	struct platform_device *pdev = to_platform_device(dev);
-	port = get_port_from_line(get_line(pdev));
-	vid = UART_TO_MSM(port)->ver_id;
-
-	err = kstrtoint(buf, 0, &set_size);
-	if (err)
-		return err;
-
-	if(UART_TO_MSM(port)->rx_fifothreshold == set_size)
-		return count;
-	if((set_size <= 48) && (set_size >= 0))
-		UART_TO_MSM(port)->rx_fifothreshold = set_size;
-	else {
-		printk("%s: rx fifo threshold should be between"
-			" 0 - 48 Words(4 Bytes per Word)", __func__);
-		return -EINVAL;
-	}
-
-        /* Set RX watermark
-         * Configure Rx Watermark as 3/4 size of Rx FIFO.
-         * RFWR register takes value in Words for UARTDM Core
-         * whereas it is consider to be in Bytes for UART Core.
-         * Hence configuring Rx Watermark as 48 Words.
-         */
-	msm_hsl_write(port, UART_TO_MSM(port)->rx_fifothreshold,
-			regmap[vid][UARTDM_RFWR]);
-
-	return count;
-}
-
-static DEVICE_ATTR(fifo_rx, S_IWUSR | S_IRUGO, show_msm_fifo_rx,
-                                                set_msm_fifo_rx);
-
-/* show_msm_fifo_tx - provide serial fifo rx size. */
-static ssize_t show_msm_fifo_tx(struct device *dev,
-                                struct device_attribute *attr, char *buf)
-{
-	struct uart_port *port;
-
-	struct platform_device *pdev = to_platform_device(dev);
-	port = get_port_from_line(get_line(pdev));
-	return snprintf(buf, sizeof(UART_TO_MSM(port)->tx_fifothreshold),
-			"%d\n", UART_TO_MSM(port)->tx_fifothreshold);
-}
-
-/*
- * set_msm_fifo_tx - allow to set serial fifo rx size.
- */
-
-static ssize_t set_msm_fifo_tx(struct device *dev,
-                                struct device_attribute *attr,
-                                const char *buf, size_t count)
-{
-	unsigned int vid;
-	int err, set_size;
-	struct uart_port *port;
-
-	struct platform_device *pdev = to_platform_device(dev);
-	port = get_port_from_line(get_line(pdev));
-	vid = UART_TO_MSM(port)->ver_id;
-
-	err = kstrtoint(buf, 0, &set_size);
-	if (err)
-		return err;
-
-	if(UART_TO_MSM(port)->tx_fifothreshold == set_size)
-		return count;
-
-	if((set_size <= 48) && (set_size >= 0))
-		UART_TO_MSM(port)->tx_fifothreshold = set_size;
-	else {
-		printk("%s: tx fifo threshold should be between"
-			"0 - 48 Words(4 Bytes per Word)", __func__);
-		return -EINVAL;
-	}
-
-        /* set TX watermark */
-	msm_hsl_write(port, UART_TO_MSM(port)->tx_fifothreshold,
-			regmap[vid][UARTDM_TFWR]);
-
-	return count;
-}
-
-static DEVICE_ATTR(fifo_tx, S_IWUSR | S_IRUGO, show_msm_fifo_tx,
-                                                set_msm_fifo_tx);
-
 const static char at_func_string[] = "AT\n";
 const static char dm_func_string[] = "DM\n";
 const static char nmea_func_string[] = "NMEA\n";
@@ -1975,7 +1828,7 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	/* create config file for APP usage */
 	ret = device_create_file(&pdev->dev, &dev_attr_config);
 	if (unlikely(ret))
-		pr_err("%s():Can't create config attribute %d\n", __func__, ret);
+		pr_err("%s():Can't create config attribute\n", __func__);
 
 	uart_hsl_sysfs_symlink_set(&pdev->dev);
 	uart_func[line] = bs_uart_fun_get(line);
@@ -2138,19 +1991,6 @@ static int msm_serial_hsl_probe(struct platform_device *pdev)
 	if (unlikely(ret))
 		pr_err("Can't create console attribute\n");
 #endif
-
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	ret = device_create_file(&pdev->dev, &dev_attr_fifo_tx);
-	if (unlikely(ret))
-		pr_err("Can't create fifo_tx attribute\n");
-
-	ret = device_create_file(&pdev->dev, &dev_attr_fifo_rx);
-	if (unlikely(ret))
-		pr_err("Can't create fifo_rx attribute\n");
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
-
 	msm_hsl_debugfs_init(msm_hsl_port, get_line(pdev));
 	mutex_init(&msm_hsl_port->clk_mutex);
 	if (pdata && pdata->use_pm)
