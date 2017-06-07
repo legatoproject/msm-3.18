@@ -23,89 +23,98 @@
 #define DRIVER_NAME "sierra_tcxo_clk"
 
 struct swi_tcxo {
-  u8 enable;
+  uint32_t enable;
+  struct kobject *tcxo_obj;
+  struct attribute_group *attr_group;
   struct device *dev;
-  struct dentry *dent_swi;
-  struct dentry *debugfs_tcxo;
   struct clk *div_clk;   /* interface clock */
 };
-static struct swi_tcxo_debugfs{
-  const char *name;
-  mode_t mode;
-  struct swi_tcxo *dd;
-} debugfs_tcxo = {
-  .name = "tcxo_en",
-  .mode = S_IRUGO | S_IWUSR,
-  .dd = NULL,
+struct swi_tcxo *data = NULL;
+
+static ssize_t sierra_tcxo_show(struct kobject *kobj,
+  struct kobj_attribute *attr,
+  const char *buf);
+static ssize_t sierra_tcxo_store(struct kobject *kobj,
+    struct kobj_attribute *attr,
+    const char *buf,
+    size_t count);
+
+static struct kobj_attribute sierra_tcxo_attribute =
+  __ATTR(tcxo_en, 0664, sierra_tcxo_show, sierra_tcxo_store);
+
+static struct attribute *attrs[] = {
+  &sierra_tcxo_attribute.attr,
+  NULL,
 };
-static int tcxo_debugfs_get(void *data, u64 *val)
+
+static ssize_t sierra_tcxo_show(struct kobject *kobj,
+  struct kobj_attribute *attr,
+  const char *buf)
 {
-  int rc = 0;
-  struct swi_tcxo_debugfs *debugfs_tcxo = (struct swi_tcxo_debugfs *)data;
-  struct swi_tcxo *dd = debugfs_tcxo->dd;
+  uint8_t enabled;
+  enabled = data->enable;
 
-  *val = dd->enable;
-
-  return rc;
+  return sprintf(buf, "%u\n", enabled);
 }
 
-static int tcxo_debugfs_set(void *data, u64 val)
+static ssize_t sierra_tcxo_store(struct kobject *kobj,
+  struct kobj_attribute *attr,
+  const char *buf,
+  size_t count)
 {
-  int rc = 0;
-  struct swi_tcxo_debugfs *debugfs_tcxo = (struct swi_tcxo_debugfs *)data;
-  struct swi_tcxo *dd = debugfs_tcxo->dd;
+  int ret = 0;
+  uint32_t enabled;
 
-  if (val)
+  if(kstrtoint(buf, 0, &enabled))
+    return -EINVAL;
+  if (!((enabled == 0) || (enabled == 1)))
+    return -EINVAL;
+
+  if(enabled)
   {
     pr_debug("enable div clk\n");
-    clk_prepare_enable(dd->div_clk);
-    dd->enable = 1;
+    ret = clk_prepare_enable(data->div_clk);
+    if(ret)
+    {
+      pr_err("%s: unable to enable tcxo clk\n", __func__);
+      return ret;
+    }
   }
   else
   {
     pr_debug("disable div clk\n");
-    clk_disable_unprepare(dd->div_clk);
-    dd->enable = 0;
+    clk_disable_unprepare(data->div_clk);
   }
 
-  return rc;
-}
+  data->enable = enabled;
 
-DEFINE_SIMPLE_ATTRIBUTE(tcxo_fops, tcxo_debugfs_get, tcxo_debugfs_set, "%llu\n");
-
-static int sierra_debugfs_create(struct swi_tcxo *dd)
-{
-  dd->dent_swi = debugfs_create_dir("sierra", NULL);
-  if (dd->dent_swi) {
-    debugfs_tcxo.dd = dd;
-    dd->debugfs_tcxo =
-         debugfs_create_file(
-             debugfs_tcxo.name,
-             debugfs_tcxo.mode,
-             dd->dent_swi,
-             &debugfs_tcxo,
-             &tcxo_fops);
-  }
-
-  return 0;
+  return count;
 }
 
 static int sierra_tcxo_clk_probe(struct platform_device *pdev)
 {
   int ret = 0;
-  struct swi_tcxo *data;
 
   pr_debug("sierra_tcxo_clk probe\n");
-
   dev_info(&pdev->dev, "sierra_tcxo_clk probe\n");
 
-  data = kzalloc(sizeof(struct swi_tcxo*), GFP_KERNEL);
+  data = (struct swi_tcxo*)kzalloc(sizeof(struct swi_tcxo*), GFP_KERNEL);
   if (!data) {
     ret = -ENOMEM;
     goto exit_free;
   }
   data->enable = 0;
   data->dev = &pdev->dev;
+  data->tcxo_obj = NULL;
+  data->attr_group = devm_kzalloc(&pdev->dev,
+        sizeof(*(data->attr_group)),
+        GFP_KERNEL);
+  if (!data->attr_group) {
+    dev_err(&pdev->dev, "%s: malloc attr_group failed\n",
+           __func__);
+    ret = -ENOMEM;
+    goto error_return;
+  }
 
   data->div_clk = devm_clk_get(&pdev->dev, "div_clk");
   if (IS_ERR(data->div_clk)) {
@@ -113,29 +122,50 @@ static int sierra_tcxo_clk_probe(struct platform_device *pdev)
     goto exit_free;
   }
 
+  data->attr_group->attrs = attrs;
   dev_set_drvdata(&pdev->dev, data);
 
-  /* /sys/kernel/debug/sierra_tcxo */
-  ret = sierra_debugfs_create(data);
+  /* /sys/kernel/sierra/tcxo_en */
+  data->tcxo_obj = kobject_create_and_add("sierra", kernel_kobj);
+  if (!data->tcxo_obj) {
+    ret = -ENOMEM;
+    goto error_return;
+  }
+
+  ret = sysfs_create_group(data->tcxo_obj, data->attr_group);
   if (ret) {
-    pr_err("%s: failed to creat sierra debugfs, error code is%d\n", __func__,
-      ret);
-    goto exit_free;
+  dev_err(&pdev->dev, "%s: sysfs create group failed %d\n",
+          __func__, ret);
+  goto error_return;
   }
 
   return 0;
 
+  error_return:
+      if (data->tcxo_obj) {
+        kobject_del(data->tcxo_obj);
+        data->tcxo_obj = NULL;
+      }
   exit_free:
-    kfree(data);
-    dev_set_drvdata(&pdev->dev, NULL);
-  exit:
-    pr_err("%s: failed to probe sierra tcxo clock debugfs node\n", __func__);
-    return ret;
+       kfree(data);
+       dev_set_drvdata(&pdev->dev, NULL);
+
+  return ret;
 }
 
 static int sierra_tcxo_clk_remove(struct platform_device *pdev)
 {
-  pr_info("sierra_tcxo_clk_remove");
+
+  if(data->tcxo_obj)
+  {
+    sysfs_remove_group(data->tcxo_obj, data->attr_group);
+    kobject_del(data->tcxo_obj);
+    data->tcxo_obj = NULL;
+  }
+
+  kfree(data);
+  pr_debug("sierra_tcxo_clk_remove");
+ 
   return 0;
 }
 
