@@ -605,9 +605,9 @@
                 qcom,thermal-node;
         };
 
-        chan@32 {
+        chan@3c {
                 label = "xo_therm";
-                reg = <0x32>;
+                reg = <0x3c>;
                 qcom,decimation = <0>;
                 qcom,pre-div-channel-scaling = <0>;
                 qcom,calibration-type = "ratiometric";
