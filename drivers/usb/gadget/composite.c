@@ -370,7 +370,7 @@ int usb_interface_id(struct usb_configuration *config,
 	unsigned id = config->next_interface_id;
 
 	if (id < MAX_CONFIG_INTERFACES) {
-/* SWISTART */		
+/* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
 		/* Obtain Interface Number Desired
 		Allow existing next_interface_id to continue counting
@@ -378,10 +378,17 @@ int usb_interface_id(struct usb_configuration *config,
 		*/
 		unsigned swi_id;
 		swi_id = ud_get_interface_number( function->name, config );
+		if(UD_INVALID_INTERFACE == swi_id)
+			/* fall back to use sequential interface number */
+			swi_id = id;
+
 		config->interface[swi_id] = function;
+		if (function->intf_id < 0)
+			function->intf_id = swi_id;
+
 		config->next_interface_id = id + 1;
 		return swi_id;
-#else		
+#else
 		config->interface[id] = function;
 		if (function->intf_id < 0)
 			function->intf_id = id;

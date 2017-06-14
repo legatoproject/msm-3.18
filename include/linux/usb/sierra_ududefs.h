@@ -11,6 +11,8 @@
 #ifndef SIERRA_UDUDEFS_H
 #define SIERRA_UDUDEFS_H
 
+#define UD_VENDOR_ID_QCT	0x05C6
+
 #define UD_PID_68A2 0x68A2
 #define UD_PID_68B1 0x68B1
 
@@ -104,6 +106,13 @@ static inline unsigned ud_get_interface_number( const char *interface_name, stru
 	unsigned i;
 	unsigned max = UD_MAX_INTERFACE_68A2;
 	const struct ud_usb_interface * ud_interface = &ud_interface_68A2[0];
+
+	/* Return invalid interface for non-Sierra products so that it falls
+	 * back to default gadget behavior. Fixed/incontinuous interface
+	 * number is only required for Sierra products
+	 */
+	if (UD_VENDOR_ID_QCT == config->cdev->desc.idVendor)
+		return UD_INVALID_INTERFACE;
 
 	if(config->cdev->desc.idProduct == UD_PID_68B1){
 		ud_interface = &ud_interface_68B1[0];

@@ -28,6 +28,14 @@ module_param(rmnet_dl_max_pkt_per_xfer, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(rmnet_dl_max_pkt_per_xfer,
 	"Maximum packets per transfer for DL aggregation");
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static unsigned int num_rmnet_swi = 0;
+module_param(num_rmnet_swi, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(num_rmnet_swi, "Number of rmnet interfaces to enumerate");
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 #define RMNET_NOTIFY_INTERVAL	5
 #define RMNET_MAX_NOTIFY_SIZE	sizeof(struct usb_cdc_notification)
 
@@ -88,6 +96,25 @@ static struct usb_interface_descriptor rmnet_interface_desc = {
 	/* .iInterface = DYNAMIC */
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Vendor class interface descriptor */
+struct usb_rmnet_swi_intf_header_desc {
+	u8	bLength;
+	u8	bDescriptorType;
+	u8	bDescriptorSubType;
+	u8	bNumNet;
+} __attribute__ ((packed));
+
+static struct usb_rmnet_swi_intf_header_desc swi_intf_header_desc = {
+	.bLength =		sizeof(swi_intf_header_desc),
+	.bDescriptorType =	USB_DT_CS_INTERFACE,
+	.bDescriptorSubType =	0,
+	.bNumNet =		0,
+};
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 /* Full speed support */
 static struct usb_endpoint_descriptor rmnet_fs_notify_desc = {
 	.bLength =		USB_DT_ENDPOINT_SIZE,
@@ -116,6 +143,11 @@ static struct usb_endpoint_descriptor rmnet_fs_out_desc = {
 
 static struct usb_descriptor_header *rmnet_fs_function[] = {
 	(struct usb_descriptor_header *) &rmnet_interface_desc,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	(struct usb_descriptor_header *) &swi_intf_header_desc,
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	(struct usb_descriptor_header *) &rmnet_fs_notify_desc,
 	(struct usb_descriptor_header *) &rmnet_fs_in_desc,
 	(struct usb_descriptor_header *) &rmnet_fs_out_desc,
@@ -150,6 +182,11 @@ static struct usb_endpoint_descriptor rmnet_hs_out_desc = {
 
 static struct usb_descriptor_header *rmnet_hs_function[] = {
 	(struct usb_descriptor_header *) &rmnet_interface_desc,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	(struct usb_descriptor_header *) &swi_intf_header_desc,
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	(struct usb_descriptor_header *) &rmnet_hs_notify_desc,
 	(struct usb_descriptor_header *) &rmnet_hs_in_desc,
 	(struct usb_descriptor_header *) &rmnet_hs_out_desc,
@@ -212,6 +249,11 @@ static struct usb_ss_ep_comp_descriptor rmnet_ss_out_comp_desc = {
 
 static struct usb_descriptor_header *rmnet_ss_function[] = {
 	(struct usb_descriptor_header *) &rmnet_interface_desc,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	(struct usb_descriptor_header *) &swi_intf_header_desc,
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	(struct usb_descriptor_header *) &rmnet_ss_notify_desc,
 	(struct usb_descriptor_header *) &rmnet_ss_notify_comp_desc,
 	(struct usb_descriptor_header *) &rmnet_ss_in_desc,
@@ -1291,6 +1333,20 @@ static int frmnet_bind_config(struct usb_configuration *c, unsigned portno)
 		}
 		rmnet_string_defs[0].id = status;
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* pass num_rmnet_swi using iInterface */
+	rmnet_string_defs[0].s = kasprintf(GFP_ATOMIC, "rmnet-qmap-%d",
+					num_rmnet_swi);
+	if (rmnet_string_defs[0].s)
+		rmnet_interface_desc.iInterface = rmnet_string_defs[0].id;
+
+	/* pass num_rmnet_swi using swi_intf_header_desc */
+	if (num_rmnet_swi <= U8_MAX)
+		swi_intf_header_desc.bNumNet = num_rmnet_swi;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	spin_lock_irqsave(&dev->lock, flags);
 	dev->cdev = c->cdev;
