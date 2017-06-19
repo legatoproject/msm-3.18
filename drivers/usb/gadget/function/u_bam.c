@@ -1693,9 +1693,11 @@ static void gbam2bam_resume_work(struct work_struct *w)
 			spin_lock_irqsave(&port->port_lock, flags);
 			if (port->port_usb) {
 				if (d->tx_req_dequeued)
-					msm_ep_config(port->port_usb->in, d->tx_req);
+					msm_ep_config(port->port_usb->in,
+							d->tx_req);
 				if (d->rx_req_dequeued)
-					msm_ep_config(port->port_usb->out, d->rx_req);
+					msm_ep_config(port->port_usb->out,
+							d->rx_req);
 			}
 		}
 		d->tx_req_dequeued = false;
