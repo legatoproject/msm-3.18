@@ -29,6 +29,11 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/watchdog.h>
+#ifdef CONFIG_SIERRA
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/cdev.h>
+#endif /*CONFIG_SIERRA*/
 
 #define MODULE_NAME "msm_watchdog"
 #define WDT0_ACCSCSSNBARK_INT 0
@@ -103,6 +108,147 @@ module_param(WDT_HZ, long, 0);
  */
 static int ipi_opt_en;
 module_param(ipi_opt_en, int, 0);
+
+#ifdef CONFIG_SIERRA
+#define MAX_MSM_DOGS	6	/* Maximum number of msm_watchdog devices */
+#define TIMER_MARGIN	60	/* Default is 60 seconds */
+#define msm_softdog_num  3
+static unsigned int soft_margin = TIMER_MARGIN;	/* in seconds */
+static struct class *msm_softdog_class;
+static dev_t msm_softdog_devt;
+struct msm_softdog_data{
+	struct timer_list softdog_timer;
+	struct cdev softdog_cdev;
+	int dev_id;
+	bool softdog_timeout;
+	bool softdog_en;
+};
+static struct msm_softdog_data msm_softdog[msm_softdog_num];
+
+static void msm_softdogfire(unsigned long data)
+{
+	struct msm_softdog_data *softdogdd =
+		(struct msm_softdog_data *)data;
+	if(softdogdd == NULL)
+		return;
+	softdogdd->softdog_timeout = 1;
+	softdogdd->softdog_en = 0;
+	preempt_disable();
+	mdelay(15000);
+	preempt_enable();
+}
+
+static int msm_softdog_open(struct inode *inode, struct file *file)
+{
+	struct msm_softdog_data *softdogdd;
+
+	/* Get the corresponding watchdog device */
+	softdogdd = container_of(inode->i_cdev, struct msm_softdog_data, softdog_cdev);
+	if(softdogdd == NULL)
+		return 1;
+	init_timer(&softdogdd->softdog_timer);
+	softdogdd->softdog_timer.data = (unsigned long)softdogdd;
+	softdogdd->softdog_timer.function = msm_softdogfire;
+	softdogdd->softdog_timer.expires = jiffies + soft_margin*HZ;
+	add_timer(&softdogdd->softdog_timer);
+	softdogdd->softdog_timeout = 0;
+	softdogdd->softdog_en = 1;
+	file->private_data = softdogdd;
+	return 0;
+}
+
+static ssize_t msm_softdog_write(struct file *file, const char __user *data,
+						size_t len, loff_t *ppos)
+{
+    struct msm_softdog_data *softdogdd = file->private_data;
+    if(softdogdd == NULL)
+		return 0;
+	softdogdd->softdog_timeout = 0;
+	mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
+	return 1;
+}
+
+static int msm_softdog_release(struct inode *inode, struct file *file)
+{
+	struct msm_softdog_data *softdogdd;
+
+	/* Get the corresponding watchdog device */
+	softdogdd = container_of(inode->i_cdev, struct msm_softdog_data, softdog_cdev);
+	if(softdogdd == NULL)
+		return 1;
+	del_timer_sync(&softdogdd->softdog_timer);
+	return 0;
+}
+
+static const struct file_operations msm_softdog_fops = {
+	.owner		= THIS_MODULE,
+	.write		= msm_softdog_write,
+	.open		= msm_softdog_open,
+};
+
+static void msm_watchdog_dev_unregister(struct msm_softdog_data *softdog_dd)
+{
+	cdev_del(&softdog_dd->softdog_cdev);
+	device_destroy(msm_softdog_class, MKDEV(MAJOR(msm_softdog_devt), softdog_dd->dev_id));
+	return;
+}
+
+static int msm_watchdog_dev_register(struct msm_softdog_data *softdog_dd)
+{
+	int err, devno;
+	struct device *msm_softdog_device;
+
+	/* Fill in the data structures */
+	devno = MKDEV(MAJOR(msm_softdog_devt), softdog_dd->dev_id);
+	cdev_init(&softdog_dd->softdog_cdev, &msm_softdog_fops);
+	softdog_dd->softdog_cdev.owner = THIS_MODULE;
+	/* Add the device */
+	err = cdev_add(&softdog_dd->softdog_cdev, devno, 1);
+	if (err) {
+		pr_err("msm_watchdog%d unable to add device %d:1\n",softdog_dd->dev_id,MAJOR(msm_softdog_devt));
+		return err;
+	}
+
+	msm_softdog_device = device_create(msm_softdog_class, NULL, softdog_dd->softdog_cdev.dev,
+					NULL, "msm_watchdog%d", softdog_dd->dev_id);
+	if (IS_ERR(msm_softdog_device)) {
+		msm_watchdog_dev_unregister(softdog_dd);
+		err = PTR_ERR(msm_softdog_device);
+		return err;
+	}
+	return 0;
+}
+
+static void msm_watchdog_dev_exit(void)
+{
+	unregister_chrdev_region(msm_softdog_devt, MAX_MSM_DOGS);
+	class_destroy(msm_softdog_class);
+	return;
+}
+
+static int msm_watchdog_dev_init(void)
+{
+	int err,i;
+	msm_softdog_class = class_create(THIS_MODULE, "msm_watchdog");
+	if (IS_ERR(msm_softdog_class)) {
+		pr_err("couldn't create class\n");
+		return PTR_ERR(msm_softdog_class);
+	}
+
+	err = alloc_chrdev_region(&msm_softdog_devt, 1, MAX_MSM_DOGS, "msm_watchdog");
+	if (err < 0){
+		class_destroy(msm_softdog_class);
+		pr_err("watchdog: unable to allocate char dev region\n");
+		return err;
+	}
+	for(i = 0;i < msm_softdog_num;i++){
+		msm_softdog[i].dev_id = i;
+		msm_softdog[i].softdog_timeout = 0;
+		msm_softdog[i].softdog_en = 0;
+	}
+	return 0;
+}
+#endif /*CONFIG_SIERRA*/
 
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
@@ -364,6 +510,9 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 {
 	struct msm_watchdog_data *wdog_dd =
 			(struct msm_watchdog_data *)platform_get_drvdata(pdev);
+#ifdef CONFIG_SIERRA
+	int i;
+#endif /*CONFIG_SIERRA*/
 
 	if (ipi_opt_en)
 		cpu_pm_unregister_notifier(&wdog_cpu_pm_nb);
@@ -380,6 +529,15 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	del_timer_sync(&wdog_dd->pet_timer);
 	kthread_stop(wdog_dd->watchdog_task);
 	kfree(wdog_dd);
+#ifdef CONFIG_SIERRA
+	for(i = 0;i < msm_softdog_num;i++){
+		if(msm_softdog[i].softdog_en == 1){
+			del_timer_sync(&msm_softdog[i].softdog_timer);
+		}
+		msm_watchdog_dev_unregister(&msm_softdog[i]);
+	}
+	msm_watchdog_dev_exit();
+#endif /*CONFIG_SIERRA*/
 	return 0;
 }
 
@@ -526,7 +684,9 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	int error;
 	u64 timeout;
 	int ret;
-
+#ifdef CONFIG_SIERRA
+	int i;
+#endif /*CONFIG_SIERRA*/
 	/*
 	 * Disable the watchdog for cluster 1 so that cluster 0 watchdog will
 	 * be mapped to the entire sub-system.
@@ -593,6 +753,19 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	if (ipi_opt_en)
 		cpu_pm_register_notifier(&wdog_cpu_pm_nb);
 	dev_info(wdog_dd->dev, "MSM Watchdog Initialized\n");
+#ifdef CONFIG_SIERRA
+	error = msm_watchdog_dev_init();
+	if(error){
+		pr_err("msm_watchdog init failed\n");
+		return;
+	}
+	for(i = 0;i < msm_softdog_num;i++){
+		error = msm_watchdog_dev_register(&msm_softdog[i]);
+		if(error){
+			pr_err("msm_watchdog%d unable to register\n",i);
+		}
+	}
+#endif /*CONFIG_SIERRA*/
 	return;
 }
 
