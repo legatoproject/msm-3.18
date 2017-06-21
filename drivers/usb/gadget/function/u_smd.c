@@ -52,9 +52,29 @@ struct smd_port_info smd_pi[SMD_N_PORTS] = {
 		.name = "DS",
 	},
 	{
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* NMEA port is used as SMD port on Sierra devices */
+		.name = "GPSNMEA",
+#else
 		.name = "UNUSED",
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	},
 };
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+struct smd_port_info smdnmea_pi[SMD_N_PORTS] = {
+	{
+		.name = "GPSNMEA",
+	},
+	{
+		.name = "DS",
+	},
+};
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 struct gsmd_port {
 	unsigned		port_num;
@@ -902,6 +922,49 @@ static int gsmd_port_alloc(int portno, struct usb_cdc_line_coding *coding)
 	return 0;
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Copied from gsmd_port_alloc but NMEA port is placed first in order */
+static int gsmdnmea_port_alloc(int portno, struct usb_cdc_line_coding *coding)
+{
+	struct gsmd_port *port;
+	struct platform_driver *pdrv;
+	printk("%s: placing NMEA port first",__func__);
+
+	port = kzalloc(sizeof(struct gsmd_port), GFP_KERNEL);
+	if (!port)
+		return -ENOMEM;
+
+	port->port_num = portno;
+	port->pi = &smdnmea_pi[portno];
+
+	spin_lock_init(&port->port_lock);
+
+	INIT_LIST_HEAD(&port->read_pool);
+	INIT_LIST_HEAD(&port->read_queue);
+	INIT_WORK(&port->push, gsmd_rx_push);
+
+	INIT_LIST_HEAD(&port->write_pool);
+	INIT_WORK(&port->pull, gsmd_tx_pull);
+
+	INIT_DELAYED_WORK(&port->connect_work, gsmd_connect_work);
+	INIT_WORK(&port->disconnect_work, gsmd_disconnect_work);
+
+	smd_ports[portno].port = port;
+	pdrv = &smd_ports[portno].pdrv;
+	pdrv->probe = gsmd_ch_probe;
+	pdrv->remove = gsmd_ch_remove;
+	pdrv->driver.name = port->pi->name;
+	pdrv->driver.owner = THIS_MODULE;
+	platform_driver_register(pdrv);
+
+	pr_debug("%s: port:%pK portno:%d\n", __func__, port, portno);
+
+	return 0;
+}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 #if defined(CONFIG_DEBUG_FS)
 static ssize_t debug_smd_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
@@ -1044,6 +1107,61 @@ free_smd_ports:
 
 	return ret;
 }
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Copied from gsmd_setup and updated to use when the NMEA port is before DS port */
+int gsmdnmea_setup(struct usb_gadget *g, unsigned count)
+{
+	struct usb_cdc_line_coding	coding;
+	int ret;
+	int i;
+
+	pr_debug("%s: g:%pK count: %d\n", __func__, g, count);
+
+	if (!count || count > SMD_N_PORTS) {
+		pr_err("%s: Invalid num of ports count:%d gadget:%pK\n",
+				__func__, count, g);
+		return -EINVAL;
+	}
+
+	coding.dwDTERate = cpu_to_le32(9600);
+	coding.bCharFormat = 8;
+	coding.bParityType = USB_CDC_NO_PARITY;
+	coding.bDataBits = USB_CDC_1_STOP_BITS;
+
+	gsmd_wq = create_singlethread_workqueue("k_gsmd");
+	if (!gsmd_wq) {
+		pr_err("%s: Unable to create workqueue gsmd_wq\n",
+				__func__);
+		return -ENOMEM;
+	}
+	extra_sz = g->extra_buf_alloc;
+
+	for (i = 0; i < count; i++) {
+		mutex_init(&smd_ports[i].lock);
+		n_smd_ports++;
+		ret = gsmdnmea_port_alloc(i, &coding);
+		if (ret) {
+			n_smd_ports--;
+			pr_err("%s: Unable to alloc port:%d\n", __func__, i);
+			goto free_smd_ports;
+		}
+	}
+
+	gsmd_debugfs_init();
+
+	return 0;
+free_smd_ports:
+	for (i = 0; i < n_smd_ports; i++)
+		gsmd_port_free(i);
+
+	destroy_workqueue(gsmd_wq);
+
+	return ret;
+}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 void gsmd_suspend(struct gserial *gser, u8 portno)
 {

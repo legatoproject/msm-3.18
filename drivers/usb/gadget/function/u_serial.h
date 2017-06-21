@@ -78,6 +78,12 @@ void gserial_free_line(unsigned char port_line);
 int gserial_connect(struct gserial *, u8 port_num);
 void gserial_disconnect(struct gserial *);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int gsmdnmea_setup(struct usb_gadget *g, unsigned n_ports);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 int gsmd_setup(struct usb_gadget *g, unsigned n_ports);
 int gsmd_connect(struct gserial *, u8 port_num);
 void gsmd_disconnect(struct gserial *, u8 portno);
