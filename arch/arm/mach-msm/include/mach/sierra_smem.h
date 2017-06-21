@@ -544,6 +544,7 @@ struct __attribute__((packed)) mibib_smem_s
 {
   uint32_t magic_beg;             /* Beginning marker */
   uint32_t update_flag;           /* MIBIB update flag */
+  uint32_t download_addr;         /* MIBIB image store address*/
   uint32_t magic_end;             /* End Marker */
   uint32_t crc32;                 /* CRC32 of above fields */
 };
