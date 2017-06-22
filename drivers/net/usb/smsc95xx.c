@@ -1148,6 +1148,15 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
 	else if (val == ID_REV_CHIP_ID_9512_)
 		pdata->features = FEATURE_8_WAKEUP_FILTERS;
 
+/* SWISTART */
+/* To make LAN device don't enter suspend2 mode by default as we don't want to
+ * alloct IP address and config ethn in every suspend time
+ */
+#ifdef CONFIG_SIERRA
+	pdata->wolopts= WAKE_MAGIC | WAKE_PHY;
+#endif
+/* SWISTOP */
+
 	dev->net->netdev_ops = &smsc95xx_netdev_ops;
 	dev->net->ethtool_ops = &smsc95xx_ethtool_ops;
 	dev->net->flags |= IFF_MULTICAST;

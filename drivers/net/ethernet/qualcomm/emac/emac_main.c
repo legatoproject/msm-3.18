@@ -1824,10 +1824,14 @@ static void emac_adjust_link(struct net_device *netdev)
 		/* Acquire resources */
 		pm_runtime_get_sync(netdev->dev.parent);
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		/* Acquire wake lock if link is detected to avoid device going
 		 * into suspend
 		 */
 		__pm_stay_awake(&adpt->link_wlock);
+#endif
+/* SWISTOP */
 
 		phy->ops.tx_clk_set_rate(adpt);
 
@@ -1839,9 +1843,12 @@ static void emac_adjust_link(struct net_device *netdev)
 
 		emac_hw_stop_mac(hw);
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		/* Release wake lock if link is disconnected */
 		__pm_relax(&adpt->link_wlock);
-
+#endif
+/* SWISTOP */
 		pm_runtime_mark_last_busy(netdev->dev.parent);
 		pm_runtime_put_autosuspend(netdev->dev.parent);
 	}
@@ -3099,12 +3106,24 @@ static int emac_probe(struct platform_device *pdev)
 		goto err_undo_napi;
 	}
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	pm_runtime_get_sync(&pdev->dev);
+#endif
+/* SWISTOP */
+
 	if (TEST_FLAG(hw, HW_PTP_CAP)) {
 		pm_runtime_get_sync(&pdev->dev);
 		emac_ptp_init(adpt->netdev);
 		pm_runtime_mark_last_busy(&pdev->dev);
 		pm_runtime_put_autosuspend(&pdev->dev);
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	pm_runtime_disable(&pdev->dev);
+#endif
+/* SWISTOP */
 
 	emac_dbg(adpt, probe, "HW ID %d.%d, HW version %d.%d.%d\n",
 		 hw->devid, hw->revid,
