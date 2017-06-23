@@ -3343,8 +3343,21 @@ static int alx_suspend(struct device *dev)
 	}
 
 	retval = alx_shutdown_internal(pdev, &wakeup);
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	if (retval)
 		return retval;
+#else
+	if (retval) {
+		if (netif_running(adpt->netdev))
+		{
+			pr_err("%s : suspend fail,enable all napi\n", __func__);
+			alx_napi_enable_all(adpt);
+		}
+		return retval;
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 #ifdef MDM_PLATFORM
 	if(alx_ipa_rm_try_release(adpt))
