@@ -733,6 +733,7 @@ enum mci_protocol_wakeup_source_type_e
 
 #define MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_NONE   0x00
 #define MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_PTA12  0x00001000
+#define MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_PTB1   0x00020000
 
 /* Number of parameters and results per PM operation type */
 #define MCI_PROTOCOL_WAKEUP_SOURCE_SET_PARAMS_COUNT     2

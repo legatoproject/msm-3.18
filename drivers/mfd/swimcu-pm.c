@@ -126,7 +126,8 @@ enum wusrc_index {
 	WUSRC_GPIO38 = 1,
 	WUSRC_TIMER = 2,
 	WUSRC_ADC2 = 3,
-	WUSRC_MAX = WUSRC_ADC2,
+	WUSRC_ADC3 = 4,
+	WUSRC_MAX = WUSRC_ADC3,
 };
 
 static const struct wusrc_param {
@@ -138,6 +139,7 @@ static const struct wusrc_param {
 	[WUSRC_GPIO38] = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS, SWIMCU_GPIO_PTB0, MCI_PROTCOL_WAKEUP_SOURCE_EXT_PIN_BITMASK_PTB0},
 	[WUSRC_TIMER]  = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_TIMER, 0, 0},
 	[WUSRC_ADC2]   = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC, SWIMCU_ADC_PTA12, MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_PTA12},
+	[WUSRC_ADC3]   = {MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC, SWIMCU_ADC_PTB1, MCI_PROTOCOL_WAKEUP_SOURCE_ADC_PIN_BITMASK_PTB1},
 };
 
 static struct wusrc_value {
@@ -148,6 +150,7 @@ static struct wusrc_value {
 	[WUSRC_GPIO38] = {NULL, 0},
 	[WUSRC_TIMER]  = {NULL, 0},
 	[WUSRC_ADC2]   = {NULL, 0},
+	[WUSRC_ADC3]   = {NULL, 0},
 };
 
 static struct adc_trigger_config {
@@ -156,6 +159,7 @@ static struct adc_trigger_config {
 	bool select;
 } adc_trigger_config[] = {
 	[SWIMCU_ADC_PTA12] = {0, 1800, false},
+	[SWIMCU_ADC_PTB1] = {0, 1800, false},
 };
 
 static uint32_t adc_interval = 0;
@@ -790,6 +794,7 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 		{&wusrc_value[WUSRC_GPIO38].kobj, &swimcu->pm_boot_source_kobj, pm_gpio_edge_attr, "gpio38", ARRAY_SIZE(pm_gpio_edge_attr)},
 		{&wusrc_value[WUSRC_TIMER].kobj, &swimcu->pm_boot_source_kobj, pm_timer_timeout_attr, "timer", ARRAY_SIZE(pm_timer_timeout_attr)},
 		{&wusrc_value[WUSRC_ADC2].kobj, &swimcu->pm_boot_source_adc_kobj, pm_adc_trig_attr, "adc2", ARRAY_SIZE(pm_adc_trig_attr)},
+		{&wusrc_value[WUSRC_ADC3].kobj, &swimcu->pm_boot_source_adc_kobj, pm_adc_trig_attr, "adc3", ARRAY_SIZE(pm_adc_trig_attr)},
 	};
 
 	int i;

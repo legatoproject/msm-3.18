@@ -35,11 +35,12 @@ Documentation/gpio/sysfs.txt
 2. ADC
 ===============
 
-The MCU supports only one external pin that may be configured
-as an ADC input. It corresponds to ADC2 of the WP76xx. It is
-exposed through the standard hwmon interface (/sys/class/hwmon) at hwmon1.
-ADC may be read via in0_mv. The value is returned in millivolts
-(range: 0 - 1800mV). The interface is loosely based on that described in:
+The MCU supports 2 external pins that may be configured as ADC
+inputs. These correspond to ADC2 and ADC3 of the WP76xx. They are
+exposed through the standard hwmon interface (/sys/class/hwmon)
+at hwmon1. Each ADC may be read via in0_mv and in1_mv. The value
+is returned in milliVolts (range: 0 - 1800mV).
+The interface is loosely based on that described in:
 Documentation/hwmon/sysfs-interface
 
 
@@ -111,6 +112,7 @@ boot source:
 	/sys/module/swimcu_pm/boot_source/gpio36/triggered
 	/sys/module/swimcu_pm/boot_source/gpio38/triggered
 	/sys/module/swimcu_pm/boot_source/adc/adc2/triggered
+	/sys/module/swimcu_pm/boot_source/adc/adc3/triggered
 
 In the event that a boot source triggers before entering ULPM (or
 no boot source is configured), it will fail that writing 1 to

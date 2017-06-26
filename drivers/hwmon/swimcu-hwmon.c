@@ -70,12 +70,16 @@ static ssize_t show_label(struct device *dev,
 static DEVICE_ATTR(name, S_IRUGO, show_name, NULL);
 
 SWIMCU_NAMED_VOLTAGE(0, (int)SWIMCU_ADC_PTA12);
+SWIMCU_NAMED_VOLTAGE(1, (int)SWIMCU_ADC_PTB1);
 
 static struct attribute *swimcu_attributes[] = {
 	&dev_attr_name.attr,
 
 	&sensor_dev_attr_in0_mv.dev_attr.attr,
 	&sensor_dev_attr_in0_label.dev_attr.attr,
+
+	&sensor_dev_attr_in1_mv.dev_attr.attr,
+	&sensor_dev_attr_in1_label.dev_attr.attr,
 
 	NULL,
 };

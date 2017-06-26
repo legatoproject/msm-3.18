@@ -51,11 +51,27 @@ int swimcu_fault_count = 0;
 /* ADC provided by MCU */
 static const enum mci_protocol_adc_channel_e adc_chan_cfg[] = {
 	[SWIMCU_ADC_PTA12] = MCI_PROTOCOL_ADC0_SE0,
+	[SWIMCU_ADC_PTB1]  = MCI_PROTOCOL_ADC0_SE8
 };
 
 static struct mci_adc_config_s adc_config[] = {
 	{
 		.channel = MCI_PROTOCOL_ADC0_SE0,
+		.resolution_mode = MCI_ADC_RESOLUTION,
+		.low_power_conv  = MCI_PROTOCOL_ADC_LOW_POWER_CONV_DISABLE,
+		.high_speed_conv = MCI_PROTOCOL_ADC_HIGH_SPEED_CONV_DISABLE,
+		.sample_period = MCI_PROTOCOL_ADC_SAMPLE_PERIOD_ADJ_4,
+		.hw_average = true,
+		.sample_count = MCI_ADC_HW_AVERAGE_SAMPLES_32,
+		.trigger_mode = MCI_PROTOCOL_ADC_TRIGGER_MODE_SW,
+		.trigger_type = MCI_PROTOCOL_ADC_TRIGGER_SOFTWARE,
+		.trigger_interval = 0,
+		.hw_compare.value1 = 0,
+		.hw_compare.value2 = 0,
+		.hw_compare.mode = MCI_PROTOCOL_ADC_COMPARE_MODE_DISABLED,
+	},
+	{
+		.channel = MCI_PROTOCOL_ADC0_SE8,
 		.resolution_mode = MCI_ADC_RESOLUTION,
 		.low_power_conv  = MCI_PROTOCOL_ADC_LOW_POWER_CONV_DISABLE,
 		.high_speed_conv = MCI_PROTOCOL_ADC_HIGH_SPEED_CONV_DISABLE,
