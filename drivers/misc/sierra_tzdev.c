@@ -140,7 +140,7 @@ static int tzdev_storage_service_generate_key(uint8_t *key_material, uint32_t* k
   }
 
   *key_size = gen_key_respp->key_blob_size;
-  
+
 end:
   // Free data buffers
   if(gen_key_reqp)
@@ -156,7 +156,7 @@ end:
   return rc;
 }
 
-static int tzdev_seal_data_using_aesccm(uint8_t *plain_data, uint32_t plain_data_len, 
+static int tzdev_seal_data_using_aesccm(uint8_t *plain_data, uint32_t plain_data_len,
   uint8_t *sealed_buffer, uint32_t *sealed_data_len,uint8_t *key_material, uint32_t key_material_len)
 {
   // Define request and response structures.
@@ -257,7 +257,7 @@ end:
   return rc;
 }
 
-static int tzdev_unseal_data_using_aesccm(uint8_t *sealed_buffer, uint32_t sealed_buffer_len, 
+static int tzdev_unseal_data_using_aesccm(uint8_t *sealed_buffer, uint32_t sealed_buffer_len,
   uint8_t *output_buffer_unseal, uint32_t *unseal_len,uint8_t *key_material, uint32_t key_material_len )
 {
   // Define request and response structures.
@@ -300,9 +300,9 @@ static int tzdev_unseal_data_using_aesccm(uint8_t *sealed_buffer, uint32_t seale
   // Plain data
   unseal_datareqp->output_buffer = (void *)SCM_BUFFER_PHYS(output_buffer_unseal);
   unseal_datareqp->output_len = output_len_unseal;
-  
+
   // Flush memory
-  dmac_flush_range(sealed_buffer, ((void *)sealed_buffer + (sizeof(uint8_t) * sealed_buffer_len)));  
+  dmac_flush_range(sealed_buffer, ((void *)sealed_buffer + (sizeof(uint8_t) * sealed_buffer_len)));
   dmac_flush_range(output_buffer_unseal, ((void *)output_buffer_unseal + (sizeof(uint8_t) * output_len_unseal)));
   dmac_flush_range(key_material, ((void *)key_material + (sizeof(uint8_t) * key_material_len)));
   dmac_flush_range(unseal_datareqp, ((void *)unseal_datareqp + (sizeof(tz_storage_service_unseal_data_cmd_t))));
@@ -410,7 +410,7 @@ static long sierra_tzdev_ioctl(struct file *file, unsigned cmd, unsigned long ar
     }
   }
 
-  switch (cmd) 
+  switch (cmd)
   {
     /*Generate keyblob*/
     case TZDEV_IOCTL_KEYGEN_REQ:
@@ -427,7 +427,7 @@ static long sierra_tzdev_ioctl(struct file *file, unsigned cmd, unsigned long ar
 
         if ((output_len > key_material_len) ||
             copy_to_user(scm_buf_user_ptr->enckey, (void *)key_material, output_len) ||
-            copy_to_user(&(scm_buf_user_ptr->encklen), &output_len, sizeof(uint32_t))) 
+            copy_to_user(&(scm_buf_user_ptr->encklen), &output_len, sizeof(uint32_t)))
         {
                 printk(KERN_ERR "%s_%d: copy_to_user failed\n", __func__,__LINE__);
                 rc = -EFAULT;
@@ -481,7 +481,7 @@ static long sierra_tzdev_ioctl(struct file *file, unsigned cmd, unsigned long ar
         }
 
         output_len = plain_data_len;
-        rc = tzdev_unseal_data_using_aesccm(sealed_datap, sealed_data_len, 
+        rc = tzdev_unseal_data_using_aesccm(sealed_datap, sealed_data_len,
                    plain_datap, &output_len, key_material, key_material_len);
         pr_info("%s()_line%d: TZDEV_IOCTL_UNSEAL_REQ: sealed data len:%d, plain_data_len:%d, rc=%d\n",
                  __func__, __LINE__, sealed_data_len, output_len, rc);
@@ -567,7 +567,7 @@ static int __init sierra_tzdev_init(void)
 
 static void __exit sierra_tzdev_exit(void)
 {
-  misc_deregister(&sierra_tzdev_misc); 
+  misc_deregister(&sierra_tzdev_misc);
 }
 
 module_init(sierra_tzdev_init);

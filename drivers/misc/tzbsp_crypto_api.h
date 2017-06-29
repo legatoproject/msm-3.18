@@ -135,7 +135,7 @@ typedef struct tz_storage_service_gen_key_cmd {
 } tz_storage_service_gen_key_cmd_t;
 
 typedef struct tz_storage_service_gen_key_resp {
-  tz_storage_service_cmd_t    cmd_id;  
+  tz_storage_service_cmd_t    cmd_id;
   int32                       status;
   uint32                      key_blob_size;
 } tz_storage_service_gen_key_resp_t;
@@ -361,19 +361,19 @@ typedef struct crypto_asym_sign_data_cmd crypto_asym_sign_data_cmd_t;
 /**
 * Response to sign data command
 *
-* cmd_id		: Command issue to secure app
-* signed_data : signature    
-* sig_len 	: Signed data length  
-* status		: Result (success 0, or failure -1)
+* cmd_id      : Command issue to secure app
+* signed_data : Signature
+* sig_len     : Signed data length
+* status      : Result (success 0, or failure -1)
 */
 struct crypto_asym_sign_data_resp {
   crypto_asym_cmd_t cmd_id;
   size_t sig_len;
   int32 status;
 };
- 
+
  typedef struct crypto_asym_sign_data_resp crypto_asym_sign_data_resp_t;
- 
+
  /**
   * Command to verify data using a key info generated before. This can use either
   * an asymmetric key or a secret key.
@@ -399,8 +399,8 @@ typedef struct crypto_asym_verify_data_cmd crypto_asym_verify_data_cmd_t;
 /**
 * Response to verify data
 *
-* cmd_id		: Command issue to secure app 
-* status		: Result (success 0, or failure -1)  
+* cmd_id        : Command issue to secure app
+* status        : Result (success 0, or failure -1)
 */
 struct crypto_asym_verify_data_resp {
   crypto_asym_cmd_t cmd_id;
@@ -418,11 +418,11 @@ typedef struct crypto_storage_rsa_export_key_cmd {
   crypto_rsa_key_blob_type    key_blob;
   crypto_storage_rsa_key_format_t  export_format;
   uint8                       *modulus;
-  uint32                      modulus_size;	 
+  uint32                      modulus_size;
   uint8                       *public_exponent;
   uint32                      public_exponent_size;
 } crypto_storage_rsa_export_key_cmd_t;
- 
+
 typedef struct  crypto_storage_rsa_export_key_resp {
   crypto_asym_cmd_t   cmd_id;
   int32               status;
