@@ -1230,12 +1230,10 @@ static int wm8944_i2s_hw_params(struct snd_pcm_substream *substream,
 static int wm8944_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
-	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
 
 	u16 mute_dac_reg = snd_soc_read(codec, WM8944_DACVOL) & (~WM8944_DAC_MUTE_MASK);
 	u16 mute_adcall_reg = snd_soc_read(codec, WM8944_ADCCTL1) & (~WM8944_ADC_MUTE_ALL_MASK);
 	u16 mute_inpga_reg = snd_soc_read(codec, WM8944_INPUTPGAGAINCTL) & (~WM8944_INPGA_MUTE_MASK);
-	int ret;
 
 	dev_dbg(dai->codec->dev, "%s mute=%d\n", __func__, mute);
 
@@ -1533,7 +1531,6 @@ static irqreturn_t wm8944_ldo_warn(int irq, void *data)
 
 static int wm8944_codec_probe(struct snd_soc_codec *codec)
 {
-	struct wm8944 *control = dev_get_drvdata(codec->dev->parent);
 	struct wm8944_priv *wm8944 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 

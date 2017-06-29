@@ -48,7 +48,7 @@ module_param_named(
 
 #define ADC_ATTR_STORE(name)                                      	\
 	static ssize_t pm_adc_##name##_attr_store(struct kobject *kobj, \
-		struct kobj_attribute *attr, char *buf, size_t count)   \
+		struct kobj_attribute *attr, const char *buf, size_t count) \
 	{                                                               \
 		unsigned int value = 0;                                 \
 		enum swimcu_adc_index adc;                              \

@@ -2751,7 +2751,7 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	else if (!strcmp(card->name, "mdm9607-wm8944-i2s-snd-card")) {
 		pdata->sysclk = devm_clk_get(&pdev->dev, "wm8944_sysclk");
 		if(!pdata->sysclk) {
-			dev_err(&pdev->dev, "%s: failed to get MCLK for wm8944\n");
+			dev_err(&pdev->dev, "%s: failed to get MCLK for wm8944\n", __func__);
 			ret = -EINVAL;
 			goto err;
 		}

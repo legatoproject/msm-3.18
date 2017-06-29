@@ -435,7 +435,7 @@ err_irq:
 err_enable:
 	regulator_bulk_disable(wm8944->num_supplies, wm8944->supplies);
 	regulator_bulk_free(wm8944->num_supplies, wm8944->supplies);
-err:
+
 	mfd_remove_devices(wm8944->dev);
 	wm8944_intf = WM8944_INTERFACE_TYPE_NONE;
 	printk(KERN_DEBUG "%s - Failed to add children: %d\n",__func__, ret);
