@@ -133,6 +133,33 @@ EXPORT_SYMBOL(bs_hwtype_get);
 
 /************
  *
+ * Name:     bs_hwrev_get
+ *
+ * Purpose:  Returns hardware revision read from QFPROM
+ *
+ * Parms:    none
+ *
+ * Return:   hardware major revision number
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+uint8_t bs_hwrev_get (void)
+{
+	if (!bs_hwcfg_read)
+	{
+		bs_hwcfg.all = sierra_smem_get_hwconfig();
+		bs_hwcfg_read = true;
+	}
+
+	return bs_hwcfg.hw.rev;
+}
+EXPORT_SYMBOL(bs_hwrev_get);
+
+/************
+ *
  * Name:     bs_prod_family_get
  *
  * Purpose:  Returns product family read from QFPROM / SMEM

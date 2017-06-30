@@ -24,6 +24,7 @@
 #include <linux/regmap.h>
 #include <linux/workqueue.h>
 #include <linux/notifier.h>
+#include <linux/gpio.h>
 
 #include <linux/mfd/swimcu/core.h>
 #include <linux/mfd/swimcu/gpio.h>
@@ -31,6 +32,7 @@
 #include <linux/mfd/swimcu/mciprotocol.h>
 #include <linux/mfd/swimcu/mcidefs.h>
 #include <linux/sierra_gpio_wake_n.h>
+#include <linux/sierra_bsudefs.h>
 /*
  * SWIMCU Device IO
  */
@@ -44,6 +46,9 @@ int swimcu_debug_mask = SWIMCU_DEFAULT_DEBUG_LOG;
 
 #define MCI_ADC_SCALE           MCI_ADC_SCALE_12_BIT
 #define MCI_ADC_RESOLUTION      MCI_PROTOCOL_ADC_RESOLUTION_12_BITS
+
+#define SWIMCU_HW_ID_DV_5_2     ((0x5 << 2) | 0x1)
+#define SWIMCU_HW_ID_INVALID    (0x0)
 
 int swimcu_fault_mask = 0;
 int swimcu_fault_count = 0;
@@ -568,6 +573,93 @@ EXPORT_SYMBOL_GPL(swimcu_device_exit);
 
 /************
  *
+ * Name:     swimcu_hw_id_read
+ *
+ * Purpose:  Read HW ID from PMD GPIOs
+ *
+ * Parms:    swimcu - pointer to device data structure
+ *           pdata - device configuration data
+ *
+ * Return:   Nothing
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ */
+static void swimcu_hw_id_read(
+	struct swimcu *swimcu,
+	struct swimcu_platform_data *pdata )
+{
+	int err;
+	int status;
+
+	/* Hardware ID is composed of 4-bit major and 2-bit minor */
+	swimcu->hw_id = (bs_hwrev_get()) << 2;
+
+	err = gpio_request(pdata->gpio_hw_id_1, "swimcu,hw-id-1");
+	if (err){
+		swimcu->hw_id = SWIMCU_HW_ID_INVALID;
+		dev_err(swimcu->dev, "Failed to acquire HW ID minor bit 1\n");
+		return;
+	}
+	status = gpio_get_value_cansleep(pdata->gpio_hw_id_1);
+	gpio_free(pdata->gpio_hw_id_1);
+
+	swimcu->hw_id |= status << 1;
+
+	err = gpio_request(pdata->gpio_hw_id_0, "swimcu,hw-id-0");
+	if (err){
+		swimcu->hw_id = SWIMCU_HW_ID_INVALID;
+		dev_err(swimcu->dev, "Failed to acquire HW ID minor bit 0\n");
+		return;
+	}
+
+	status = gpio_get_value_cansleep(pdata->gpio_hw_id_0);
+	gpio_free(pdata->gpio_hw_id_0);
+
+	swimcu->hw_id |= status;
+
+	swimcu_log(INIT, "%s: HW ID %d\n", __func__, swimcu->hw_id);
+}
+
+/************
+ *
+ * Name:     swimcu_vbus_detect_disable
+ *
+ * Purpose:  Disable USB VBUS Detection
+ *
+ * Parms:    swimcu - pointer to device data structure
+ *
+ * Return:   Nothing
+ *
+ * Abort:    none
+ *
+ * Notes:    On WP76 DV5.2 HW, the VBUS input to MCU is floating, which
+ *           may cause MCU to signal to MDM "USB not present", preventing
+ *           USB enumeration.
+ *
+ *           By disabling the VBUS detect mechanism on MCU, the external
+ *           pull-up on MCU output pull the singal to high, indicating to
+ *           MDM the USB is always connected.
+ */
+static void swimcu_vbus_detect_disable(
+	struct swimcu *swimcu)
+{
+	struct mci_mcu_pin_state_s pin_state = {
+		.mux = MCI_MCU_PIN_FUNCTION_DISABLED,
+		.dir = MCI_MCU_PIN_DIRECTION_INPUT,
+		.level = MCI_MCU_PIN_LEVEL_LOW,
+		.params.input.pe = false,
+		.params.input.ps = MCI_MCU_PIN_PULL_UP,
+		.params.input.pfe = false,
+		.params.input.irqc_type = MCI_PIN_IRQ_DISABLED,
+	};
+	(void) swimcu_pin_config_set(swimcu, 0, 4, &pin_state );
+	(void) swimcu_pin_config_set(swimcu, 0, 7, &pin_state );
+}
+
+/************
  * Name:     swimcu_device_init
  *
  * Purpose:  initialize the driver
@@ -586,6 +678,7 @@ int swimcu_device_init(struct swimcu *swimcu)
 {
 	int ret;
 	struct swimcu_platform_data *pdata = dev_get_platdata(swimcu->dev);
+	enum bshwtype hwtype;
 
 	if (NULL == pdata) {
 		ret = -EINVAL;
@@ -593,6 +686,8 @@ int swimcu_device_init(struct swimcu *swimcu)
 		return ret;
 	}
 	swimcu_log(INIT, "%s: start 0x%x\n", __func__, swimcu->driver_init_mask);
+
+	swimcu_hw_id_read(swimcu, pdata);
 
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_EVENT)) {
 		mutex_init(&swimcu->mcu_transaction_mutex);
@@ -632,7 +727,17 @@ int swimcu_device_init(struct swimcu *swimcu)
 		/* first communication with MCU since statup */
 		swimcu_gpio_retrieve(swimcu); /* get gpio config from MCU */
 	}
+
 	swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_PING;
+
+	hwtype = bs_hwtype_get();
+	if ((swimcu->hw_id == SWIMCU_HW_ID_DV_5_2) &&
+		((hwtype == BSWP7601) || (hwtype == BSWP7601_1) ||
+		(hwtype == BSWP7603) || (hwtype == BSWP7603_1)))
+	{
+		swimcu_log(INIT, "%s: Disable USB VBUS Detection\n", __func__);
+		swimcu_vbus_detect_disable(swimcu);
+	}
 
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_FW)) {
 		if(pdata->func_flags & SWIMCU_FUNC_FLAG_FWUPD) {

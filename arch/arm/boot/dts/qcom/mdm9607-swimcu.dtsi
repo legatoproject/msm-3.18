@@ -21,5 +21,8 @@
 		swimcu,func-fwupd-en = /bits/ 8 <1>;
 		swimcu,func-pm-en = /bits/ 8 <1>;
 		swimcu,func-event-en = /bits/ 8 <1>;
+
+		swimcu,hw-id-1 = <&pm8019_gpios 1 0>;
+		swimcu,hw-id-0 = <&pm8019_gpios 3 0>;
 	};
 };
