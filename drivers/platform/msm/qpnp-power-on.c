@@ -519,6 +519,19 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 			"Unable to write to addr=%hx, rc(%d)\n",
 			rst_en_reg, rc);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(PON_POWER_OFF_SHUTDOWN == type)
+	{
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_RESIN_S2_CNTL2(pon), QPNP_PON_RESET_EN, 0);
+		if (rc)
+			dev_err(&pon->spmi->dev,
+				"Unable to write to addr=%hx, rc(%d)\n",
+				QPNP_PON_RESIN_S2_CNTL2(pon), rc);
+	}
+#endif
+/* SWISTOP */
+
 	dev_dbg(&pon->spmi->dev, "power off type = 0x%02X\n", type);
 	return rc;
 }
