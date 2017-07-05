@@ -261,7 +261,7 @@ static const struct snd_kcontrol_new wm8944_snd_controls[] = {
 	//
 	SOC_SINGLE("BYP to Speak PGA Switch", WM8944_SPEAKMIXCTL1, 6, 1, 0),
 
-#if DEBUG_REGISTER_ACCESS
+#ifdef DEBUG_REGISTER_ACCESS
 	//	SOC_SINGLE_EXT("reg00", SND_SOC_NOPM, 0, 65535, 0,  WM8944_get_reset,
 	//		       WM8944_set_reset), /* R0  - Chip Revision Id1  */
 	SOC_SINGLE("reg01", 0x01, 0, 65535, 0),  /* R1  - Chip Revision Id2 (RO) */
@@ -1236,15 +1236,6 @@ static int wm8944_mute(struct snd_soc_dai *dai, int mute)
 	u16 mute_inpga_reg = snd_soc_read(codec, WM8944_INPUTPGAGAINCTL) & (~WM8944_INPGA_MUTE_MASK);
 
 	dev_dbg(dai->codec->dev, "%s mute=%d\n", __func__, mute);
-
-	/* This function is called multiple times by the function soc_pcm_prepare,
-	* In order to prevent pop noise, return here directly when codec is initializing
-	*/
-	/*if(wm8944->codec_initializing)
-	{
-		dev_dbg(dai->codec->dev, "%s mute=%d, return during codec initializing \n", __func__, mute);
-		return 0;
-	}*/
 
 	if (mute) {
 		mute_dac_reg |= WM8944_DAC_MUTE;
