@@ -70,7 +70,8 @@ enum ssmem_region_id_e
   SSMEM_RG_ID_FWUPDATE_STATUS      = 18,
   SSMEM_RG_ID_IMSW                 = 19,
   SSMEM_RG_ID_KEYS                 = 20,
-  SSMEM_RG_ID_LAST                 = SSMEM_RG_ID_KEYS,
+  SSMEM_RG_ID_COWORK               = 21,
+  SSMEM_RG_ID_LAST                 = SSMEM_RG_ID_COWORK,
   SSMEM_RG_ID_MAX                  = 100,
   SSMEM_RG_ID_INVALID,
 };

@@ -6,5 +6,6 @@ obj-$(CONFIG_SIERRA) += src/ssmem_core.o
 obj-$(CONFIG_SIERRA) += src/ssmem_linux.o
 obj-$(CONFIG_SIERRA) += src/ssmem_user.o
 obj-$(CONFIG_SIERRA) += src/ssmem_utils.o
+obj-$(CONFIG_SIERRA) += src/ssmem_bscommon.o
 
 # SWISTOP

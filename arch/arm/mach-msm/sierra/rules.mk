@@ -11,6 +11,7 @@ OBJS += \
 	$(LOCAL_DIR)/src/ssmem_lk.o \
 	$(LOCAL_DIR)/src/ssmem_core.o \
 	$(LOCAL_DIR)/src/ssmem_user.o \
-	$(LOCAL_DIR)/src/ssmem_utils.o
+	$(LOCAL_DIR)/src/ssmem_utils.o \
+	$(LOCAL_DIR)/src/ssmem_bscommon.o
 
 # SWISTOP
