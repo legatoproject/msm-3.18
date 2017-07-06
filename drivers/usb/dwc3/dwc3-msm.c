@@ -44,6 +44,11 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/msm-bus.h>
 #include <linux/irq.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <../../pinctrl/qcom/pinctrl-msm.h>
+#endif
+/* SWISTOP */
 
 #include "power.h"
 #include "core.h"
@@ -2851,6 +2856,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	usb_vbus_en_request = true;
 	if (gpio_direction_output(mdwc->vbus_en_pin, 0)) {
 		dev_err(&pdev->dev, "usb vbus-en-pin output 0 failed\n");
+		goto err;
+	}
+	if(gpio_set_pull(gpio_to_desc(mdwc->vbus_en_pin), MSM_GPIO_NO_PULL)){
+		dev_err(&pdev->dev, "failed to set vbus-en-pin to no-pull\n");
 		goto err;
 	}
 

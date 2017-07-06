@@ -349,7 +349,7 @@
 			config {
 				pins = "gpio21";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-down;
 			};
 		};
 		uart1_console_cts_active: uart1_console_cts_active {
@@ -360,7 +360,7 @@
 			config {
 				pins = "gpio22";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-down;
 			};
 		};
 		uart1_console_rts_active: uart1_console_rts_active {
@@ -393,7 +393,7 @@
 			config {
 				pins = "gpio21";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-down;
 			};
 		};
 		uart1_console_cts_sleep: uart1_console_cts_sleep {
@@ -404,7 +404,7 @@
 			config {
 				pins = "gpio22";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-down;
 			};
 		};
 		uart1_console_rts_sleep: uart1_console_rts_sleep {
@@ -441,7 +441,7 @@
 			config {
 				pins = "gpio21";
 				drive-strength = <2>;
-				bias-disable;
+				bias-pull-down;
 			};
 		};
 	};
@@ -452,7 +452,7 @@
 			};
 			config {
 				pins = "gpio4", "gpio5";
-			drive-strength = <2>;
+				drive-strength = <2>;
 				bias-disable;
 				};
 		};
