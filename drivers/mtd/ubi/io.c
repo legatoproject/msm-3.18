@@ -204,6 +204,12 @@ retry:
 		dump_stack();
 
 /* SWISTART */
+		if(NULL == ubi->vtbl)
+		{
+			ubi_err(ubi, "ubi_io_read ubi appear to damage");
+			err = -EIO;
+			return err;
+		}
 		memcpy(ubi_name,ubi->vtbl->name,__be16_to_cpu(ubi->vtbl->name_len));
 		ubi_msg(ubi, "ubi name:%s", ubi_name);
 
