@@ -648,7 +648,10 @@ struct __attribute__((packed)) bscoworkmsg
   uint8_t  bsbootquiet;      /* indicate whether bootquiet is enabled or not */
   uint8_t  bsresintimer[2];  /* S1, S2 timer for HW reset */
   uint32_t bsfunctions;      /* bitmask for functions configured by modem side(ex. HISC) */
-  uint32_t bsreserved[8];    /* The unused memory */
+  uint8_t  bsresinfotype;    /* reset info type */
+  uint8_t  bsresinfosource;  /* reset info source */
+  uint8_t  bsbreserved[2];   /* The unused memory */
+  uint32_t bsreserved[7];    /* The unused memory */
   uint32_t magic_end;        /* Magic ending flag */
   uint32_t crc32;            /* CRC32 of above fields */
 };
