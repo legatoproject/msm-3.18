@@ -1905,6 +1905,7 @@ static int DWC_ETH_QOS_close(struct net_device *dev)
 	DWC_ETH_QOS_all_ch_napi_disable(pdata);
 
 	if (pdata->ipa_enabled) {
+		ipa_uc_offload_dereg_rdyCB(IPA_UC_NTN);
 		ret = DWC_ETH_QOS_disable_ipa_offload(pdata);
 		if (ret)
 			return ret;
@@ -2806,7 +2807,7 @@ static void DWC_ETH_QOS_tx_interrupt(struct net_device *dev,
 #endif
 
 		if (hw_if->get_tx_desc_ctxt(txptr)) {
-			NMSGPR_ERR("TX Context descriptor is not handled, Check if TX path has any issue\n");
+			NDBGPR_L1("TX Context descriptor is not handled, Check if TX path has any issue\n");
 		}
 
 		dev->stats.tx_bytes += buffer->len;
