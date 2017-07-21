@@ -25,7 +25,7 @@
 #include <linux/nmi.h>
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-#include <linux/sierra_bsuproto.h>
+#include <linux/sierra_bsudefs.h>
 #endif
 /* SWISTOP */
 
@@ -80,6 +80,12 @@ void __weak panic_smp_self_stop(void)
  */
 void panic(const char *fmt, ...)
 {
+	static DEFINE_SPINLOCK(panic_lock);
+	static char buf[1024];
+	va_list args;
+	long i, i_next = 0;
+	int state = 0;
+
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 	if(bsgetpowerfaultflag())
@@ -88,12 +94,6 @@ void panic(const char *fmt, ...)
 	}
 #endif
 /* SWISTOP */
-
-	static DEFINE_SPINLOCK(panic_lock);
-	static char buf[1024];
-	va_list args;
-	long i, i_next = 0;
-	int state = 0;
 
 	trace_kernel_panic(0);
 	/*

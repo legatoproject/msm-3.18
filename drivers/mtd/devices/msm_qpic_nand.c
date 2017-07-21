@@ -16,7 +16,7 @@
 #include "msm_qpic_nand.h"
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-#include <linux/sierra_bsuproto.h>
+#include <linux/sierra_bsudefs.h>
 #endif
 /* SWISTOP */
 

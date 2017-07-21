@@ -41,7 +41,7 @@
 #include <asm/current.h>
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-#include <linux/sierra_bsuproto.h>
+#include <linux/sierra_bsudefs.h>
 #endif
 /* SWISTOP */
 
@@ -309,10 +309,8 @@ static ssize_t firmware_load(struct device *dev,
                 struct device_attribute *attr, const char *buf,
                 size_t count)
 {
-    struct subsys_device *subsys = to_subsys(dev);
     const char *p;
     int orig_count = count;
-    int ret;
 
     p = memchr(buf, '\n', count);
     if (p)

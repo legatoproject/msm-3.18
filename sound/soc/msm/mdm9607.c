@@ -1060,7 +1060,7 @@ void mdm_sec_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int ret;
 
-	pr_debug("mdm_sec_auxpcm_shutdown, sec_aux_ref_count=%d\n", sec_aux_ref_count);
+	pr_debug("mdm_sec_auxpcm_shutdown, sec_aux_ref_count=%d\n", atomic_read(&sec_aux_ref_count));
 	if (atomic_dec_return(&sec_aux_ref_count) == 0) {
 		pr_err("shutdown second auxpcm\n");
 		ret = mdm_sec_mi2s_clk_ctl(rtd, false, 0);

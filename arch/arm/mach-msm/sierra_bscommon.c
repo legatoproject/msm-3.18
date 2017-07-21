@@ -56,7 +56,7 @@ uint64_t bsgetgpioflag(void)
 			/* doube check CRC */
 			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE)) {
 				/*get gpio flag*/
-				result = (uint64_t)(mp->bsgpioflag[0]) | (uint64_t)(mp->bsgpioflag[1] << 32);
+				result = (uint64_t)(mp->bsgpioflag[0]) | ((uint64_t)mp->bsgpioflag[1] << 32);
 			} else {
 				pr_err(KERN_ERR"sierra:-%s-failed: crc error", __func__);
 			}
@@ -281,7 +281,6 @@ bool bscheckapplresettypeflag(void)
 {
 	struct bc_smem_message_s *b2amsgp;
 	unsigned char *virtual_addr;
-	unsigned int reset_type_flag = 0;
 
 	virtual_addr = sierra_smem_base_addr_get();
 	if (virtual_addr)

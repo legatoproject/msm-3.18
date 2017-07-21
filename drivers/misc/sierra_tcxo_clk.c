@@ -54,7 +54,7 @@ static ssize_t sierra_tcxo_show(struct kobject *kobj,
   uint8_t enabled;
   enabled = data->enable;
 
-  return sprintf(buf, "%u\n", enabled);
+  return sprintf((char *)buf, "%u\n", enabled);
 }
 
 static ssize_t sierra_tcxo_store(struct kobject *kobj,

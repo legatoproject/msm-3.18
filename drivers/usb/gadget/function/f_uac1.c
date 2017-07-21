@@ -1184,7 +1184,9 @@ static void f_audio_complete(struct usb_ep *ep, struct usb_request *req)
 {
 	struct f_audio *audio = req->context;
 	int status = req->status;
+#ifndef CONFIG_SIERRA_UAC2
 	u32 data = 0;
+#endif
 
 	switch (status) {
 
@@ -1805,7 +1807,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 #else
 static void f_audio_adjust_buffer(struct f_uac1_opts *opts, struct usb_composite_dev *cdev)
 {
-	unsigned int factor, rate, framesize, interval, pktsize;
+	unsigned int factor, rate, framesize, interval;
 	struct usb_gadget *gadget = cdev->gadget;
 	struct usb_endpoint_descriptor *ep_desc_p, *ep_desc_c;
 
@@ -2250,7 +2252,6 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_string	*us;
 	int			status;
 	struct usb_ep		*ep = NULL;
-	u8			epaddr;
 	struct f_uac1_opts	*audio_opts;
 
 	audio_opts = container_of(f->fi, struct f_uac1_opts, func_inst);

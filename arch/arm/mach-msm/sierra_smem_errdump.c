@@ -229,7 +229,7 @@ void sierra_smem_errdump_save_regs(void *registers, void *taskp)
                 errdatap->cpsr = (uint32_t)regs->ARM_cpsr;
                 errdatap->program_counter = (uint32_t)regs->ARM_pc;
 
-                stackp = (uint32_t)regs->ARM_sp;
+                stackp = (unsigned long *)regs->ARM_sp;
 
                 for (i = 0; i < MAX_STACK_DATA; i++)
                         errdatap->stack_data[MAX_STACK_DATA - i - 1] = stackp[i];

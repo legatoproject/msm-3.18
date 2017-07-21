@@ -32,7 +32,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <mach/sierra_smem.h>
-#include <linux/sierra_bsuproto.h>
+#include <linux/sierra_bsudefs.h>
 #endif
 /* SWISTOP */
 
@@ -995,7 +995,11 @@ err_return:
 
 static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 {
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	int rc;
+#endif
+/* SWISTOP */
 	struct qpnp_pon *pon = _pon;
 	struct qpnp_pon_config *cfg;
 

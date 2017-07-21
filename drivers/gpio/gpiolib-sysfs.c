@@ -428,7 +428,7 @@ static ssize_t gpio_pull_show(struct device *dev,
 static ssize_t gpio_pull_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
-	const struct gpio_desc	*desc = dev_get_drvdata(dev);
+	struct gpio_desc	*desc = dev_get_drvdata(dev);
 	ssize_t			status;
 
 	mutex_lock(&sysfs_lock);
@@ -811,6 +811,8 @@ static ssize_t export_store(struct class *class,
 	int			status;
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	bool alias = false;
+
 	gRmode = sierra_smem_get_factory_mode();
 	if(gRmode == 1)
 	{
@@ -823,10 +825,9 @@ static ssize_t export_store(struct class *class,
 		ext_gpio = ext_gpio_ar;
 		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 	}
-	bool alias = false;
 
 	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--find GPIO: %d \n", __func__,gpio);
+	pr_debug("%s: sierra--find GPIO: %ld \n", __func__,gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
@@ -873,6 +874,8 @@ static ssize_t unexport_store(struct class *class,
 	int			status;
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+	bool alias = false;
+
 	gRmode = sierra_smem_get_factory_mode();
 	if(gRmode == 1)
 	{
@@ -884,10 +887,9 @@ static ssize_t unexport_store(struct class *class,
 		ext_gpio = ext_gpio_ar;
 		gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 	}
-	bool alias = false;
 
 	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: sierra--unexport GPIO: %d \n", __func__,gpio);
+	pr_debug("%s: sierra--unexport GPIO: %ld \n", __func__,gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/

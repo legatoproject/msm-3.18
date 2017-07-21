@@ -69,10 +69,9 @@ static irqreturn_t gpio_wake_input_irq_handler(int irq, void *dev_id)
 static int wake_n_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	struct device_node *np = pdev->dev.of_node;
 
 	dev_info(&pdev->dev, "wake_n probe\n");
-
-	struct device_node *np = pdev->dev.of_node;
 
 	wake_n_pdata.gpio = of_get_named_gpio(np, "wake-n-gpio", 0);
 	if (!gpio_is_valid(wake_n_pdata.gpio))
