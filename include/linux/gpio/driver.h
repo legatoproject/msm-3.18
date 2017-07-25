@@ -149,7 +149,7 @@ struct gpio_chip {
 #endif
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
-	u64 mask;
+	u64 mask[2];
 #endif
 /*SWISTOP*/
 };

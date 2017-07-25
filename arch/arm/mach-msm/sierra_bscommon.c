@@ -146,22 +146,22 @@ EXPORT_SYMBOL(bsgethwrev);
  *
  * Name:     bsgetgpioflag()
  *
- * Purpose:  Returns the concatenation of external gpio owner flags
+ * Purpose:  Get external gpio owner flags
  *
  * Parms:    none
  *
- * Return:   Extern GPIO owner flag
+ * Return:   Return weather get gpio flag successfully.
+ *           1:success; -1:failure.
  *
  * Abort:    none
  *
  * Notes:
  *
  ************/
-uint64_t bsgetgpioflag(void)
+int bsgetgpioflag(uint64_t *gpiomask1, uint64_t *gpiomask2)
 {
 	struct bscoworkmsg *mp;
 	unsigned char *virtual_addr;
-	uint64_t result = 0x0003ffffffffffff;
 
 	virtual_addr = sierra_smem_base_addr_get();
 	if (virtual_addr)
@@ -178,24 +178,28 @@ uint64_t bsgetgpioflag(void)
 			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE))
 			{
 				/*get gpio flag*/
-				result = (uint64_t)(mp->bsgpioflag[0]) | ((uint64_t)mp->bsgpioflag[1] << 32);
+				*gpiomask1 = (uint64_t)(mp->bsgpioflag[0]) | ((uint64_t)mp->bsgpioflag[1] << 32);
+				*gpiomask2 = (uint64_t)(mp->bsgpioflaghigh[0]) | ((uint64_t)mp->bsgpioflaghigh[1] << 32);
 			}
 			else
 			{
 				pr_err(KERN_ERR"sierra:-%s-failed: crc error", __func__);
+				return -1;
 			}
 		}
 		else
 		{
 			pr_err(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
+			return -1;
 		}
 	}
 	else
 	{
 		pr_err(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
+		return -1;
 	}
 
-	return result;
+	return 1;
 }
 EXPORT_SYMBOL(bsgetgpioflag);
 

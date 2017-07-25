@@ -18,7 +18,7 @@
 
 extern uint8_t bsgethwtype(void);
 extern uint8_t bsgethwrev(void);
-extern uint64_t bsgetgpioflag(void);
+extern int bsgetgpioflag(uint64_t *gpiomask1, uint64_t *gpiomask2);
 extern void bsseterrcount(unsigned int err_cnt);
 extern uint32_t bsgetresettypeflag(void);
 extern bool bscheckapplresettypeflag(void);

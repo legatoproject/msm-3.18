@@ -639,21 +639,22 @@ struct __attribute__((packed)) ds_smem_message_s
  *************/
 struct __attribute__((packed)) bscoworkmsg
 {
-  uint32_t magic_beg;        /* Magic ending flag */
-  uint32_t bsgpioflag[2];    /* external gpio owner flag. */
-  uint8_t  bsuartfun[2];     /* UART1 and UART2 function */
-  uint8_t  bsriowner;        /* RI owner */
-  uint8_t  bssleepind;       /* Sleep inidcation function */
-  uint8_t  bsresettype;      /* reset type */
-  uint8_t  bsbootquiet;      /* indicate whether bootquiet is enabled or not */
-  uint8_t  bsresintimer[2];  /* S1, S2 timer for HW reset */
-  uint32_t bsfunctions;      /* bitmask for functions configured by modem side(ex. HISC) */
-  uint8_t  bsresinfotype;    /* reset info type */
-  uint8_t  bsresinfosource;  /* reset info source */
-  uint8_t  bsbreserved[2];   /* The unused memory */
-  uint32_t bsreserved[7];    /* The unused memory */
-  uint32_t magic_end;        /* Magic ending flag */
-  uint32_t crc32;            /* CRC32 of above fields */
+  uint32_t magic_beg;         /* Magic ending flag */
+  uint32_t bsgpioflag[2];     /* external gpio owner flag. */
+  uint8_t  bsuartfun[2];      /* UART1 and UART2 function */
+  uint8_t  bsriowner;         /* RI owner */
+  uint8_t  bssleepind;        /* Sleep inidcation function */
+  uint8_t  bsresettype;       /* reset type */
+  uint8_t  bsbootquiet;       /* indicate whether bootquiet is enabled or not */
+  uint8_t  bsresintimer[2];   /* S1, S2 timer for HW reset */
+  uint32_t bsfunctions;       /* bitmask for functions configured by modem side(ex. HISC) */
+  uint8_t  bsresinfotype;     /* reset info type */
+  uint8_t  bsresinfosource;   /* reset info source */
+  uint8_t  bsbreserved[2];    /* The unused memory */
+  uint32_t bsgpioflaghigh[2]; /* external gpio owner flag. high */
+  uint32_t bsreserved[5];     /* The unused memory */
+  uint32_t magic_end;         /* Magic ending flag */
+  uint32_t crc32;             /* CRC32 of above fields */
 };
 
 /************

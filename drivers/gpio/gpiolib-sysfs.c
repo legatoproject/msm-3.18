@@ -37,6 +37,7 @@ static struct gpio_chip gpio_ext_chip = {
 		.label  = "msmextgpio",
 		.base   = 1,
 };
+
 static struct ext_gpio_map ext_gpio_ar[]={
 		{"1", 86, FUNCTION_UNALLOCATED},
 		{"2", 96, FUNCTION_UNALLOCATED},
@@ -165,6 +166,142 @@ static struct ext_gpio_map ext_gpio_mft[]={
 	{"104", 1022,FUNCTION_UNALLOCATED}
 };
 
+static struct ext_gpio_map ext_gpio_ar769X[]={
+		{"1",   85, FUNCTION_EMBEDDED_HOST},
+		{"2",   86, FUNCTION_UNALLOCATED},
+		{"3",   -1, FUNCTION_EMBEDDED_HOST},
+		{"4",    1, FUNCTION_UNALLOCATED},
+		{"5",   84, FUNCTION_EMBEDDED_HOST},
+		{"6",   -1, FUNCTION_EMBEDDED_HOST},
+		{"7",   82, FUNCTION_UNALLOCATED},
+		{"8",   34, FUNCTION_UNALLOCATED},
+		{"9",   -1, FUNCTION_EMBEDDED_HOST},
+		{"10",  -1, FUNCTION_EMBEDDED_HOST},
+		{"11",  -1, FUNCTION_EMBEDDED_HOST},
+		{"12",  -1, FUNCTION_EMBEDDED_HOST},
+		{"13",  68, FUNCTION_UNALLOCATED},
+		{"14",  -1, FUNCTION_EMBEDDED_HOST},
+		{"15",  -1, FUNCTION_EMBEDDED_HOST},
+		{"16",  -1, FUNCTION_EMBEDDED_HOST},
+		{"17",  87, FUNCTION_EMBEDDED_HOST},
+		{"18",  80, FUNCTION_EMBEDDED_HOST},
+		{"19",  89, FUNCTION_EMBEDDED_HOST},
+		{"20",  -1, FUNCTION_EMBEDDED_HOST},
+		{"21",  83, FUNCTION_UNALLOCATED},
+		{"22",  93, FUNCTION_UNALLOCATED},
+		{"23",  94, FUNCTION_UNALLOCATED},
+		{"24",  30, FUNCTION_UNALLOCATED},
+		{"25",  50, FUNCTION_UNALLOCATED},
+		{"26",  -1, FUNCTION_EMBEDDED_HOST},
+		{"27",  -1, FUNCTION_EMBEDDED_HOST},
+		{"28",  96, FUNCTION_UNALLOCATED},
+		{"29",  97, FUNCTION_UNALLOCATED},
+		{"30",  98, FUNCTION_UNALLOCATED},
+		{"31",  99, FUNCTION_UNALLOCATED},
+		{"32",  69, FUNCTION_UNALLOCATED},
+		{"33",  60, FUNCTION_UNALLOCATED},
+		{"34",  53, FUNCTION_UNALLOCATED},
+		{"35",  52, FUNCTION_UNALLOCATED},
+		{"36",  90, FUNCTION_UNALLOCATED},
+		{"37",  91, FUNCTION_UNALLOCATED},
+		{"38",  42, FUNCTION_UNALLOCATED},
+		{"39",  88, FUNCTION_UNALLOCATED},
+		{"40",  29, FUNCTION_UNALLOCATED},
+		{"41",  -1, FUNCTION_EMBEDDED_HOST},
+		{"42",  81, FUNCTION_UNALLOCATED},
+		{"43",  -1, FUNCTION_EMBEDDED_HOST},
+		{"44",  -1, FUNCTION_EMBEDDED_HOST},
+		{"45",  -1, FUNCTION_EMBEDDED_HOST},
+		{"46",  -1, FUNCTION_EMBEDDED_HOST},
+		{"47",  -1, FUNCTION_EMBEDDED_HOST},
+		{"48",  -1, FUNCTION_EMBEDDED_HOST},
+		{"49",  -1, FUNCTION_EMBEDDED_HOST},
+		{"50",  -1, FUNCTION_EMBEDDED_HOST},
+		{"51",  -1, FUNCTION_EMBEDDED_HOST},
+		{"52",  -1, FUNCTION_EMBEDDED_HOST},
+		{"53",  -1, FUNCTION_EMBEDDED_HOST},
+		{"54",  22, FUNCTION_EMBEDDED_HOST},
+		{"55",  23, FUNCTION_EMBEDDED_HOST},
+		{"56",  21, FUNCTION_EMBEDDED_HOST},
+		{"57",  20, FUNCTION_EMBEDDED_HOST},
+		{"58",  -1, FUNCTION_EMBEDDED_HOST},
+		{"59",  -1, FUNCTION_EMBEDDED_HOST},
+		{"60",  -1, FUNCTION_EMBEDDED_HOST},
+		{"61",  -1, FUNCTION_EMBEDDED_HOST},
+		{"62",  -1, FUNCTION_EMBEDDED_HOST},
+		{"63",  -1, FUNCTION_EMBEDDED_HOST},
+		{"64",  -1, FUNCTION_EMBEDDED_HOST},
+		{"65",  -1, FUNCTION_EMBEDDED_HOST},
+		{"66",  -1, FUNCTION_EMBEDDED_HOST},
+		{"67",  -1, FUNCTION_EMBEDDED_HOST},
+		{"68",  -1, FUNCTION_EMBEDDED_HOST},
+		{"69",  -1, FUNCTION_EMBEDDED_HOST},
+		{"70",  -1, FUNCTION_EMBEDDED_HOST},
+		{"71",  -1, FUNCTION_EMBEDDED_HOST},
+		{"72",  -1, FUNCTION_EMBEDDED_HOST},
+		{"73",  -1, FUNCTION_EMBEDDED_HOST},
+		{"74",  -1, FUNCTION_EMBEDDED_HOST},
+		{"75",  37, FUNCTION_EMBEDDED_HOST},
+		{"76",   5, FUNCTION_EMBEDDED_HOST},
+		{"77",   4, FUNCTION_EMBEDDED_HOST},
+		{"78",   6, FUNCTION_EMBEDDED_HOST},
+		{"79",   7, FUNCTION_EMBEDDED_HOST},
+		{"80",  -1, FUNCTION_EMBEDDED_HOST},
+		{"81",  -1, FUNCTION_EMBEDDED_HOST},
+		{"82",  -1, FUNCTION_EMBEDDED_HOST},
+		{"83",  -1, FUNCTION_EMBEDDED_HOST},
+		{"84",  -1, FUNCTION_EMBEDDED_HOST},
+		{"85",  -1, FUNCTION_EMBEDDED_HOST},
+		{"86",  -1, FUNCTION_EMBEDDED_HOST},
+		{"87",  -1, FUNCTION_EMBEDDED_HOST},
+		{"88",  -1, FUNCTION_EMBEDDED_HOST},
+		{"89",  -1, FUNCTION_EMBEDDED_HOST},
+		{"90",  -1, FUNCTION_EMBEDDED_HOST},
+		{"91",  -1, FUNCTION_EMBEDDED_HOST},
+		{"92",  -1, FUNCTION_EMBEDDED_HOST},
+		{"93",  -1, FUNCTION_EMBEDDED_HOST},
+		{"94",  -1, FUNCTION_EMBEDDED_HOST},
+		{"95",  -1, FUNCTION_EMBEDDED_HOST},
+		{"96",  -1, FUNCTION_EMBEDDED_HOST},
+		{"97",  -1, FUNCTION_EMBEDDED_HOST},
+		{"98",  -1, FUNCTION_EMBEDDED_HOST},
+		{"99",  -1, FUNCTION_EMBEDDED_HOST},
+		{"100", -1, FUNCTION_EMBEDDED_HOST},
+		{"101", -1, FUNCTION_EMBEDDED_HOST},
+		{"102", -1, FUNCTION_EMBEDDED_HOST},
+		{"103", -1, FUNCTION_EMBEDDED_HOST},
+		{"104", -1, FUNCTION_EMBEDDED_HOST},
+		{"105", -1, FUNCTION_EMBEDDED_HOST},
+		{"106", -1, FUNCTION_EMBEDDED_HOST},
+		{"107", -1, FUNCTION_EMBEDDED_HOST},
+		{"108", -1, FUNCTION_EMBEDDED_HOST},
+		{"109", -1, FUNCTION_EMBEDDED_HOST},
+		{"110", -1, FUNCTION_EMBEDDED_HOST},
+		{"111", -1, FUNCTION_EMBEDDED_HOST},
+		{"112", -1, FUNCTION_EMBEDDED_HOST},
+		{"113", -1, FUNCTION_EMBEDDED_HOST},
+		{"114", -1, FUNCTION_EMBEDDED_HOST},
+		{"115", -1, FUNCTION_EMBEDDED_HOST},
+		{"116", -1, FUNCTION_EMBEDDED_HOST},
+		{"117", -1, FUNCTION_EMBEDDED_HOST},
+		{"118", -1, FUNCTION_EMBEDDED_HOST},
+		{"119", -1, FUNCTION_EMBEDDED_HOST},
+		{"120", -1, FUNCTION_EMBEDDED_HOST},
+		{"121", -1, FUNCTION_EMBEDDED_HOST},
+		{"122", -1, FUNCTION_EMBEDDED_HOST},
+		{"123", -1, FUNCTION_EMBEDDED_HOST},
+		{"124", -1, FUNCTION_EMBEDDED_HOST},
+		{"125", 95, FUNCTION_UNALLOCATED},
+		{"126", -1, FUNCTION_EMBEDDED_HOST},
+		{"127", -1, FUNCTION_EMBEDDED_HOST},
+		{"128", -1, FUNCTION_EMBEDDED_HOST},
+		{"M1", 1020,FUNCTION_UNALLOCATED},
+		{"M2", 1021,FUNCTION_UNALLOCATED},
+		{"M3", 1023,FUNCTION_UNALLOCATED},
+		{"M4", 1022,FUNCTION_UNALLOCATED},
+		{GPIO_NAME_RI,92,FUNCTION_UNALLOCATED}
+};
+
 /**
  * set_gpio_bit_mask() - set the gpio bit mask in AP
  *
@@ -175,13 +312,15 @@ static struct ext_gpio_map ext_gpio_mft[]={
 static void set_gpio_bit_mask(void)
 {
 	/**
-	 * customer has 50 standard GPIO.
+	 * customer has 128 standard GPIO.
 	 * The Linux Sysfs GPIO mask node:
 	 * if bit="1" means available, bit="0" means unavailable.
 	 *
 	 */
-	gpio_ext_chip.mask &= 0x03FFFFFFFFFFFF;
-	gpio_ext_chip.mask ^= 0x03FFFFFFFFFFFF;
+	gpio_ext_chip.mask[0] &= 0xFFFFFFFFFFFFFFFF;
+	gpio_ext_chip.mask[0] ^= 0xFFFFFFFFFFFFFFFF;
+	gpio_ext_chip.mask[1] &= 0xFFFFFFFFFFFFFFFF;
+	gpio_ext_chip.mask[1] ^= 0xFFFFFFFFFFFFFFFF;
 }
 
 /**
@@ -761,7 +900,8 @@ static ssize_t chip_mask_show(struct device *dev,
 {
 	const struct gpio_chip	*chip = dev_get_drvdata(dev);
 
-	return sprintf(buf, "0x%08x%08x\n", (u32)(chip->mask>>32)&0xFFFFFFFF, (u32)chip->mask&0xFFFFFFFF);
+	return sprintf(buf, "0x%08x%08x\n0x%08x%08x\n", (u32)(chip->mask[0]>>32)&0xFFFFFFFF,
+		(u32)chip->mask[0]&0xFFFFFFFF, (u32)(chip->mask[1]>>32)&0xFFFFFFFF, (u32)chip->mask[1]&0xFFFFFFFF);
 }
 static DEVICE_ATTR(mask, 0444, chip_mask_show, NULL);
 #endif
@@ -1309,6 +1449,13 @@ static int __init gpiolib_sysfs_init(void)
 				gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
 			}
 			break;
+		case BSAR7692:
+		case BSAR7694:
+		case BSAR7696:
+		case BSAR7698:
+			gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR769X;
+			ext_gpio = ext_gpio_ar769X;
+		break;
 		default:
 			pr_err( "%s: No sysfs entries for gpio on unsupported product type:%d.\n", __func__, hwtype);
 			gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR_REV4;
@@ -1316,18 +1463,33 @@ static int __init gpiolib_sysfs_init(void)
 			break;
 	}
 
-	gpio_ext_chip.mask = bsgetgpioflag();
+	status = bsgetgpioflag(&(gpio_ext_chip.mask[0]), &(gpio_ext_chip.mask[1]));
+	if (status < 0)
+		return status;
 
 	for (gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
 	{
-		if (gpio_ext_chip.mask & (0x1ULL << gpio))
+		if (gpio < 64)
 		{
-			ext_gpio[gpio].function = FUNCTION_EMBEDDED_HOST;
+			if (gpio_ext_chip.mask[0] & (0x1ULL << gpio))
+			{
+				ext_gpio[gpio].function = FUNCTION_EMBEDDED_HOST;
+			}
+			else
+			{
+				ext_gpio[gpio].function = FUNCTION_UNALLOCATED;
+			}
 		}
 		else
 		{
+			if (gpio_ext_chip.mask[1] & (0x1ULL << (gpio - 64)))
+			{
+				ext_gpio[gpio].function = FUNCTION_EMBEDDED_HOST;
+			}
+			else
+			{
 			ext_gpio[gpio].function = FUNCTION_UNALLOCATED;
-
+			}
 		}
 		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0)
 		{
