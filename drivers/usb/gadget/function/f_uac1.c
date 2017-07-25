@@ -1499,9 +1499,9 @@ in_rq_cur(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 		struct cntrl_cur_lay3 c;
 
 		if (entity_id == USB_IN_CLK_ID)
-			c.dCUR = p_srate;
-		else if (entity_id == USB_OUT_CLK_ID)
 			c.dCUR = c_srate;
+		else if (entity_id == USB_OUT_CLK_ID)
+			c.dCUR = p_srate;
 
 		value = min_t(unsigned, w_length, sizeof c);
 		memcpy(req->buf, &c, value);
@@ -1537,9 +1537,9 @@ in_rq_range(struct usb_function *fn, const struct usb_ctrlrequest *cr)
 
 	if (control_selector == UAC2_CS_CONTROL_SAM_FREQ) {
 		if (entity_id == USB_IN_CLK_ID)
-			r.dMIN = p_srate;
-		else if (entity_id == USB_OUT_CLK_ID)
 			r.dMIN = c_srate;
+		else if (entity_id == USB_OUT_CLK_ID)
+			r.dMIN = p_srate;
 		else
 			return -EOPNOTSUPP;
 
