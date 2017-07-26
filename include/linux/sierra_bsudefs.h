@@ -13,9 +13,12 @@
  *
  */
 
-#ifndef BS_UDEFS_H
-#define BS_UDEFS_H
+#ifndef SIERRA_BS_UDEFS_H
+#define SIERRA_BS_UDEFS_H
 
+
+/* Define 6-bit HW revision number for WP76 DV5.2 hardware build */
+#define BS_HW_ID_DV_5_2      ((0x5 << 2) | 0x1)
 
 enum bshwtype
 {
@@ -172,4 +175,4 @@ enum bs_uart_type_e
 
 
 #include "sierra_bsuproto.h"
-#endif
+#endif /* SIERRA_BSUDEFS_H */

@@ -13,8 +13,8 @@
  *
  */
 
-#ifndef BS_UPROTO_H
-#define BS_UPROTO_H
+#ifndef SIERRA_BS_UPROTO_H
+#define SIERRA_BS_UPROTO_H
 
 extern uint64_t bsgetgpioflag(void);
 extern bool bsgethsicflag(void);
@@ -24,4 +24,4 @@ extern bool bs_support_get (enum bsfeature feature);
 extern int8_t bs_uart_fun_get (uint uart_num);
 extern int8_t bsgetriowner(void);
 extern uint8_t bs_hwrev_get(void);
-#endif
+#endif /* SIERRA_BSUPROTO_H */

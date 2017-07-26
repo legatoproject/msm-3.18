@@ -278,13 +278,15 @@
 
 &pm8019_gpios {
 
-	/* HW_ID1 */
+	/* HW revision minor bit 1: read once in boot loader
+	*  Override to prevent possible current leaks.
+	*/
 	gpio@c000 { /* GPIO 1 */
 		qcom,mode = <0>;         /* Digital input */
-		qcom,vin-sel = <3>;      /* 1.8V (L11) */
+		qcom,vin-sel = <2>;      /* 1.8V (L11) */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,pull = <4>;         /* QPNP_PIN_PULL_DOWN */
-		qcom,master-en = <1>;
+		qcom,master-en = <0>;    /* Disable to prevent current leaks*/
 		status = "ok";
 	};
 
@@ -298,16 +300,17 @@
 		status = "ok";
 	};
 
-	/* HW_ID0 */
+	/* HW revision minor bit 0: read once in boot loader
+	*  Override to prevent possible current leaks.
+	*/
 	gpio@c200 { /* GPIO 3 */
 		qcom,mode = <0>;         /* Digital input */
-		qcom,vin-sel = <3>;      /* 1.8V (L11) */
+		qcom,vin-sel = <2>;      /* 1.8V (L11) */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,pull = <4>;         /* QPNP_PIN_PULL_DOWN */
-		qcom,master-en = <1>;
+		qcom,master-en = <0>;    /* Disable to prevent current leaks*/
 		status = "ok";
 	};
-
 
 	gpio@c300 { /* GPIO 4 */
 		qcom,mode = <1>;         /* Digital output*/

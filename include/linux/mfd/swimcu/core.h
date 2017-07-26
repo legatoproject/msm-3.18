@@ -132,8 +132,6 @@ struct swimcu {
 	struct i2c_client *client;
 	int i2c_driver_id;
 
-	u8  hw_id;
-
 	int driver_init_mask;
 
 	u8 version_major;
@@ -175,8 +173,6 @@ struct swimcu_platform_data {
 	int adc_base;
 	int nr_adc;
 	u16 func_flags;
-	int gpio_hw_id_0;
-	int gpio_hw_id_1;
 };
 
 

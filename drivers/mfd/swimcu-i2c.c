@@ -18,7 +18,6 @@
 #include <linux/mfd/swimcu/core.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
-#include <linux/of_gpio.h>
 #include <mach/swimcu.h>
 
 #ifdef CONFIG_OF
@@ -135,9 +134,6 @@ static struct swimcu_platform_data * swimcu_populate_dt_pdata(struct device *dev
 		dev->of_node->full_name,
 		func_flags);
 	pdata->func_flags = func_flags;
-
-	pdata->gpio_hw_id_1 = of_get_named_gpio(dev->of_node, "swimcu,hw-id-1", 0);
-	pdata->gpio_hw_id_0 = of_get_named_gpio(dev->of_node, "swimcu,hw-id-0", 0);
 
 	return pdata;
 
