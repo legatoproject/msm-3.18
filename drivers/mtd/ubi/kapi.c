@@ -27,6 +27,9 @@
 #include <linux/fs.h>
 #include <asm/div64.h>
 #include "ubi.h"
+/* SWISTART */
+#include <../devices/msm_qpic_nand.h>
+/* SWISTOP */
 
 /**
  * ubi_do_get_device_info - get information about UBI device.
@@ -928,5 +931,37 @@ int get_ubi_name(int ubi_num,char *ubi_name)
 	return -1;
 }
 EXPORT_SYMBOL_GPL(get_ubi_name);
+
+/**
+ * get_mtd_partition_name - Get mtd name.
+ * @ubi_num: UBI device
+ * @partition_name: mtd volume name
+ *
+ * This function use the known ubi_num to get the
+ * corresponding volume name in the first volume
+ */
+int get_mtd_partition_name(int ubi_num, char *partition_name, int len)
+{
+	struct ubi_device *ubi = NULL;
+	char mtd_name[UBI_MAX_VOLUME_NAME+1]={0};
+
+	ubi = ubi_get_device(ubi_num);
+	if (NULL != ubi) {
+		sierra_inquire_smem_ptable_name(mtd_name, ubi->mtd->index, UBI_MAX_VOLUME_NAME);
+		ubi_warn(ubi, "get_mtd_partition_name mtd_name %s", mtd_name);
+		if (len >= UBI_MAX_VOLUME_NAME) {
+			memcpy(partition_name, mtd_name, UBI_MAX_VOLUME_NAME);
+		}
+		else
+		{
+			ubi_err(ubi, "get_mtd_partition_name the len can't match");
+		}
+		ubi_warn(ubi, "get_mtd_partition_name partition_name %s", partition_name);
+		return 0;
+	}
+
+	return -1;
+}
+EXPORT_SYMBOL_GPL(get_mtd_partition_name);
 /* SWISTOP */
 

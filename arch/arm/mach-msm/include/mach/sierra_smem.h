@@ -852,5 +852,6 @@ unsigned char * sierra_smem_base_addr_get(void);
 int sierra_smem_ds_get_ssid(uint8_t *modem_idx, uint8_t *lk_idx, uint8_t *linux_idx);
 int sierra_smem_ds_write_bad_image_and_swap(uint64_t bad_image_mask);
 void ubi_check_bad_image_and_swap(char *ubi_name);
+int sierra_smem_handle_bad_partition_name(char * ubi_volume_name);
 
 #endif /* SIERRA_SMEM_H */

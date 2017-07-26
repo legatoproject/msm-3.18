@@ -395,6 +395,10 @@ struct flash_partition_table {
 static struct flash_partition_table ptable;
 #endif
 
+#ifdef CONFIG_SIERRA
+int sierra_inquire_smem_ptable_name(char *partition_name, int index, int length);
+#endif
+
 static struct mtd_partition mtd_part[FLASH_PTABLE_MAX_PARTS_V4];
 
 static inline bool is_buffer_in_page(const void *buf, size_t len)

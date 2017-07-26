@@ -23,6 +23,7 @@
 /* SWISTART */
 #include <linux/mtd/ubi.h>
 #include <mach/sierra_smem.h>
+#include <mach/sierra_proc_buffer.h>
 /* SWISTOP */
 
 #define DM_MSG_PREFIX			"verity"
@@ -208,9 +209,10 @@ static int verity_handle_err(struct dm_verity *v, enum verity_block_type type,
 	struct mapped_device *md = dm_table_get_md(v->ti->table);
 /* SWISTART */
 	int ubi_num = -1, ret = -1;
-	char ubi_name[UBI_MAX_VOLUME_NAME]={0};
-	static uint8_t linux_index = 0;
-	uint64_t bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+	char partition_name[UBI_MAX_VOLUME_NAME+1]={0};
+	char pro_name[SIERRA_PROC_NODE_MAX_NAME+1]={0};
+	char *match = NULL;
+	int err = 0;
 /* SWISTOP */
 
 	if (v->corrupted_errs >= DM_VERITY_MAX_CORRUPTED_ERRS)
@@ -242,40 +244,28 @@ static int verity_handle_err(struct dm_verity *v, enum verity_block_type type,
 
 out:
 /* SWISTART */
-	if ((0 == linux_index) && (0 == sierra_smem_ds_get_ssid(NULL, NULL, &linux_index))) {
-		sscanf(v->data_dev->bdev->bd_disk->disk_name,"ubiblock%d_", &ubi_num);
-		ret = get_ubi_name(ubi_num,ubi_name);
-		DMERR("Got ubi name:%s, ubi_num:%d, ret:%d", ubi_name, ubi_num, ret);
+	sscanf(v->data_dev->bdev->bd_disk->disk_name,"ubiblock%d_", &ubi_num);
+	ret = get_mtd_partition_name(ubi_num, partition_name, UBI_MAX_VOLUME_NAME);
+	DMERR("partition_name is %s: ", partition_name);
+	if (0 == ret) {
+		sierra_get_dual_system_proc_buffer(pro_name, SIERRA_PROC_NODE_MAX_NAME);
+		DMERR("pro_ubi_name is %s: ", pro_name);
 
-		if (0 == ret) {
-			if (0 == strcmp(ubi_name, "rootfs")) {
-				if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
-					bad_image_mask = DS_IMAGE_SYSTEM_2;
-				}
-				else {
-					bad_image_mask = DS_IMAGE_SYSTEM_1;
-				}
-			}
-			else if (0 == strcmp(ubi_name, "legato")) {
-				if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
-					bad_image_mask = DS_IMAGE_USERDATA_2;
-				}
-				else {
-					bad_image_mask = DS_IMAGE_USERDATA_1;
-				}
-			}
-			else {
-				DMERR("wrong ubi name %s", ubi_name);
-			}
-
-			if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
-				sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
-				kernel_restart("dm-verity device corrupted");
+		match = strstr(pro_name, partition_name);
+		if(match) {
+			DMERR("verity_handle_err match pro_ubi_name");
+			err = sierra_smem_handle_bad_partition_name(partition_name);
+			if(err) {
+				DMERR("verity_handle_err ud bad image not belong to current system");
+				return err;
 			}
 		}
 		else {
-			DMERR("can't get ubi name");
+			DMERR("verity_handle_err cna't match pro_ubi_name");
 		}
+	}
+	else {
+			DMERR("can't get ubi name");
 	}
 /* SWISTOP */
 

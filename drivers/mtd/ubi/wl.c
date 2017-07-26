@@ -109,6 +109,8 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <mach/sierra_smem.h>
+#include <mach/sierra_proc_buffer.h>
+#include <../devices/msm_qpic_nand.h>
 #endif
 /* SWISTOP */
 
@@ -1738,6 +1740,11 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 	struct ubi_ainf_volume *av;
 	struct ubi_ainf_peb *aeb, *tmp;
 	struct ubi_wl_entry *e;
+/* SWISTART */
+	char partition_name[UBI_MAX_VOLUME_NAME+1]= {0};
+	char pro_name[SIERRA_PROC_NODE_MAX_NAME+1]= {0};
+	char *match = NULL;
+/* SWISTOP */
 
 	ubi->used = ubi->erroneous = ubi->free = ubi->scrub = RB_ROOT;
 	spin_lock_init(&ubi->wl_lock);
@@ -1845,7 +1852,29 @@ int ubi_wl_init(struct ubi_device *ubi, struct ubi_attach_info *ai)
 #else
 		if (ubi->good_peb_count != found_pebs)
 		{
-			ubi_check_bad_image_and_swap(ubi->vtbl->name);
+			sierra_inquire_smem_ptable_name(partition_name, ubi->mtd->index, UBI_MAX_VOLUME_NAME);
+			ubi_err(ubi, "partition_name:%s", partition_name);
+
+			err = sierra_get_dual_system_proc_buffer(pro_name, SIERRA_PROC_NODE_MAX_NAME);
+			if(!err) {
+				ubi_err(ubi, "pro_ubi_name name:%s", pro_name);
+
+				match = strstr(pro_name, partition_name);
+				if(match) {
+					ubi_err(ubi, "ubi_io_read ubi_name match patable");
+					err = sierra_smem_handle_bad_partition_name(partition_name);
+					if(err) {
+						ubi_err(ubi, "ubi_io_read ud bad image not belong to current system err is %d",err);
+						return err;
+					}
+				}
+				else {
+					ubi_err(ubi, "ubi_io_read ubi_name can't match patable");
+				}
+			}
+			else {
+				ubi_err(ubi, "pro_ubi_name can't get");
+			}
 		}
 #endif
 /* SWISTOP */
