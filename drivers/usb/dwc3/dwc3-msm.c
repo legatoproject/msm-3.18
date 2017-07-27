@@ -247,6 +247,7 @@ struct dwc3_msm {
 #ifdef CONFIG_SIERRA
 	int  otg_id_pin;
 	int  vbus_en_pin;
+	struct wake_lock wlock;
 #endif
 /* SWISTOP */
 };
@@ -2459,6 +2460,13 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			dbg_event(0xFF, "Q RW (vbus)", val->intval);
 			queue_delayed_work(mdwc->dwc3_wq,
 					&mdwc->resume_work, 12);
+#ifdef CONFIG_SIERRA
+			if(mdwc->vbus_active == 1 && mdwc->otg_state == OTG_STATE_B_IDLE )
+			{
+				/*if usb plug in(vbus high), wake lock enough time(5s) for the device resume*/
+				wake_lock_timeout(&mdwc->wlock, msecs_to_jiffies(5000));
+			}
+#endif
 		}
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -3145,6 +3153,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_ext_event_notify(mdwc);
 	}
 
+#ifdef CONFIG_SIERRA
+	wake_lock_init(&mdwc->wlock, WAKE_LOCK_SUSPEND, "dwc3-msm_wakelock");
+#endif
+
 	return 0;
 
 put_dwc3:
@@ -3752,7 +3764,18 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			pm_runtime_put_sync(mdwc->dev);
 			dbg_event(0xFF, "BPER psync",
 				atomic_read(&mdwc->dev->power.usage_count));
+
+#ifdef CONFIG_SIERRA
+			/*
+			 * avoid modify chg_type when vbus irq trigger again
+			 */
+			if(mdwc->vbus_active != 1 )
+			{
+				mdwc->chg_type = DWC3_INVALID_CHARGER;
+			}
+#else
 			mdwc->chg_type = DWC3_INVALID_CHARGER;
+#endif
 			work = 1;
 		} else if (test_bit(B_SUSPEND, &mdwc->inputs) &&
 			test_bit(B_SESS_VLD, &mdwc->inputs)) {
