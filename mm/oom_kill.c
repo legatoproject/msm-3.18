@@ -1,6 +1,6 @@
 /*
  *  linux/mm/oom_kill.c
- * 
+ *
  *  Copyright (C)  1998,2000  Rik van Riel
  *	Thanks go out to Claus Fischer for some serious inspiration and
  *	for goading me into coding this file...
@@ -422,6 +422,43 @@ void note_oom_kill(void)
 }
 
 #define K(x) ((x) << (PAGE_SHIFT-10))
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+void print_stack_info(struct task_struct *p)
+{
+	int permitted;
+	struct mm_struct *mm;
+	struct task_struct *task = p;
+	unsigned long start_stack = 0;
+	unsigned long esp = 0;
+
+	permitted = ptrace_may_access(task, PTRACE_MODE_READ | PTRACE_MODE_NOAUDIT);
+	mm = get_task_mm(task);
+	if (permitted)
+	{
+		esp = KSTK_ESP(task);
+	}
+	start_stack = (permitted && mm) ? mm->start_stack : 0;
+
+	pr_err("Print_stack_info:%d (%s) start_stack %lu,esp=%lu\n",
+		task_pid_nr(p), p->comm, start_stack,esp);
+}
+
+void print_thread_stack_info(struct task_struct *p)
+{
+	struct task_struct *t;
+
+	read_lock(&tasklist_lock);
+	for_each_thread(p, t) {
+		print_stack_info(t);
+	}
+
+	read_unlock(&tasklist_lock);
+}
+#endif
+/*SWISTOP*/
+
 /*
  * Must be called while holding a reference to p, which will be released upon
  * returning.
@@ -502,6 +539,12 @@ void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 		K(get_mm_counter(victim->mm, MM_ANONPAGES)),
 		K(get_mm_counter(victim->mm, MM_FILEPAGES)));
 	task_unlock(victim);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	print_thread_stack_info(victim);
+#endif
+/* SWISTOP */
 
 	/*
 	 * Kill all user processes sharing victim->mm in other thread groups, if
