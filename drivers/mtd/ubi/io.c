@@ -93,6 +93,8 @@
 /* SWISTART */
 #include <linux/reboot.h>
 #include <mach/sierra_smem.h>
+#include <mach/sierra_proc_buffer.h>
+#include <../devices/msm_qpic_nand.h>
 /* SWISTOP */
 
 static int self_check_not_bad(const struct ubi_device *ubi, int pnum);
@@ -134,9 +136,9 @@ int ubi_io_read(const struct ubi_device *ubi, void *buf, int pnum, int offset,
 	size_t read;
 	loff_t addr;
 /* SWISTART */
-	char ubi_name[UBI_MAX_VOLUME_NAME]={0};
-	static uint8_t linux_index = 0;
-	uint64_t bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
+	char partition_name[UBI_MAX_VOLUME_NAME+1]={0};
+	char pro_name[SIERRA_PROC_NODE_MAX_NAME+1]={0};
+	char *match = NULL;
 /* SWISTOP */
 
 	dbg_io("read %d bytes from PEB %d:%d", len, pnum, offset);
@@ -205,37 +207,27 @@ retry:
 /* SWISTART */
 		if(sierra_support_ar_dualsystem())
 		{
-			if(NULL == ubi->vtbl)
-			{
-				ubi_err(ubi, "ubi_io_read ubi appear to damage");
-				err = -EIO;
-				return err;
+			sierra_inquire_smem_ptable_name(partition_name, ubi->mtd->index, UBI_MAX_VOLUME_NAME);
+			ubi_err(ubi, "partition_name:%s", partition_name);
+
+			err = sierra_get_dual_system_proc_buffer(pro_name, SIERRA_PROC_NODE_MAX_NAME);
+			if(!err) {
+				ubi_err(ubi, "pro_name :%s", pro_name);
+
+				match = strstr(pro_name, partition_name);
+				if(match) {
+					ubi_err(ubi, "ubi_io_read ubi_name match patable");
+					err = sierra_smem_handle_bad_partition_name(partition_name);
+					if(err) {
+						return err;
+					}
+				}
+				else {
+					ubi_err(ubi, "ubi_io_read ubi_name can't match patable");
+				}
 			}
-			memcpy(ubi_name, ubi->vtbl->name, __be16_to_cpu(ubi->vtbl->name_len));
-			ubi_msg(ubi, "ubi name:%s", ubi_name);
-
-			if ((0 == linux_index) && (0 == sierra_smem_ds_get_ssid(NULL, NULL, &linux_index))) {
-				if (0 == strcmp(ubi_name, "rootfs")) {
-					if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
-						bad_image_mask = DS_IMAGE_SYSTEM_2;
-					}
-					else {
-						bad_image_mask = DS_IMAGE_SYSTEM_1;
-					}
-				}
-				else if (0 == strcmp(ubi_name, "legato")) {
-					if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
-						bad_image_mask = DS_IMAGE_USERDATA_2;
-					}
-					else {
-						bad_image_mask = DS_IMAGE_USERDATA_1;
-					}
-				}
-
-				if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
-					sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
-					kernel_restart("UBI IO reading failure");
-				}
+			else {
+				ubi_err(ubi, "pro_ubi_name can't get");
 			}
 		}
 /* SWISTOP */

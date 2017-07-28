@@ -247,6 +247,7 @@ int ubi_register_volume_notifier(struct notifier_block *nb,
 int ubi_unregister_volume_notifier(struct notifier_block *nb);
 /* SWISTART */
 int get_ubi_name(int ubi_num,char *ubi_name);
+int get_mtd_partition_name(int ubi_num, char *partition_name, int len);
 /* SWISTOP */
 
 void ubi_close_volume(struct ubi_volume_desc *desc);
