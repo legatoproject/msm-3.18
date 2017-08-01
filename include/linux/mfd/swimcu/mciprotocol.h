@@ -21,9 +21,23 @@
 /***********************
  * Constants and Enums *
  ***********************/
+/* Application target device  */
+#define MCI_PROTOCOL_APPL_TARGET                  1
+
+/* Application MCI protocol version numbers */
+#define MCI_PROTOCOL_VERSION_0                    0
+
+/* VERSION_1 adds <TARGET> and <OPTION> fields to PING_RESP */
+#define MCI_PROTOCOL_VERSION_1                    1
 
 /* Application I2C address   */
 #define MCI_PROTOCOL_APPL_I2C_ADDR                0x3A
+
+/* Application's optional functionality represented in a bitwask
+*  (avalible with MCI_PROTOCOL_VERSION_1 and later)
+ */
+#define MCI_PROTOCOL_APPL_OPT_FUNCTION_NONE       0x0000
+#define MCI_PROTOCOL_APPL_OPT_FUNCTION_WATCHDOG   0x0001
 
 /* All frames start with this special byte */
 #define MCI_PROTOCOL_FRAME_START_BYTE             0x5A
@@ -37,30 +51,28 @@
 #define MCI_PROTOCOL_FRAME_HEADER_CRC16_HI        5
 
 /* PING response frame has a special format:
-*  index into encoded flat buffer
+*  Followings are the index into encoded flat buffer defined in
+*  MCI_PROTOCOL_VERSION_1.
 *
-* Note: The fIirst two field are identical to other frame's
-*       MCI_PROTOCOL_FRAME_HEADER_START           0
-*       MCI_PROTOCOL_FRAME_HEADER_TYPE            1
+* Note: In MCI_PROTOCOL_VERSION_0, same format is used.but with
+*       the following bytes reserved (not used):
+*         MCI_PROTOCOL_FRAME_PING_RESP_TARGET     5
+*         MCI_PROTOCOL_FRAME_PING_RESP_OPT_LO     6
+*         MCI_PROTOCOL_FRAME_PING_RESP_OPT_HI     7
+        The fIirst two field are identical to other frame's
+*         MCI_PROTOCOL_FRAME_HEADER_START         0
+*         MCI_PROTOCOL_FRAME_HEADER_TYPE          1
 */
-#define MCI_PROTOCOL_FRAME_PING_RESP_BUGFIX       2
-#define MCI_PROTOCOL_FRAME_PING_RESP_MINOR        3
-#define MCI_PROTOCOL_FRAME_PING_RESP_MAJOR        4
-#define MCI_PROTOCOL_FRAME_PING_RESP_NAME         5
+#define MCI_PROTOCOL_FRAME_PING_RESP_PROT_VER     2
+#define MCI_PROTOCOL_FRAME_PING_RESP_FWVER_MINOR  3
+#define MCI_PROTOCOL_FRAME_PING_RESP_FWVER_MAJOR  4
+#define MCI_PROTOCOL_FRAME_PING_RESP_TARGET       5
 #define MCI_PROTOCOL_FRAME_PING_RESP_OPT_LO       6
 #define MCI_PROTOCOL_FRAME_PING_RESP_OPT_HI       7
 #define MCI_PROTOCOL_FRAME_PING_RESP_CRC16_LO     8
 #define MCI_PROTOCOL_FRAME_PING_RESP_CRC16_HI     9
 
 #define MCI_PROTOCOL_FRAME_PING_RESP_LEN          10
-
-/* The index of decoded fields into the parameter list for PING_RESP */
-#define MCI_PROTOCOL_PING_RESP_PARAMS_BUGFIX      0
-#define MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR   1
-#define MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR   2
-#define MCI_PROTOCOL_PING_RESP_PARAMS_NAME        3
-#define MCI_PROTOCOL_PING_RESP_PARAMS_OPT         4
-#define MCI_PROTOCOL_PING_RESP_PARAMS_COUNT       5
 
 /* Length of special frames in short format (PING, ACK, NAK, ...) */
 #define MCI_PROTOCOL_FRAME_SHORT_LEN              2
@@ -145,22 +157,22 @@ enum mci_protocol_command_tag_e
   MCI_PROTOCOL_COMMAND_TAG_GENERIC_RESP                 = 0xA0,
 
   /* Application specific commands */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_START_BOOTLOADER        = 0xB8, /* start boot loader */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_TEST                    = 0xB9, /* perform a test */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_EVENT_SERVICE           = 0xC0, /* retrieve event */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_PM_SERVICE              = 0xC1, /* configure a PM profile on MCU */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_WAKEUP_SOURCE           = 0xC2, /* configure a wakeup source for MCU to restore run mode */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_TIMER_CONFIG            = 0xC3, /* configure a timer (module, timeout, usage) */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_SW_TRIGGER              = 0xC4, /* trigger a configured service to start the sequence */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_PIN_SERVICE             = 0xC5, /* configure settings for a specific pin */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_1              = 0xC6,
-  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_2              = 0xC7,
-  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_3              = 0xC8,
-  MCI_PROTOCOL_COMMAND_TAG_APPL_ADC_SERVICE             = 0xCA, /* configure ADC measurement */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_CMP_ANALOG              = 0xCB, /* configure analog input(s) comparison */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_TPM_INPUT_CAPTURE       = 0xCD, /* capture the time reading when interrupted */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_TPM_PULSE_OUTPUT        = 0xCE, /* command MCU to start outputting pulse */
-  MCI_PROTOCOL_COMMAND_TAG_APPL_TPM_PWM_OUTPUT          = 0xCF, /* command MCU to stop outputting PWM */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_START_BOOTLOADER        = 0xB8, /* To start boot loader */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_TEST                    = 0xB9, /* To perform a test */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_EVENT_SERVICE           = 0xC0, /* To retrieve event */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_PM_SERVICE              = 0xC1, /* To configure power managment parameters on MCU */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_WAKEUP_SOURCE           = 0xC2, /* To configure a wakeup source for MCU to exit from low power mode */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_TIMER_SERVICE           = 0xC3, /* To configure a timer service */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_0              = 0xC4, /* Reserved for future use */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_PIN_SERVICE             = 0xC5, /* To configure settings for a specific pin */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_1              = 0xC6, /* Reserved for future use */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_2              = 0xC7, /* Reserved for future use */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_3              = 0xC8, /* Reserved for future use */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_RESERVED_4              = 0xC9, /* Reserved for future use */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_ADC_SERVICE             = 0xCA, /* To configure ADC measurement */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_CMP_CONFIG              = 0xCB, /* To configure analog input(s) comparison */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_TPM_CONFIG              = 0xCC, /* To configure Timer/PWM module */
+  MCI_PROTOCOL_COMMAND_TAG_APPL_SPI_CONFIG              = 0xCD, /* Reserved for future use */
 };
 
 /************
@@ -171,21 +183,61 @@ enum mci_protocol_command_tag_e
 *
 * Members:  See below
 *
-* Note:
+* Note:     MCU reset sources are from MCU Reset Status Registers (SRS0 & SRS1)
+*           EMBEDDED_WATCHDOG is a special reset implemented with a hardware timer
+*           on MCU.
 *
 ************/
 enum mci_protocol_reset_source_e
 {
-  MCI_PROTOCOL_RESET_SRC_STOP_MODE_ACK      = 0x2000,  /* Stop mode acknowledge failure */
-  MCI_PROTOCOL_RESET_SRC_MDM_AP             = 0x0800,  /* host debugger reset request */
-  MCI_PROTOCOL_RESET_SRC_SOFTWARE_RESET     = 0x0400,  /* internal software trigger */
-  MCI_PROTOCOL_RESET_SRC_CORE_LOCKUP        = 0x0200,  /* ARM core LOCKUP event */
-  MCI_PROTOCOL_RESET_SRC_POWER_ON_RESET     = 0x0080,  /* power on */
-  MCI_PROTOCOL_RESET_SRC_EXT_PIN_RESET      = 0x0040,  /* external reset pin */
-  MCI_PROTOCOL_RESET_SRC_WATCH_DOG_RESET    = 0x0020,  /* watch dog reset */
-  MCI_PROTOCOL_RESET_SRC_LOW_VOLTAGE_DETECT = 0x0002,  /* Low voltage detected */
-  MCI_PROTOCOL_RESET_SRC_WAKEUP_FROM_STOP   = 0x0001,  /* wakeup from low power mode */
+  /* MCU RESETS */
+  MCI_PROTOCOL_RESET_SRC_STOP_MODE_ACK      = 0x002000,  /* Stop mode acknowledge failure */
+  MCI_PROTOCOL_RESET_SRC_MDM_AP             = 0x000800,  /* host debugger reset request */
+  MCI_PROTOCOL_RESET_SRC_SOFTWARE_RESET     = 0x000400,  /* internal software trigger */
+  MCI_PROTOCOL_RESET_SRC_CORE_LOCKUP        = 0x000200,  /* ARM core LOCKUP event */
+  MCI_PROTOCOL_RESET_SRC_POWER_ON_RESET     = 0x000080,  /* power on */
+  MCI_PROTOCOL_RESET_SRC_EXT_PIN_RESET      = 0x000040,  /* external reset pin */
+  MCI_PROTOCOL_RESET_SRC_WATCH_DOG_RESET    = 0x000020,  /* watch dog reset */
+  MCI_PROTOCOL_RESET_SRC_LOW_VOLTAGE_DETECT = 0x000002,  /* Low voltage detected */
+  MCI_PROTOCOL_RESET_SRC_WAKEUP_FROM_STOP   = 0x000001,  /* wakeup from low power mode */
+
+  /* MDM RESETS */
+  MCI_PROTOCOL_RESET_SRC_EMBEDDED_WATCHDOG  = 0x010000,  /* Embedded watchdog reset */
 };
+
+/************
+*
+* Name:     mci_protocol_test_optype_e - Operation type for test services
+*
+* Purpose:  Enumerate the test service operation type
+*
+* Members:  See below
+*
+* Note:
+*
+************/
+enum mci_protocol_test_service_optype_e
+{
+  MCI_PROTOCOL_TEST_CONFIG_OPTYPE_NONE = 0x00,  /* placeholder */
+  MCI_PROTOCOL_TEST_CONFIG_OPTYPE_GET  = 0x01,  /* get value of a single attribute */
+  MCI_PROTOCOL_TEST_CONFIG_OPTYPE_SET  = 0x02,  /* set value of a single attribute */
+};
+
+#define MCI_PROTOCOL_TEST_CONFIG_GET_ARG_COUNT     1
+#define MCI_PROTOCOL_TEST_CONFIG_GET_RESULT_COUNT  1
+
+#define MCI_PROTOCOL_TEST_CONFIG_SET_ARG_COUNT     2
+#define MCI_PROTOCOL_TEST_CONFIG_SET_RESULT_COUNT  0
+
+/* Bit fields of the first parameter:
+*  [31:16] unused
+*  [15: 8] bitmask representation of parameter index
+*  [ 7: 0] operation type code
+*/
+#define MCI_PROTOCOL_TEST_CONFIG_OPTYP_MASK        0x000000FF
+#define MCI_PROTOCOL_TEST_CONFIG_OPTYP_SHIFT       0
+#define MCI_PROTOCOL_TEST_CONFIG_INDEX_MASK        0x000FF000
+#define MCI_PROTOCOL_TEST_CONFIG_INDEX_SHIFT       12
 
 /************
 *
@@ -200,7 +252,7 @@ enum mci_protocol_reset_source_e
 ************/
 enum mci_protocol_event_service_optype_e
 {
-  MCI_PROTOCOL_EVENT_SERVICE_OPTYPE_EVENT_NONE  = 0x00,  /* To query events due to MICRO_IRQ */
+  MCI_PROTOCOL_EVENT_SERVICE_OPTYPE_EVENT_NONE  = 0x00,  /* Place holder */
   MCI_PROTOCOL_EVENT_SERVICE_OPTYPE_EVENT_QUERY = 0x01,  /* To query events due to MICRO_IRQ */
   MCI_PROTOCOL_EVENT_SERVICE_OPTYPE_EVENT_LOGS  = 0x02   /* To retrieve logs from MCU (TODO)*/
 };
@@ -218,12 +270,14 @@ enum mci_protocol_event_service_optype_e
 ************/
 enum mci_protocol_event_type_e
 {
-  MCI_PROTOCOL_EVENT_TYPE_NONE   = 0x00,
-  MCI_PROTOCOL_EVENT_TYPE_GPIO   = 0x01,
-  MCI_PROTOCOL_EVENT_TYPE_ADC    = 0x02,
-  MCI_PROTOCOL_EVENT_TYPE_RESET  = 0x03,
-  MCI_PROTOCOL_EVENT_TYPE_UNUSED = 0x04,
-  MCI_PROTOCOL_EVENT_TYPE_WUSRC  = 0x05,
+  MCI_PROTOCOL_EVENT_TYPE_NONE      = 0x00,
+  MCI_PROTOCOL_EVENT_TYPE_GPIO      = 0x01,
+  MCI_PROTOCOL_EVENT_TYPE_ADC       = 0x02,
+  MCI_PROTOCOL_EVENT_TYPE_RESET     = 0x03,
+  MCI_PROTOCOL_EVENT_TYPE_MCI_RESET = 0x04,
+  MCI_PROTOCOL_EVENT_TYPE_WUSRC     = 0x05,
+  MCI_PROTOCOL_EVENT_TYPE_WATCHDOG  = 0x06,
+  MCI_PROTOCOL_EVENT_TYPE_CALIBRATE = 0x07,
 };
 
 #define MCI_PROTOCOL_EVENT_SERVICE_OPTYPE_MASK    0x000000FF
@@ -237,11 +291,11 @@ enum mci_protocol_event_type_e
 *              [0]     logic level value
 *  ADC:        [16~23] input chaneel identificaiton
 *              [0~15]  ADC value
-*  RESET       [0~15]  reset source
+*  RESET       [0~23]  reset source
 *  WAKEUP_MODE [0~7]   power mode waked up from
 */
-#define  MCI_PROTOCOL_EVENT_TYPE_MASK               0xFF000000
-#define  MCI_PROTOCOL_EVENT_TYPE_SHIFT              24
+#define  MCI_PROTOCOL_EVENT_TYPE_MASK              0xFF000000
+#define  MCI_PROTOCOL_EVENT_TYPE_SHIFT             24
 
 /* GPIO interrupt: 16 bits of pin ID and 8 bits of value
 * (16 bits of ID is composed of 8-bit port id and 1-bit pin ID)
@@ -268,8 +322,8 @@ enum mci_protocol_event_type_e
 #define  MCI_PROTOCOL_EVENT_ADC_VALUE_MASK         0x0000FFFF
 #define  MCI_PROTOCOL_EVENT_ADC_VALUE_SHIFT        0
 
-/* Reset source: 16 bits value */
-#define  MCI_PROTOCOL_EVENT_RESET_SOURCE_MASK      0x0000FFFF
+/* Reset source: 24 bits value */
+#define  MCI_PROTOCOL_EVENT_RESET_SOURCE_MASK      0x00FFFFFF
 #define  MCI_PROTOCOL_EVENT_RESET_SOURCE_SHIFT     0
 
 /* Wakeup from mode: 8-bit value */
@@ -832,11 +886,11 @@ enum mci_protocol_mdm_state_e
 ************/
 enum mci_protocol_pm_optype_e
 {
-  MCI_PROTOCOL_PM_OPTYPE_INVALID        = 0x0, /* placeholder */
-  MCI_PROTOCOL_PM_OPTYPE_SET            = 0x1, /* to config the power management profile */
-  MCI_PROTOCOL_PM_OPTYPE_GET            = 0x2, /* to get the configed power management profile */
-  MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG = 0x3, /* to config wait times for power off sequence */
-  MCI_PROTOCOL_PM_POWER_OFF_SYNC        = 0x4, /* to synchronize the completion of power off sequence */
+  MCI_PROTOCOL_PM_OPTYPE_INVALID               = 0x0,  /* placeholder */
+  MCI_PROTOCOL_PM_OPTYPE_SET                   = 0x1,  /* to config the power management profile */
+  MCI_PROTOCOL_PM_OPTYPE_GET                   = 0x2,  /* to get the configed power management profile */
+  MCI_PROTOCOL_PM_OPTYPE_POWER_OFF_TIME_CONFIG = 0x3,  /* to config the wait times for power off sequence */
+  MCI_PROTOCOL_PM_OPTYPE_POWER_OFF_SYNC        = 0x4,  /* to synchronize the completion of power off sequence */
 };
 
 #define MCI_PROTOCOL_PM_SET_PARAMS_COUNT              3
@@ -895,14 +949,78 @@ enum mci_protocol_pm_optype_e
 #define MCI_PROTOCOL_MDM_ON_CONDITIONS_ALL_MASK       0xFFFF0000
 #define MCI_PROTOCOL_MDM_ON_CONDITIONS_ALL_SHIFT      16
 
-/* only ADC range is supported for now */
-#define MCI_PROTOCOL_MDM_ON_CONDITIONS_ANY_MASK_ADC   0x0001
-
-enum mci_protocol_test_optype_e
+/************
+*
+* Name:     mci_protocol_timer_optype_e - Operation type for timer service
+*
+* Purpose:  Enumerate the timer operation type
+*
+* Members:  See below
+*
+* Note:
+*
+************/
+enum mci_protocol_timer_optype_e
 {
-  MCI_PROTOCOL_TEST_OPTYPE_NONE,  /* to disable the power management profile */
-  MCI_PROTOCOL_TEST_OPTYPE_TEST,   /* to enable the configured power manamgent profile */
+  MCI_PROTOCOL_TIMER_OPTYPE_IDLE       = 0x00,  /* To set a timer to idle */
+  MCI_PROTOCOL_TIMER_OPTYPE_WATCHDOG   = 0x01,  /* To start watchdog service */
+  MCI_PROTOCOL_TIMER_OPTYPE_READ_INPUT = 0x02,  /* To start input read service */
+  MCI_PROTOCOL_TIMER_OPTYPE_CALIBRATE  = 0x03,  /* To start a calibrate timer */
 };
+
+enum mci_protocol_timer_e
+{
+  MCI_PROTOCOL_TIMER_RTC_ALARM = 0x00,
+  MCI_PROTOCOL_TIMER_LPTMR     = 0x01,
+};
+
+/* The type of inputs for MCU_TIMER_INPUT_READ usage. Selected from:
+*/
+enum mci_protocol_timer_read_input_type_e
+{
+  MCI_PROTOCOL_TIMER_READ_INPUT_NONE = 0x00,
+  MCI_PROTOCOL_TIMER_READ_INPUT_GPIO = 0x01,
+  MCI_PROTOCOL_TIMER_READ_INPUT_ADC  = 0x02,
+};
+
+#define MCI_PROTOCOL_TIMER_WATCHDOG_PARAMS_COUNT       3
+
+
+/* No additional parameters for MCI_PROTOCOL_TIMER_OPTYPE_IDLE besides the OPTYPE.
+*  Results returned for successful MCI_PROTOCOL_TIMER_OPTYPE_IDLE command
+*  The 1st parameter encodes the usage of the stopped timer.
+*  The 2nd.parameter encodes the remainder of the timeout value when the timer is stopped.
+*/
+#define MCI_PROTOCOL_TIMER_IDLE_PARAMS_COUNT           1
+#define MCI_PROTOCOL_TIMER_IDLE_RESULT_COUNT           2
+
+#define MCI_PROTOCOL_TIMER_START_INPUT_READ_COUNT      5
+
+/* no parameter returned in a response to a TIMER_SERVICE request */
+#define MCI_PROTOCOL_TIMER_SERVICE_RESULT_COUNT        0
+
+/* Bit fields of the first parameter:
+*  TIMER_OPTYPE:   bits [ 0, 7] - timer operation type
+*  TIMER:          bits [ 8,15] - timer type
+*/
+#define MCI_PROTOCOL_TIMER_OPTYPE_MASK       0x000000FF
+#define MCI_PROTOCOL_TIMER_OPTYPE_SHIFT      0
+
+#define MCI_PROTOCOL_TIMER_MASK              0x0000FF00
+#define MCI_PROTOCOL_TIMER_SHIFT             8
+
+/* For MCI_PROTOCOL_TIMER_OPTYPE_WATCHDOG:
+*  the 2nd paramter encodes the timeout value (ms) for watchdog warning event.
+*  the 3rd paramter encodes the time delay (ms) before MCU resetting the device
+*                           after issuing a watchdog warning event.
+*/
+
+/* For MCI_PROTOCOL_TIMER_OPTYPE_READ_INPUT:
+*  the 2nd paramter encodes the inital timeout value (ms)
+*  the 3rd paramter encodes the subsequent timeout value (ms)
+*  the 4th paramter encodes the bitbask contain all digital input pins
+*  the 5th paramter encodes the bitbask contain all analog input pins
+*/
 
 #define MCI_PROTOCOL_APPL_OPTYPE_MASK                   0x000000FF
 #define MCI_PROTOCOL_APPL_OPTYPE_SHIFT                  0

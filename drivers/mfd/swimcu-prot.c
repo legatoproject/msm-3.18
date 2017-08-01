@@ -29,6 +29,12 @@
 #define MCI_PROTOCOL_SEND_WAIT_LOW        750 /* min sleep, usec */
 #define MCI_PROTOCOL_SEND_WAIT_HIGH       1500 /* max sleep, usec */
 
+/* The index of decoded fields into the parameter list for PING_RESP */
+#define MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR     0
+#define MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR     1
+#define MCI_PROTOCOL_PING_RESP_PARAMS_TARGET        2
+#define MCI_PROTOCOL_PING_RESP_PARAMS_OPT           3
+#define MCI_PROTOCOL_PING_RESP_PARAMS_COUNT         4
 
 /**************
  * Local data *
@@ -372,8 +378,11 @@ static enum mci_protocol_status_code_e mci_protocol_frame_recv (
 		break;
 
 		case MCI_PROTOCOL_FRAME_TYPE_PING_RESP:
+
 			/* Read the rest of bytes in the frame */
-			len = i2c_master_recv(swimcu->client, &(buffer[MCI_PROTOCOL_FRAME_PING_RESP_BUGFIX]), MCI_PROTOCOL_FRAME_PING_RESP_LEN - 2);
+			len = i2c_master_recv(swimcu->client,
+				&(buffer[MCI_PROTOCOL_FRAME_PING_RESP_PROT_VER]),
+				MCI_PROTOCOL_FRAME_PING_RESP_LEN - 2);
 
 			/* Run CRC16 on the buffer excluding CRC bytes (last two bytes) */
 			crc = mci_protocol_crc16_update(0, buffer, (MCI_PROTOCOL_FRAME_PING_RESP_LEN - 2));
@@ -401,14 +410,27 @@ static enum mci_protocol_status_code_e mci_protocol_frame_recv (
 				break;
 			}
 			params = (uint32_t *) packetp->datap;
-			params[MCI_PROTOCOL_PING_RESP_PARAMS_BUGFIX]    = buffer[MCI_PROTOCOL_FRAME_PING_RESP_BUGFIX];
-			params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR] = buffer[MCI_PROTOCOL_FRAME_PING_RESP_MINOR];
-			params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR] = buffer[MCI_PROTOCOL_FRAME_PING_RESP_MAJOR];
-			params[MCI_PROTOCOL_PING_RESP_PARAMS_NAME]      = buffer[MCI_PROTOCOL_FRAME_PING_RESP_NAME];
-			params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT]       = buffer[MCI_PROTOCOL_FRAME_PING_RESP_OPT_HI];
-			params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT]     <<= 8;
-			params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT]      |= (uint32_t)
-				buffer[MCI_PROTOCOL_FRAME_PING_RESP_OPT_LO];
+
+			params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR] = buffer[MCI_PROTOCOL_FRAME_PING_RESP_FWVER_MINOR];
+			params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR] = buffer[MCI_PROTOCOL_FRAME_PING_RESP_FWVER_MAJOR];
+
+			if (buffer[MCI_PROTOCOL_FRAME_PING_RESP_PROT_VER] == MCI_PROTOCOL_VERSION_1)
+			{
+				params[MCI_PROTOCOL_PING_RESP_PARAMS_TARGET]= buffer[MCI_PROTOCOL_FRAME_PING_RESP_TARGET];
+				params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT]   = buffer[MCI_PROTOCOL_FRAME_PING_RESP_OPT_HI];
+				params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT]  <<= 8;
+				params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT]   |= (uint32_t) buffer[MCI_PROTOCOL_FRAME_PING_RESP_OPT_LO];
+			}
+			else
+			{
+				/* Use default values */
+				params[MCI_PROTOCOL_PING_RESP_PARAMS_TARGET]= MCI_PROTOCOL_APPL_TARGET;
+				params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT]   = 0x0;
+				if (buffer[MCI_PROTOCOL_FRAME_PING_RESP_PROT_VER] == MCI_PROTOCOL_VERSION_0)
+				{
+					pr_err("Unkown MCI Protocol Version");
+				}
+			}
 
 			packetp->count = MCI_PROTOCOL_PING_RESP_PARAMS_COUNT;
 
@@ -716,9 +738,6 @@ enum mci_protocol_status_code_e swimcu_ping(struct swimcu *swimcu)
 
 	mutex_lock(&swimcu->mcu_transaction_mutex);
 
-	swimcu->version_major = 0;
-	swimcu->version_minor = 0;
-
 	/* Ping the micro-controller and wait for response */
 	frame.type = MCI_PROTOCOL_FRAME_TYPE_PING_REQ;
 	s_code = mci_protocol_frame_send(swimcu, &frame);
@@ -741,21 +760,34 @@ enum mci_protocol_status_code_e swimcu_ping(struct swimcu *swimcu)
 	/* Receive Ping response from micro-controller */
 	s_code = mci_protocol_frame_recv(swimcu, &frame);
 	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS != s_code) {
-		pr_err("%s: Failed to receive PING RESPONSE", __func__);
-		goto ping_exit;
+		pr_err("%s: Failed to receive PING RESPONSE err=%d", __func__, s_code);
 	}
 	else if (MCI_PROTOCOL_FRAME_TYPE_PING_RESP != frame.type) {
 		s_code = MCI_PROTOCOL_STATUS_CODE_CODING_ERROR;
 		pr_err("%s: Unexpected frame type %.2x", __func__, frame.type);
-		goto ping_exit;
 	}
-	else {
+
+	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == s_code) {
 		swimcu->version_major =
 			(u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MAJOR];
 		swimcu->version_minor =
 			(u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_VER_MINOR];
-		swimcu_log(FW, "%s: success, ver %d.%03d\n", __func__, swimcu->version_major, swimcu->version_minor);
+		swimcu->target_dev_id =
+			(u8) params[MCI_PROTOCOL_PING_RESP_PARAMS_TARGET];
+		swimcu->opt_func_mask=
+			(u16) params[MCI_PROTOCOL_PING_RESP_PARAMS_OPT];
 	}
+	else {
+		/* Failed: reset state relevant variables */
+		swimcu->version_major = 0;
+		swimcu->version_minor = 0;
+		swimcu->target_dev_id = 0;
+		swimcu->opt_func_mask = 0x0;
+	}
+
+	swimcu_log(FW, "%s: ver %d.%03d target %d func_mask 0x%X\n", __func__,
+		swimcu->version_major, swimcu->version_minor,
+		swimcu->target_dev_id, swimcu->opt_func_mask);
 
 ping_exit:
 	mutex_unlock(&swimcu->mcu_transaction_mutex);
@@ -1473,7 +1505,7 @@ enum mci_protocol_status_code_e swimcu_pm_pwr_off(struct swimcu *swimcu)
 	uint8_t count = MCI_PROTOCOL_PM_POWER_OFF_SYNC_PARAMS_COUNT;
 	uint32_t buffer[MCI_PROTOCOL_PM_POWER_OFF_SYNC_PARAMS_COUNT];
 
-	buffer[0] = (uint32_t)MCI_PROTOCOL_PM_POWER_OFF_SYNC;
+	buffer[0] = (uint32_t)MCI_PROTOCOL_PM_OPTYPE_POWER_OFF_SYNC;
 
 	swimcu_log(PROT, "%s: sending safe shutdown signal",__func__);
 	s_code = mci_protocol_command(swimcu, MCI_PROTOCOL_COMMAND_TAG_APPL_PM_SERVICE,
@@ -1509,7 +1541,7 @@ enum mci_protocol_status_code_e swimcu_pm_wait_time_config(
 	uint8_t count = MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_PARAMS_COUNT;
 	uint32_t buffer[MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_PARAMS_COUNT];
 
-	buffer[0] = (uint32_t)MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG;
+	buffer[0] = (uint32_t)MCI_PROTOCOL_PM_OPTYPE_POWER_OFF_TIME_CONFIG;
 	buffer[1] = wait_sync_time;
 	buffer[2] = wait_pwr_off_time;
 
@@ -1738,6 +1770,12 @@ enum mci_protocol_status_code_e swimcu_event_query(
 						>> MCI_PROTOCOL_EVENT_WUSRC_VALUE_SHIFT;
 					break;
 
+				case MCI_PROTOCOL_EVENT_TYPE_WATCHDOG:
+
+					eventp[i].data.watchdog.delay = (uint32_t)
+						(buffer[i] & ~MCI_PROTOCOL_EVENT_TYPE_MASK);
+					break;
+
 				default:
 					pr_err("%s: Unknown event[%d] type %d: ", __func__, i, eventp[i].type);
 			}
@@ -1755,3 +1793,93 @@ enum mci_protocol_status_code_e swimcu_event_query(
 	return s_code;
 }
 
+
+/************
+ *
+ * Name:     mci_appl_watchdog_start
+ *
+ * Purpose:  To start a watchdog timer on MCU
+ *
+ * Parms:    swimcup - pointer to the swimcu data object
+ *           timeout - watchdog timeout valeu
+ *           delay   - time delay after watchdog timer expires and
+ *                     before the device is resetted.
+ *
+ * Return:   MCI_PROTOCOL_STATUS_CODE_SUCCESS if successful;
+ *           other status code otherwise.
+ *
+ * Abort:    none
+ *
+ ************/
+enum mci_protocol_status_code_e mci_appl_watchdog_start(
+  struct swimcu *swimcup,
+  u32 timeout,
+  u32 delay)
+{
+	enum mci_protocol_status_code_e s_code;
+	uint32_t buffer[MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX];
+	uint8_t  count = MCI_PROTOCOL_TIMER_WATCHDOG_PARAMS_COUNT;
+
+	/* encode operation type and parameter count in the first parameter */
+	buffer[0] = MCI_PROTOCOL_TIMER_OPTYPE_WATCHDOG;
+	buffer[0] |= ((uint32_t)MCI_PROTOCOL_TIMER_RTC_ALARM) << MCI_PROTOCOL_TIMER_SHIFT;
+	buffer[1] = timeout;
+	buffer[2] = delay;
+
+	/* Expect status code only; no returned results */
+	s_code = mci_protocol_command(swimcup, MCI_PROTOCOL_COMMAND_TAG_APPL_TIMER_SERVICE,
+		buffer, MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX, &count, 0x00);
+
+	swimcu_log(PROT, "%s: timeout=%d, reset delay=%d (status=%d)\n",
+		__func__, timeout, delay, s_code);
+
+	return s_code;
+}
+
+/************
+ *
+ * Name:     mci_appl_timer_stop
+ *
+ * Purpose:  To stop a previously started timer
+ *
+ * Parms:    swimcup - pointer to the swimcu data object.
+ *           timep   - pointer to storage for returne remaining timeout value.
+ *
+ * Return:   MCI_PROTOCOL_STATUS_CODE_SUCCESS if successful;
+ *           other status code otherwise.
+ *
+ * Abort:    none
+ *
+ ************/
+
+enum mci_protocol_status_code_e mci_appl_timer_stop(
+	struct swimcu *swimcup,
+	u32 *timep)
+{
+	enum mci_protocol_status_code_e s_code;
+	uint32_t buffer[MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX];
+	uint8_t  count = MCI_PROTOCOL_TIMER_IDLE_PARAMS_COUNT;
+
+	/* encode operation type and parameter count in the first parameter */
+	buffer[0] = MCI_PROTOCOL_TIMER_OPTYPE_IDLE;
+	buffer[0] |= ((uint32_t)MCI_PROTOCOL_TIMER_RTC_ALARM) << MCI_PROTOCOL_TIMER_SHIFT;
+
+	/* send request */
+	s_code = mci_protocol_command(swimcup, MCI_PROTOCOL_COMMAND_TAG_APPL_TIMER_SERVICE,
+		buffer, MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX, &count, 0x00);
+
+	if (s_code == MCI_PROTOCOL_STATUS_CODE_SUCCESS)
+	{
+		if (count != MCI_PROTOCOL_TIMER_IDLE_RESULT_COUNT)
+		{
+			pr_err("%s: Incorrect number of results returned %d (%d)",
+				__func__, count, MCI_PROTOCOL_STATUS_CODE_SUCCESS);
+			return MCI_PROTOCOL_STATUS_CODE_ENCODE_ERROR;
+		}
+
+		swimcu_log(PROT, "%s: status=%d count=%d\n", __func__, s_code, count);
+
+		*timep = buffer[1];
+	}
+	return s_code;
+}

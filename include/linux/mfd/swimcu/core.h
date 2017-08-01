@@ -1,5 +1,5 @@
 /*
- * core.h  --  Core Driver for Sierra Wireless WP76xx KL03z MCU
+ * core.h  --  Core Driver for Sierra Wireless MCU
  *
  * adapted from:
  * core.h  --  Core Driver for Wolfson WM8350 PMIC
@@ -22,19 +22,14 @@
 
 #include <linux/mfd/swimcu/gpio.h>
 
-/* Kinetis ROM Bootloader I2C configuration */
-#define SWIMCU_BOOT_I2C_ADDR	0x10
-#define SWIMCU_BOOT_I2C_FREQ	100
-#define SWIMCU_BOOT_I2C_ID	0
+/* Kinetis Application I2C configuration */
+#define SWIMCU_APPL_I2C_ADDR    0x3A
+#define SWIMCU_APPL_I2C_FREQ    100
+#define SWIMCU_APPL_I2C_ID      1
 
-/* Kinetis Application I2C configuration    */
-#define SWIMCU_APPL_I2C_ADDR	0x3A
-#define SWIMCU_APPL_I2C_FREQ	100
-#define SWIMCU_APPL_I2C_ID	1
-
-#define SWIMCU_PM_OFF		0
-#define SWIMCU_PM_BOOT_SOURCE	1
-#define SWIMCU_PM_POWER_SWITCH	2
+#define SWIMCU_PM_OFF           0
+#define SWIMCU_PM_BOOT_SOURCE   1
+#define SWIMCU_PM_POWER_SWITCH  2
 #define SWIMCU_PM_MAX           SWIMCU_PM_POWER_SWITCH
 
 #define SWIMCU_ADC_VREF         1800
@@ -59,10 +54,14 @@ enum swimcu_adc_compare_mode
 	SWIMCU_ADC_COMPARE_BEYOND,
 };
 
-#define SWIMCU_FUNC_FLAG_FWUPD (1 << 0)
-#define SWIMCU_FUNC_FLAG_PM    (1 << 1)
-#define SWIMCU_FUNC_FLAG_EVENT (1 << 2)
-#define SWIMCU_FUNC_APPL (SWIMCU_FUNC_FLAG_FWUPD | SWIMCU_FUNC_FLAG_PM | SWIMCU_FUNC_FLAG_EVENT)
+#define SWIMCU_FUNC_FLAG_FWUPD       (1 << 0)
+#define SWIMCU_FUNC_FLAG_PM          (1 << 1)
+#define SWIMCU_FUNC_FLAG_EVENT       (1 << 2)
+#define SWIMCU_FUNC_FLAG_WATCHDOG    (1 << 3)
+#define SWIMCU_FUNC_APPL             (SWIMCU_FUNC_FLAG_FWUPD | \
+                                      SWIMCU_FUNC_FLAG_PM |    \
+                                      SWIMCU_FUNC_FLAG_EVENT | \
+                                      SWIMCU_FUNC_FLAG_WATCHDOG)
 
 #define SWIMCU_DRIVER_INIT_FIRST     0
 #define SWIMCU_DRIVER_INIT_EVENT     (1 << 0)
@@ -72,52 +71,54 @@ enum swimcu_adc_compare_mode
 #define SWIMCU_DRIVER_INIT_PM        (1 << 4)
 #define SWIMCU_DRIVER_INIT_GPIO      (1 << 5)
 #define SWIMCU_DRIVER_INIT_REBOOT    (1 << 6)
+#define SWIMCU_DRIVER_INIT_WATCHDOG  (1 << 7)
+
 
 #define SWIMCU_DEBUG
 
-#define SWIMCU_INIT_DEBUG_LOG	0x0001
-#define SWIMCU_EVENT_DEBUG_LOG	0x0002
-#define SWIMCU_PROT_DEBUG_LOG	0x0004
-#define SWIMCU_PM_DEBUG_LOG	0x0008
-#define SWIMCU_GPIO_DEBUG_LOG	0x0010
-#define SWIMCU_ADC_DEBUG_LOG	0x0020
-#define SWIMCU_FW_DEBUG_LOG	0x0040
-#define SWIMCU_MISC_DEBUG_LOG	0x0080
-#define SWIMCU_ALL_DEBUG_LOG	0x00ff
+#define SWIMCU_INIT_DEBUG_LOG        0x0001
+#define SWIMCU_EVENT_DEBUG_LOG       0x0002
+#define SWIMCU_PROT_DEBUG_LOG        0x0004
+#define SWIMCU_PM_DEBUG_LOG          0x0008
+#define SWIMCU_GPIO_DEBUG_LOG        0x0010
+#define SWIMCU_ADC_DEBUG_LOG         0x0020
+#define SWIMCU_FW_DEBUG_LOG          0x0040
+#define SWIMCU_MISC_DEBUG_LOG        0x0080
+#define SWIMCU_ALL_DEBUG_LOG         0x00ff
 
 #define SWIMCU_DEFAULT_DEBUG_LOG SWIMCU_INIT_DEBUG_LOG
 
 #ifdef SWIMCU_DEBUG
-#define SWIMCU_INIT_LOG		(swimcu_debug_mask & SWIMCU_INIT_DEBUG_LOG)
-#define SWIMCU_EVENT_LOG	(swimcu_debug_mask & SWIMCU_EVENT_DEBUG_LOG)
-#define SWIMCU_PROT_LOG		(swimcu_debug_mask & SWIMCU_PROT_DEBUG_LOG)
-#define SWIMCU_PM_LOG		(swimcu_debug_mask & SWIMCU_PM_DEBUG_LOG)
-#define SWIMCU_GPIO_LOG		(swimcu_debug_mask & SWIMCU_GPIO_DEBUG_LOG)
-#define SWIMCU_ADC_LOG		(swimcu_debug_mask & SWIMCU_ADC_DEBUG_LOG)
-#define SWIMCU_FW_LOG		(swimcu_debug_mask & SWIMCU_FW_DEBUG_LOG)
-#define SWIMCU_MISC_LOG		(swimcu_debug_mask & SWIMCU_MISC_DEBUG_LOG)
+#define SWIMCU_INIT_LOG     (swimcu_debug_mask & SWIMCU_INIT_DEBUG_LOG)
+#define SWIMCU_EVENT_LOG    (swimcu_debug_mask & SWIMCU_EVENT_DEBUG_LOG)
+#define SWIMCU_PROT_LOG     (swimcu_debug_mask & SWIMCU_PROT_DEBUG_LOG)
+#define SWIMCU_PM_LOG       (swimcu_debug_mask & SWIMCU_PM_DEBUG_LOG)
+#define SWIMCU_GPIO_LOG     (swimcu_debug_mask & SWIMCU_GPIO_DEBUG_LOG)
+#define SWIMCU_ADC_LOG      (swimcu_debug_mask & SWIMCU_ADC_DEBUG_LOG)
+#define SWIMCU_FW_LOG       (swimcu_debug_mask & SWIMCU_FW_DEBUG_LOG)
+#define SWIMCU_MISC_LOG     (swimcu_debug_mask & SWIMCU_MISC_DEBUG_LOG)
 #else
-#define SWIMCU_INIT_LOG		(false)
-#define SWIMCU_EVENT_LOG	(false)
-#define SWIMCU_PROT_LOG		(false)
-#define SWIMCU_PM_LOG		(false)
-#define SWIMCU_GPIO_LOG		(false)
-#define SWIMCU_ADC_LOG		(false)
-#define SWIMCU_FW_LOG		(false)
-#define SWIMCU_MISC_LOG		(false)
+#define SWIMCU_INIT_LOG     (false)
+#define SWIMCU_EVENT_LOG    (false)
+#define SWIMCU_PROT_LOG     (false)
+#define SWIMCU_PM_LOG       (false)
+#define SWIMCU_GPIO_LOG     (false)
+#define SWIMCU_ADC_LOG      (false)
+#define SWIMCU_FW_LOG       (false)
+#define SWIMCU_MISC_LOG     (false)
 #endif
 #define swimcu_log(id, ...) do { if (SWIMCU_##id##_LOG) pr_info(__VA_ARGS__); } while (0)
 
 extern int swimcu_debug_mask;
 
-#define SWIMCU_FAULT_TX_TO	0x0001
-#define SWIMCU_FAULT_TX_NAK	0x0002
-#define SWIMCU_FAULT_RX_TO	0x0004
-#define SWIMCU_FAULT_RX_CRC	0x0008
-#define SWIMCU_FAULT_RESET	0x0100
-#define SWIMCU_FAULT_EVENT_OFLOW 0x0200
+#define SWIMCU_FAULT_TX_TO        0x0001
+#define SWIMCU_FAULT_TX_NAK       0x0002
+#define SWIMCU_FAULT_RX_TO        0x0004
+#define SWIMCU_FAULT_RX_CRC       0x0008
+#define SWIMCU_FAULT_RESET        0x0100
+#define SWIMCU_FAULT_EVENT_OFLOW  0x0200
 
-#define SWIMCU_FAULT_COUNT_MAX  9999
+#define SWIMCU_FAULT_COUNT_MAX    9999
 
 extern int swimcu_fault_mask;
 extern int swimcu_fault_count;
@@ -136,6 +137,8 @@ struct swimcu {
 
 	u8 version_major;
 	u8 version_minor;
+	u8 target_dev_id;
+	u16 opt_func_mask;
 
 	struct mutex mcu_transaction_mutex;
 
@@ -151,6 +154,7 @@ struct swimcu {
 	struct kobject pm_boot_source_kobj;
 	struct kobject pm_firmware_kobj;
 	struct kobject pm_boot_source_adc_kobj;
+	struct kobject pm_watchdog_kobj;
 
 	/* Client devices */
 	struct swimcu_gpio gpio;

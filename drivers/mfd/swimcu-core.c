@@ -33,6 +33,7 @@
 #include <linux/mfd/swimcu/mcidefs.h>
 #include <linux/sierra_gpio_wake_n.h>
 #include <linux/sierra_bsudefs.h>
+
 /*
  * SWIMCU Device IO
  */
@@ -50,7 +51,7 @@ int swimcu_debug_mask = SWIMCU_DEFAULT_DEBUG_LOG;
 int swimcu_fault_mask = 0;
 int swimcu_fault_count = 0;
 
-/* ADC provided by MCU */
+/* WPx5 ADC2 and ADC3 provided by MCU */
 static const enum mci_protocol_adc_channel_e adc_chan_cfg[] = {
 	[SWIMCU_ADC_PTA12] = MCI_PROTOCOL_ADC0_SE0,
 	[SWIMCU_ADC_PTB1]  = MCI_PROTOCOL_ADC0_SE8
@@ -154,8 +155,9 @@ void swimcu_set_fault_mask(int fault)
  * Notes:
  *
  ************/
-int swimcu_adc_set_trigger_mode (enum swimcu_adc_index adc,
-				int trigger, int interval)
+int swimcu_adc_set_trigger_mode (
+	enum swimcu_adc_index adc,
+	int trigger, int interval)
 {
 	int ret = -EINVAL;
 
@@ -185,7 +187,8 @@ int swimcu_adc_set_trigger_mode (enum swimcu_adc_index adc,
  * Parms:    adc           - 0 or 1
  *           mode          - compare function mode
  *           compare_val1  - 1st trigger value in mV
- *           compare_val2  - 2nd trigger value, only used for WITHIN and BEYOND compare modes
+ *           compare_val2  - 2nd trigger value, only used
+ *                           for WITHIN and BEYOND compare modes
  *
  * Return:   0 if successful
  *           -ERRNO otherwise
@@ -195,9 +198,11 @@ int swimcu_adc_set_trigger_mode (enum swimcu_adc_index adc,
  * Notes:
  *
  ************/
-int swimcu_adc_set_compare_mode (enum swimcu_adc_index adc,
-				enum swimcu_adc_compare_mode mode,
-				unsigned compare_val1, unsigned compare_val2)
+int swimcu_adc_set_compare_mode (
+	enum swimcu_adc_index adc,
+	enum swimcu_adc_compare_mode mode,
+	unsigned compare_val1,
+	unsigned compare_val2)
 {
 	int cv1;
 	int cv2;
@@ -423,12 +428,18 @@ static int swimcu_process_events(struct swimcu *swimcu)
 			}
 			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_RESET) {
 				swimcu_log(EVENT, "%s: MCU reset source 0x%x\n", __func__, events[i].data.reset.source);
-				reset_recovery(swimcu);
+				if (events[i].data.reset.source != MCI_PROTOCOL_RESET_SRC_EMBEDDED_WATCHDOG) {
+					reset_recovery(swimcu);
+				}
 				swimcu_set_reset_source(events[i].data.reset.source);
 			}
 			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_WUSRC) {
 				swimcu_log(EVENT, "%s: MCU wakeup source %d 0x%x\n", __func__, events[i].data.wusrc.type, events[i].data.wusrc.value);
 				swimcu_set_wakeup_source(events[i].data.wusrc.type, events[i].data.wusrc.value);
+			}
+			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_WATCHDOG) {
+				swimcu_log(EVENT, "%s: MCU watchdog timeout, reset delay %d\n", __func__, events[i].data.watchdog.delay);
+				swimcu_watchdog_event_handle(swimcu, events[i].data.watchdog.delay);
 			}
 			else {
 				pr_warn("%s: Unknown event[%d] type %d\n", __func__, i, events[i].type);
@@ -471,8 +482,9 @@ static int swimcu_process_events(struct swimcu *swimcu)
  * Notes:    called from sierra_gpio_wake_n
  *
  ************/
-static int swimcu_event_trigger (struct notifier_block *self,
-				unsigned long event, void *unused)
+static int swimcu_event_trigger (
+	struct notifier_block *self,
+	unsigned long event, void *unused)
 {
 	struct swimcu *swimcu = container_of(self, struct swimcu, nb);
 
@@ -502,7 +514,7 @@ static void swimcu_event_init (struct swimcu *swimcu)
 
 /************
  *
- * Name:     swimcu_event_init
+ * Name:     swimcu_client_dev_register
  *
  * Purpose:  Register a client device
  *
@@ -519,9 +531,10 @@ static void swimcu_event_init (struct swimcu *swimcu)
  *           device init due to a single platform device failing.
  *
  */
-static int swimcu_client_dev_register(struct swimcu *swimcu,
-				const char *name,
-				struct platform_device **pdev)
+static int swimcu_client_dev_register(
+	struct swimcu *swimcu,
+	const char *name,
+	struct platform_device **pdev)
 {
 	int ret;
 
@@ -667,6 +680,11 @@ int swimcu_device_init(struct swimcu *swimcu)
 		ret = 0; /* this is not necessarily an error. MCI firmware update procedure will take over */
 		goto exit;
 	}
+
+	swimcu_log(INIT, "%s: mcufw ver=%d.%03d target=%d opt=0x%X\n", __func__,
+			swimcu->version_major, swimcu->version_minor,
+			swimcu->target_dev_id, swimcu->opt_func_mask);
+
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_PING)) {
 		/* first communication with MCU since statup */
 		swimcu_gpio_retrieve(swimcu); /* get gpio config from MCU */
@@ -683,6 +701,22 @@ int swimcu_device_init(struct swimcu *swimcu)
 	{
 		swimcu_log(INIT, "%s: Disable MCU USB VBUS Detection for DV5.2\n", __func__);
 		swimcu_vbus_detect_disable(swimcu);
+	}
+
+	if (swimcu->opt_func_mask & MCI_PROTOCOL_APPL_OPT_FUNCTION_WATCHDOG) {
+		if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_WATCHDOG)) {
+			if (0 != swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_WATCHDOG)) {
+				dev_err(swimcu->dev, "WATCHDOG sysfs init failed\n");
+				goto exit;
+			}
+			swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_WATCHDOG;
+		}
+	}
+	else {
+		if (swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_WATCHDOG) {
+			swimcu_pm_sysfs_remove(swimcu, SWIMCU_FUNC_FLAG_WATCHDOG);
+			swimcu->driver_init_mask &= ~SWIMCU_DRIVER_INIT_WATCHDOG;
+		}
 	}
 
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_FW)) {

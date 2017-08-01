@@ -155,7 +155,7 @@ enum mci_mcu_pin_level_e
 
 /************
 *
-* Name:     mci_mcu_pin_slew_rate_e
+* Name:     mci_mcu_pin_drive_strength_e
 *
 * Purpose:  Enumerate MCU output pin drive strength.
 *
@@ -517,13 +517,13 @@ struct mci_wakeup_source_config_s
 */
 struct mci_pm_profile_config_s
 {
-  enum mci_protocol_power_mode_e active_power_mode;	/* power mode of MCU while running */
-  enum mci_protocol_power_mode_e standby_power_mode;	/* power mode of MCU in standby */
-  enum mci_protocol_mdm_state_e  standby_mdm_state;	/* MDM on/off in low power mode */
-  uint16_t                       standby_wakeup_sources; /* conditions to wake from low power */
+  enum mci_protocol_power_mode_e active_power_mode;       /* power mode of MCU while running */
+  enum mci_protocol_power_mode_e standby_power_mode;      /* power mode of MCU in standby */
+  enum mci_protocol_mdm_state_e  standby_mdm_state;       /* MDM on/off in low power mode */
+  uint16_t                       standby_wakeup_sources;  /* conditions to wake from low power */
   uint16_t                       mdm_on_conds_bitset_any; /* reserved */
   uint16_t                       mdm_on_conds_bitset_all; /* reserved */
-  uint16_t                       active_idle_time; 	/* time before MCU drops to standby */
+  uint16_t                       active_idle_time;        /* time before MCU drops to standby */
 };
 
 /************
@@ -565,6 +565,12 @@ struct mci_event_s
       enum mci_protocol_wakeup_source_type_e type;
       uint16_t                               value;
     } wusrc;
+
+    struct
+    {
+      uint32_t                               delay;
+    } watchdog;
+
   } data;                               /* event data */
 };
 
@@ -687,5 +693,14 @@ extern enum mci_protocol_status_code_e swimcu_pm_pwr_off(
 extern int swimcu_gpio_set_trigger(int gpio, enum mci_pin_irqc_type_e type);
 
 extern enum mci_pin_irqc_type_e swimcu_gpio_get_trigger(int gpio);
+
+/*
+ * MCU timer service
+ */
+extern enum mci_protocol_status_code_e
+  mci_appl_watchdog_start(struct swimcu *swimcup, u32 timeout, u32 delay);
+
+extern enum mci_protocol_status_code_e
+  mci_appl_timer_stop(struct swimcu *swimcup, u32 * timep);
 
 #endif  /* MCIDEFS_H */

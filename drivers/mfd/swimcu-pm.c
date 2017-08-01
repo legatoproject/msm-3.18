@@ -27,6 +27,14 @@
 #include <linux/mfd/swimcu/mcidefs.h>
 #include <mach/swimcu.h>
 
+/* Constants for MCU watchdog feature */
+#define SWIMCU_WATCHDOG_TIMEOUT_INVALID      0
+#define SWIMCU_WATCHDOG_TIMEOUT_MAX          (4294967) /* (2^32-1)/1000 */
+#define SWIMCU_WATCHDOG_RESET_DELAY_DEFAULT  1         /* second */
+
+#define SWIMCU_WATCHDOG_OFF                  0
+#define SWIMCU_WATCHDOG_ON                   1
+
 /* generate extra debug logs */
 #ifdef SWIMCU_DEBUG
 module_param_named(
@@ -161,7 +169,7 @@ static struct adc_trigger_config {
 	bool select;
 } adc_trigger_config[] = {
 	[SWIMCU_ADC_PTA12] = {0, 1800, false},
-	[SWIMCU_ADC_PTB1] = {0, 1800, false},
+	[SWIMCU_ADC_PTB1]  = {0, 1800, false},
 };
 
 static uint32_t adc_interval = 0;
@@ -172,6 +180,12 @@ static char *poweroff_argv[] = {"/sbin/poweroff", NULL};
 #define PM_STATE_SYNC     1
 #define PM_STATE_SHUTDOWN 2
 static int swimcu_pm_state = PM_STATE_IDLE;
+
+/* MCU watchdog configuration */
+static int swimcu_watchdog_enable  = SWIMCU_WATCHDOG_OFF;
+static u32 swimcu_watchdog_timeout = SWIMCU_WATCHDOG_TIMEOUT_INVALID;
+static u32 swimcu_watchdog_reset_delay = SWIMCU_WATCHDOG_RESET_DELAY_DEFAULT;
+static u32 swimcu_watchdog_renew_count = 0;
 
 /************
 *
@@ -366,6 +380,8 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	enum swimcu_adc_index adc_wu_src = SWIMCU_ADC_INVALID;
 	enum swimcu_adc_compare_mode adc_compare_mode;
 	int adc_bitmask;
+	uint32_t time_ms;
+	bool watchdog_disabled = false;
 
 	if (pm == SWIMCU_PM_OFF) {
 		swimcu_log(PM, "%s: disable\n", __func__);
@@ -464,6 +480,21 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 
 	}
 
+	if (swimcu_watchdog_enable == SWIMCU_WATCHDOG_ON)
+	{
+		rc = mci_appl_timer_stop(swimcu, &time_ms);
+		if (rc == MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+			swimcu_watchdog_enable = SWIMCU_WATCHDOG_OFF;
+			watchdog_disabled = true;
+			swimcu_log(PM, "%s: Watchdog timer stopped with remaining time %d\n",
+				__func__, time_ms);
+		}
+		else
+		{
+			pr_err("%s: cannot stop MCU Watchdog: %d\n", __func__, rc);
+		}
+	}
+
 	if ((wu_source != 0) || (pm == SWIMCU_PM_POWER_SWITCH)) {
 		pr_info("%s: sending wait_time_config", __func__);
 		rc = swimcu_pm_wait_time_config(swimcu,
@@ -512,10 +543,24 @@ wu_fail:
 		}
 	}
 
+	if (watchdog_disabled)
+	{
+		rc = mci_appl_watchdog_start(swimcu,
+			swimcu_watchdog_timeout * 1000, swimcu_watchdog_reset_delay * 1000);
+		if (rc == MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+			swimcu_watchdog_enable = SWIMCU_WATCHDOG_ON;
+			swimcu_log(PM, "%s: Watchdog timer restarted\n", __func__);
+		}
+		else
+		{
+			pr_err("%s: cannot restart MCU Watchdog: %d\n", __func__, rc);
+		}
+	}
+
 	return ret;
 }
 
-/* sysfs entries to set boot_source GPIO triggers for inputs PTA0 (gpio36) and PTB0 (gpio38) */
+/* sysfs entries to set GPIO input as boot_source */
 static ssize_t pm_gpio_attr_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -663,7 +708,22 @@ static ssize_t version_show(
 {
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_firmware_kobj);
 
-	swimcu_ping(swimcu);
+	(void) swimcu_ping(swimcu);
+
+	if (swimcu->opt_func_mask & MCI_PROTOCOL_APPL_OPT_FUNCTION_WATCHDOG) {
+		if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_WATCHDOG)) {
+			if (0 == swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_WATCHDOG)) {
+				swimcu->driver_init_mask |= SWIMCU_DRIVER_INIT_WATCHDOG;
+			}
+		}
+	}
+	else {
+		if (swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_WATCHDOG) {
+			swimcu_pm_sysfs_remove(swimcu, SWIMCU_FUNC_FLAG_WATCHDOG);
+			swimcu->driver_init_mask &= ~SWIMCU_DRIVER_INIT_WATCHDOG;
+		}
+	}
+
 	return scnprintf(buf, PAGE_SIZE, "%03d.%03d\n", swimcu->version_major, swimcu->version_minor);
 }
 
@@ -747,6 +807,224 @@ static ssize_t pm_adc_interval_attr_store(struct kobject *kobj,
 	return ret;
 };
 
+/* watchdog subdirectory */
+static ssize_t swimcu_watchdog_timeout_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", swimcu_watchdog_timeout);
+}
+
+static ssize_t swimcu_watchdog_timeout_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret = -EINVAL;
+	uint32_t tmp_time;
+
+	if (0 == (ret = kstrtouint(buf, 0, &tmp_time))) {
+		if (tmp_time <= SWIMCU_WATCHDOG_TIMEOUT_MAX) {
+			swimcu_watchdog_timeout = tmp_time;
+			return count;
+		}
+		else {
+			ret = -ERANGE;
+		}
+	}
+	else
+	{
+		ret = -EINVAL;
+	}
+
+	if (ret < 0)
+	{
+		pr_err("%s: invalid input %s ret %d\n", __func__, buf, ret);
+	}
+	return ret;
+};
+
+static ssize_t swimcu_watchdog_reset_delay_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", swimcu_watchdog_reset_delay);
+}
+
+static ssize_t swimcu_watchdog_reset_delay_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	uint32_t tmp_time;
+
+	if (0 == (ret = kstrtouint(buf, 0, &tmp_time))) {
+		if (tmp_time <= SWIMCU_WATCHDOG_TIMEOUT_MAX) {
+			swimcu_watchdog_reset_delay = tmp_time;
+			ret = count;
+		}
+		else {
+			ret = -ERANGE;
+		}
+	}
+	else
+	{
+		ret = -EINVAL;
+	}
+
+	if (ret < 0)
+	pr_err("%s: invalid input %s ret %d\n", __func__, buf, ret);
+
+	return ret;
+};
+
+static ssize_t swimcu_watchdog_renew_count_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", swimcu_watchdog_renew_count);
+}
+
+static ssize_t swimcu_watchdog_enable_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", swimcu_watchdog_enable);
+}
+
+static ssize_t swimcu_watchdog_enable_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	int tmp;
+	struct swimcu *swimcup = container_of(kobj, struct swimcu, pm_watchdog_kobj);
+	enum mci_protocol_status_code_e s_code;
+  u32 time_ms;
+
+	if (0 != (ret = kstrtoint(buf, 0, &tmp))) {
+		ret = -EINVAL;
+		goto WATCHDOG_ENABLE_EXIT;
+	}
+
+	if ((tmp != SWIMCU_WATCHDOG_OFF) && (tmp != SWIMCU_WATCHDOG_ON)) {
+		ret = -ERANGE;
+		goto WATCHDOG_ENABLE_EXIT;
+	}
+
+	if (tmp == SWIMCU_WATCHDOG_OFF) {
+		s_code = mci_appl_timer_stop(swimcup, &time_ms);
+		if (s_code == MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+			pr_err("%s: Watchdog timer stopped with remaining time %d\n",
+				__func__, time_ms);
+		}
+	}
+	else {
+		if ((swimcu_watchdog_timeout == 0) || swimcu_watchdog_reset_delay == 0) {
+			pr_err("%s: invalid paarms for start operation timeout=%d reset delay=%d\n",
+				__func__, swimcu_watchdog_timeout, swimcu_watchdog_reset_delay);
+			ret = -EINVAL;
+			goto WATCHDOG_ENABLE_EXIT;
+		}
+
+		s_code = mci_appl_watchdog_start(swimcup,
+			swimcu_watchdog_timeout * 1000, swimcu_watchdog_reset_delay * 1000);
+	}
+
+	if (s_code == MCI_PROTOCOL_STATUS_CODE_SUCCESS) {
+		swimcu_watchdog_enable = tmp;
+		ret = count;
+	}
+	else {
+		pr_err("%s: failed MCU command status %d\n", __func__, s_code);
+		ret = -EIO;
+	}
+
+WATCHDOG_ENABLE_EXIT:
+
+	if (ret < 0) {
+		pr_err("%s: input error %s ret %d\n", __func__, buf, ret);
+	}
+
+	return ret;
+};
+
+/* sysfs entry to access watchdog timeout configuration */
+static const struct kobj_attribute swimcu_watchdog_timeout_attr = {
+	.attr = {
+		.name = "timeout",
+		.mode = S_IRUGO | S_IWUSR | S_IWGRP },
+	.show = &swimcu_watchdog_timeout_attr_show,
+	.store = &swimcu_watchdog_timeout_attr_store,
+};
+
+static const struct kobj_attribute swimcu_watchdog_reset_delay_attr = {
+	.attr = {
+		.name = "reset_delay",
+		.mode = S_IRUGO | S_IWUSR | S_IWGRP },
+	.show = &swimcu_watchdog_reset_delay_attr_show,
+	.store = &swimcu_watchdog_reset_delay_attr_store,
+};
+
+/* sysfs entries to enable/disable MCU watchdog */
+static const struct kobj_attribute swimcu_watchdog_enable_attr = {
+	.attr = {
+		.name = "enable",
+		.mode = S_IRUGO | S_IWUSR | S_IWGRP },
+	.show = &swimcu_watchdog_enable_attr_show,
+	.store = &swimcu_watchdog_enable_attr_store,
+};
+
+static const struct kobj_attribute swimcu_watchdog_renew_count_attr = {
+	.attr = {
+		.name = "count",
+		.mode = S_IRUGO
+	},
+	.show = &swimcu_watchdog_renew_count_attr_show,
+};
+
+/************
+*
+* Name:     swimcu_watchdog_event_handle
+*
+* Purpose:  To handle an MCU watchdog timeout event
+*
+* Parms:    swimcu - pointer to the SWIMCU data structure
+*           delay  - time delay within which the MCU watchdog must be restarted;
+*                    or the device will be reset by the MCU.
+*
+* Return:   Nothing
+*
+* Abort:    none
+*
+************/
+void swimcu_watchdog_event_handle(struct swimcu *swimcup, u32 delay)
+{
+	int err;
+	char event_str[] = "MCU_WATCHDOG";
+	char *envp[] = { event_str, NULL };
+
+	if (pm_enable > SWIMCU_PM_OFF) {
+		pr_err("%s: ULPM (%d) requested, do not renew watchdog\n", __func__, pm_enable);
+		return;
+	}
+
+	if (swimcu_watchdog_enable == SWIMCU_WATCHDOG_OFF) {
+		pr_err("%s: Ignore an event for disabled MCU watchdog \n", __func__);
+		return;
+	}
+
+	swimcu_log(PM, "%s: MCU watchdog event, reset delay=%d ms\n", __func__, delay);
+
+	mci_appl_watchdog_start(swimcup,
+		swimcu_watchdog_timeout * 1000, swimcu_watchdog_reset_delay * 1000);
+
+	swimcu_log(PM, "%s: MCU watchdog renewed %d: timeout %d reset delay %d\n", __func__,
+		swimcu_watchdog_renew_count, swimcu_watchdog_timeout, swimcu_watchdog_reset_delay);
+
+	swimcu_watchdog_renew_count++;
+
+	kobject_get(&swimcup->dev->kobj);
+	err = kobject_uevent_env(&swimcup->dev->kobj, KOBJ_CHANGE, envp);
+	if (err)
+	{
+		pr_err("%s: error %d signaling uevent\n", __func__, err);
+	}
+	kobject_put(&swimcup->dev->kobj);
+}
+
 /************
 *
 * Name:     swimcu_set_wakeup_source
@@ -780,6 +1058,7 @@ void swimcu_set_wakeup_source(enum mci_protocol_wakeup_source_type_e type, u16 v
 		enum swimcu_gpio_index gpio = swimcu_get_gpio_from_port_pin(port, pin);
 		wi = find_wusrc_index_from_id(type, gpio);
 	}
+
 	if (wi != WUSRC_INVALID) {
 		swimcu_log(PM, "%s: %d\n", __func__, wi);
 		wusrc_value[wi].triggered = 1;
@@ -1008,11 +1287,98 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 		kobject_uevent(&swimcu->pm_boot_source_kobj, KOBJ_ADD);
 	}
 
-	swimcu_log(INIT, "%s: success func %d\n", __func__, func_flags);
+	if (func_flags & SWIMCU_FUNC_FLAG_WATCHDOG) {
+
+		ret = kobject_init_and_add(&swimcu->pm_watchdog_kobj, &ktype, module_kobj, "watchdog");
+		if (ret) {
+			pr_err("%s: cannot create WATCHDOG kobject\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		ret = sysfs_create_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_timeout_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create WATCHDOG timeout node\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		ret = sysfs_create_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_reset_delay_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create WATCHDOG reset dealy node\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		ret = sysfs_create_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_renew_count_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create WATCHDOG renew node\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+		ret = sysfs_create_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_enable_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create WATCHDOG enable node\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		kobject_uevent(&swimcu->pm_watchdog_kobj, KOBJ_ADD);
+	}
+
+	swimcu_log(INIT, "%s: success func=0x%x\n", __func__, func_flags);
 	return 0;
 
 sysfs_add_exit:
-	swimcu_log(INIT, "%s: fail func %d, ret %d\n", __func__, func_flags, ret);
+	swimcu_log(INIT, "%s: fail func=0x%x, ret %d\n", __func__, func_flags, ret);
 	swimcu_pm_sysfs_deinit(swimcu);
 	return ret;
+}
+
+/************
+*
+* Name:     swimcu_pm_sysfs_remove
+*
+* Purpose:  Remove a sysfs tree under /sys/module/swimcu_pm
+*
+* Parms:    swimcu - device data ptr contains kobj data so attr functions
+*                    can retrieve this structure to access the driver (e.g. i2c)
+*           func_flags - bitmask indicates the functions of which the sysfs tree
+*                        to be removed:
+*                        SWIMCU_FUNC_FLAG_WATCHDOG
+*
+* Return:   0 if successful;
+*           -ERRNO otherwise
+*
+* Abort:    none
+*
+************/
+void swimcu_pm_sysfs_remove(struct swimcu *swimcu, int func_flags)
+{
+	struct kobject *module_kobj;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj)
+	{
+		pr_err("%s: cannot find kobject for module %s\n", __func__, KBUILD_MODNAME);
+	}
+
+	if (func_flags & SWIMCU_FUNC_FLAG_WATCHDOG) {
+
+		swimcu_log(INIT, "%s: remove WATCHDOG sysfs tree\n", __func__);
+
+		kobject_uevent(&swimcu->pm_watchdog_kobj, KOBJ_REMOVE);
+
+		sysfs_remove_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_timeout_attr.attr);
+		sysfs_remove_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_reset_delay_attr.attr);
+		sysfs_remove_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_renew_count_attr.attr);
+		sysfs_remove_file(&swimcu->pm_watchdog_kobj, &swimcu_watchdog_enable_attr.attr);
+
+		/* unlink kobject from hierarchy. */
+		kobject_del(&swimcu->pm_watchdog_kobj);
+	}
+	else
+	{
+		pr_err("%s: sysfs tree not removed for function 0x%X\n", __func__, func_flags);
+	}
 }
