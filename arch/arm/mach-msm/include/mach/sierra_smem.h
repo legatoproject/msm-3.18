@@ -15,7 +15,10 @@
 
 #ifndef SIERRA_SMEM_H
 #define SIERRA_SMEM_H
+
+#ifdef __KERNEL__
 #include <linux/types.h>
+#endif
 
 /* NOTE: this file is also used by LK so please keep this file generic */
 
