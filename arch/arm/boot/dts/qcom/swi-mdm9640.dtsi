@@ -909,7 +909,7 @@
 		/* add GPIO 3 configuration,we use PM-GPIO3 as normal GPIO */
 		qcom,mode = <0>;	 /* Digital input*/
 		qcom,pull = <4>;	 /* Pulldown 10uA */
-		qcom,vin-sel = <0>;      /* VIN0 */
+		qcom,vin-sel = <2>;      /* PMD9635 LDO 6 = 1.8 V */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
@@ -918,7 +918,7 @@
 	};
 
 	gpio@c300 { /* GPIO 4 */
-		qcom,vin-sel = <0>;	/* PMD9635 VPH_PWR */
+		qcom,vin-sel = <2>;	/* PMD9635 LDO 6 = 1.8 V */
 		qcom,master-en = <1>;	/* Enable GPIO */
 		/* add GPIO 4 configuration,we use PM-GPIO4 as normal GPIO */
 		qcom,mode = <0>;	/* Digital input*/
@@ -933,7 +933,7 @@
 		/* add GPIO 5 configuration,we use PM-GPIO5 as normal GPIO */
 		qcom,mode = <0>;	 /* Digital input*/
 		qcom,pull = <4>;	 /* Pulldown 10uA */
-		qcom,vin-sel = <0>;      /* VIN0 */
+		qcom,vin-sel = <2>;      /* PMD9635 LDO 6 = 1.8 V */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
@@ -945,7 +945,7 @@
 	gpio@c500 { /* GPIO 6 */
 		qcom,mode = <0>;	/* Digital input*/
 		qcom,pull = <4>;	/* Pulldown 10uA */
-		qcom,vin-sel = <0>;	/* VIN0 */
+		qcom,vin-sel = <2>;	/* PMD9635 LDO 6 = 1.8 V */
 		qcom,src-sel = <0>;	/* GPIO */
 		qcom,invert = <0>;	/* Invert */
 		qcom,master-en = <1>;	/* Enable GPIO */
