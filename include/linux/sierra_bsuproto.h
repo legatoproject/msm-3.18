@@ -32,4 +32,5 @@ extern int8_t bs_uart_fun_get (uint uart_num);
 
 extern struct bs_resin_timer bsgetresintimer(void);
 extern bool bsgetpowerfaultflag(void);
+extern bool bsclearpowerfaultflag(void);
 #endif
