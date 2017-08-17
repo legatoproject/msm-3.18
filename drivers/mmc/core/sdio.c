@@ -881,7 +881,13 @@ try_again:
 
 	/* Initialization sequence for UHS-I cards */
 	/* Only if card supports 1.8v and UHS signaling */
-	if ((ocr & R4_18V_PRESENT) && card->sw_caps.sd3_bus_mode) {
+//LXSWIREF-1
+	/* We need to force to initialize the UHS to have the TI wl18xx */
+	/* working properly on WP76xx over SDIO. */
+	/* This is expected to be a temporary solution because we do not */
+	/* know what could be the impacts when forcing this initialization */
+	if (true || ((ocr & R4_18V_PRESENT) && card->sw_caps.sd3_bus_mode)) {
+//LXSWIREF-1
 		err = mmc_sdio_init_uhs_card(card);
 		if (err)
 			goto remove;

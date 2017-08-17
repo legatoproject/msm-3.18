@@ -789,7 +789,8 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 		 */
 		if (local->hw.wiphy->interface_modes & BIT(NL80211_IFTYPE_WDS))
 			return -EINVAL;
-
+//LXSWIREF-1
+#if 0
 		/* DFS currently not supported with channel context drivers */
 		for (i = 0; i < local->hw.wiphy->n_iface_combinations; i++) {
 			const struct ieee80211_iface_combination *comb;
@@ -799,6 +800,8 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
 			if (comb->radar_detect_widths)
 				return -EINVAL;
 		}
+#endif
+//LXSWIREF-1
 	}
 
 	/* Only HW csum features are currently compatible with mac80211 */

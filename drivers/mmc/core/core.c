@@ -2557,7 +2557,9 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage, u32 ocr)
 	 * Send CMD11 only if the request is to switch the card to
 	 * 1.8V signalling.
 	 */
-	if (signal_voltage == MMC_SIGNAL_VOLTAGE_330)
+//LXSWIREF-1
+	if (true || (signal_voltage == MMC_SIGNAL_VOLTAGE_330))
+//LXSWIREF-1
 		return __mmc_set_signal_voltage(host, signal_voltage);
 
 	/*

@@ -250,6 +250,7 @@ static struct wlcore_conf wl12xx_conf = {
 		.keep_alive_interval         = 55000,
 		.max_listen_interval         = 20,
 		.sta_sleep_auth              = WL1271_PSM_ILLEGAL,
+		.suspend_rx_ba_activity      = 0,
 	},
 	.itrim = {
 		.enable = false,
@@ -1728,11 +1729,13 @@ static struct wlcore_ops wl12xx_ops = {
 	.convert_hwaddr		= wl12xx_convert_hwaddr,
 	.lnk_high_prio		= wl12xx_lnk_high_prio,
 	.lnk_low_prio		= wl12xx_lnk_low_prio,
+	.interrupt_notify	= NULL,
+	.rx_ba_filter		= NULL,
+	.ap_sleep		= NULL,
 };
 
 static struct ieee80211_sta_ht_cap wl12xx_ht_cap = {
-	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20 |
-	       (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT),
+	.cap = IEEE80211_HT_CAP_GRN_FLD | IEEE80211_HT_CAP_SGI_20,
 	.ht_supported = true,
 	.ampdu_factor = IEEE80211_HT_MAX_AMPDU_8K,
 	.ampdu_density = IEEE80211_HT_MPDU_DENSITY_8,
@@ -1851,7 +1854,8 @@ static int wl12xx_probe(struct platform_device *pdev)
 
 	hw = wlcore_alloc_hw(sizeof(struct wl12xx_priv),
 			     WL12XX_AGGR_BUFFER_SIZE,
-			     sizeof(struct wl12xx_event_mailbox));
+			     sizeof(struct wl12xx_event_mailbox),
+			     WL12XX_NUM_TX_DESCRIPTORS);
 	if (IS_ERR(hw)) {
 		wl1271_error("can't allocate hw");
 		ret = PTR_ERR(hw);

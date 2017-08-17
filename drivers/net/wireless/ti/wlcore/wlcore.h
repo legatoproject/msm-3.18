@@ -106,8 +106,7 @@ struct wlcore_ops {
 			      struct wl12xx_vif *wlvif,
 			      struct ieee80211_channel_switch *ch_switch);
 	u32 (*pre_pkt_send)(struct wl1271 *wl, u32 buf_offset, u32 last_len);
-	void (*sta_rc_update)(struct wl1271 *wl, struct wl12xx_vif *wlvif,
-			      struct ieee80211_sta *sta, u32 changed);
+	void (*sta_rc_update)(struct wl1271 *wl, struct wl12xx_vif *wlvif);
 	int (*set_peer_cap)(struct wl1271 *wl,
 			    struct ieee80211_sta_ht_cap *ht_cap,
 			    bool allow_ht_operation,
@@ -117,6 +116,9 @@ struct wlcore_ops {
 			      struct wl1271_link *lnk);
 	bool (*lnk_low_prio)(struct wl1271 *wl, u8 hlid,
 			     struct wl1271_link *lnk);
+	int (*interrupt_notify)(struct wl1271 *wl, bool action);
+	int (*rx_ba_filter)(struct wl1271 *wl, bool action);
+	int (*ap_sleep)(struct wl1271 *wl);
 	int (*smart_config_start)(struct wl1271 *wl, u32 group_bitmap);
 	int (*smart_config_stop)(struct wl1271 *wl);
 	int (*smart_config_set_group_key)(struct wl1271 *wl, u16 group_id,
@@ -176,6 +178,14 @@ struct wl1271_stats {
 
 	unsigned int retry_count;
 	unsigned int excessive_retries;
+};
+
+struct wlcore_aggr_reason {
+	u32 total;
+	u32 buffer_full;
+	u32 fw_buffer_full;
+	u32 other;
+	u32 no_data;
 };
 
 struct wl1271 {
@@ -333,6 +343,7 @@ struct wl1271 {
 	struct delayed_work scan_complete_work;
 
 	struct ieee80211_vif *roc_vif;
+	unsigned long roc_cookie;
 	struct delayed_work roc_complete_work;
 
 	struct wl12xx_vif *sched_vif;
@@ -346,6 +357,11 @@ struct wl1271 {
 	/* in dBm */
 	int power_level;
 
+#ifdef CONFIG_HAS_WAKELOCK
+	struct wake_lock wake_lock;
+	struct wake_lock rx_wake;
+	struct wake_lock recovery_wake;
+#endif
 	struct wl1271_stats stats;
 
 	__le32 *buffer_32;
@@ -493,12 +509,25 @@ struct wl1271 {
 	/* interface combinations supported by the hw */
 	const struct ieee80211_iface_combination *iface_combinations;
 	u8 n_iface_combinations;
+
+	struct wlcore_aggr_reason *aggr_pkts_reason;
+	u32 aggr_pkts_reason_num;
+
+	u32 tx_completions[32];
+	u32 rx_completions[32];
+
+	u32 irq_count;
+	u32 irq_loop_count;
+
+	/* the current dfs region */
+	enum nl80211_dfs_regions dfs_region;
+	bool radar_debug_mode;
 };
 
 int wlcore_probe(struct wl1271 *wl, struct platform_device *pdev);
 int wlcore_remove(struct platform_device *pdev);
 struct ieee80211_hw *wlcore_alloc_hw(size_t priv_size, u32 aggr_buf_size,
-				     u32 mbox_size);
+				     u32 mbox_size, u32 num_tx_desc);
 int wlcore_free_hw(struct wl1271 *wl);
 int wlcore_set_key(struct wl1271 *wl, enum set_key_cmd cmd,
 		   struct ieee80211_vif *vif,
