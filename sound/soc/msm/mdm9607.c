@@ -2390,6 +2390,38 @@ static struct snd_soc_dai_link mdm_wm8944_dai[] = {
 		.ops = &mdm_mi2s_be_ops,
 	},
 };
+
+static struct snd_soc_dai_link mdm_nocodec_dai[] = {
+	{
+		.name = LPASS_BE_PRI_MI2S_RX,
+		.stream_name = "Primary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_RX,
+		.be_hw_params_fixup = &mdm_mi2s_rx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+	},
+	{
+		.name = LPASS_BE_PRI_MI2S_TX,
+		.stream_name = "Primary MI2S Capture",
+		.cpu_dai_name = "msm-dai-q6-mi2s.0",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.dpcm_capture = 1,
+		.dpcm_playback = 1,
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_PRI_MI2S_TX,
+		.be_hw_params_fixup = &mdm_mi2s_tx_be_hw_params_fixup,
+		.ops = &mdm_mi2s_be_ops,
+	},
+};
+
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
@@ -2407,10 +2439,20 @@ static struct snd_soc_dai_link mdm_wm8944_dai_links[
 				ARRAY_SIZE(mdm_dai) +
 				ARRAY_SIZE(mdm_wm8944_dai)];
 
+static struct snd_soc_dai_link mdm_nocodec_dai_links[
+				ARRAY_SIZE(mdm_dai) +
+				ARRAY_SIZE(mdm_nocodec_dai)];
+
 static struct snd_soc_card snd_soc_card_mdm_wm8944 = {
 	.name = "mdm9607-wm8944-i2s-snd-card",
 	.dai_link = mdm_wm8944_dai_links,
 	.num_links = ARRAY_SIZE(mdm_wm8944_dai_links),
+};
+
+static struct snd_soc_card snd_soc_card_mdm_nocodec = {
+	.name = "mdm9607-nocodec-snd-card",
+	.dai_link = mdm_nocodec_dai_links,
+	.num_links = ARRAY_SIZE(mdm_nocodec_dai_links),
 };
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
@@ -2652,7 +2694,8 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	}
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	else if (!strcmp(match->data, "wm8944-codec")) {
+	else if (!strcmp(match->data, "wm8944-codec") &&
+		(wm8944_get_intf_type() == WM8944_INTERFACE_TYPE_I2C)) {
 		card = &snd_soc_card_mdm_wm8944;
 		len_1 = ARRAY_SIZE(mdm_dai);
 		len_2 = len_1 + ARRAY_SIZE(mdm_wm8944_dai);
@@ -2662,6 +2705,17 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(mdm_wm8944_dai_links + len_1, mdm_wm8944_dai,
 			   sizeof(mdm_wm8944_dai));
 		dailink = mdm_wm8944_dai_links;
+	}
+	else {
+		card = &snd_soc_card_mdm_nocodec;
+		len_1 = ARRAY_SIZE(mdm_dai);
+		len_2 = len_1 + ARRAY_SIZE(mdm_nocodec_dai);
+
+		memcpy(mdm_nocodec_dai_links, mdm_dai,
+			   sizeof(mdm_dai));
+		memcpy(mdm_nocodec_dai_links + len_1, mdm_nocodec_dai,
+			   sizeof(mdm_nocodec_dai));
+		dailink = mdm_nocodec_dai_links;
 	}
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
