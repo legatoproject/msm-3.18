@@ -257,6 +257,10 @@
 &i2c_4 {
 	/* reduce bus frequency as a workaround for MCU ROM boot loader */
 	qcom,clk-freq-out = <100000>;
+
+	/* Increase clock high width from 3.4ns to 4.6ns to meet I2C spec */
+	qcom,fs-clk-div = <100>;
+	qcom,high-time-clk-div = <86>;
 	status = "ok";
 };
 
