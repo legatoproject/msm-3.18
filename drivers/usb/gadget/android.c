@@ -3437,31 +3437,21 @@ static int
 android_bind_enabled_functions(struct android_dev *dev,
 			       struct usb_configuration *c)
 {
-	struct android_usb_function_holder *f_holder;
+	struct android_usb_function_holder *f_holder, *f_next;
 	struct android_configuration *conf =
 		container_of(c, struct android_configuration, usb_config);
 	int ret;
 
-	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
+	list_for_each_entry_safe(f_holder, f_next, &conf->enabled_functions,
+				 enabled_list) {
 		ret = f_holder->f->bind_config(f_holder->f, c);
 		if (ret) {
 			pr_err("%s: %s failed\n", __func__, f_holder->f->name);
-			while (!list_empty(&c->functions)) {
-				struct usb_function		*f;
-
-				f = list_first_entry(&c->functions,
-					struct usb_function, list);
-				if (f->config) {
-					list_del(&f->list);
-					if (f->unbind)
-						f->unbind(c, f);
-				}
-			}
-			if (c->unbind)
-				c->unbind(c);
-			return ret;
+			list_del(&f_holder->enabled_list);
+			kfree(f_holder);
 		}
-		f_holder->f->bound = true;
+		else
+			f_holder->f->bound = true;
 	}
 	return 0;
 }
