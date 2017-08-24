@@ -17,6 +17,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_bsuproto.h>
+#include <linux/reboot.h>
 #endif
 /* SWISTOP */
 
@@ -2204,8 +2205,7 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 #ifdef CONFIG_SIERRA
 	if(bsgetpowerfaultflag())
 	{
-		err = -EPERM;
-		return err;
+		kernel_power_off();
 	}
 #endif
 /* SWISTOP */
@@ -2498,11 +2498,11 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 #ifdef CONFIG_SIERRA
 	if(bsgetpowerfaultflag())
 	{
-		err = -EPERM;
-		return err;
+		kernel_power_off();
 	}
 #endif
 /* SWISTOP */
+
 	if (mtd->writesize == PAGE_SIZE_2K)
 		page = instr->addr >> 11;
 

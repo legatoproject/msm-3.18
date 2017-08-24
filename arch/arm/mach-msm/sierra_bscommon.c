@@ -564,3 +564,38 @@ bool bsgetpowerfaultflag(void)
 	return result;
 }
 EXPORT_SYMBOL(bsgetpowerfaultflag);
+
+/************
+ *
+ * Name:     bsclearpowerfaultflag()
+ *
+ * Purpose:  Clear the power fault flag
+ *
+ * Parms:    none
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+bool bsclearpowerfaultflag(void)
+{
+	struct bscoworkmsg *mp;
+	unsigned char *virtual_addr;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (virtual_addr)
+	{
+		/*  APPL mailbox */
+		virtual_addr += BSMEM_COWORK_OFFSET;
+		mp = (struct bscoworkmsg *)virtual_addr;
+
+		mp->bsfunctions &= ~BSFUNCTIONS_POWERFAULT;
+		mp->crc32 = crc32(~0, (void *)mp, BS_COWORK_CRC_SIZE);
+	}
+
+	return;
+}
+EXPORT_SYMBOL(bsclearpowerfaultflag);

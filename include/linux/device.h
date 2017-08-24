@@ -919,7 +919,16 @@ static inline void dev_pm_syscore_device(struct device *dev, bool val)
 
 static inline void device_lock(struct device *dev)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(powerfaultflag)
+		mutex_trylock(&dev->mutex);
+	else
+		mutex_lock(&dev->mutex);
+#else
 	mutex_lock(&dev->mutex);
+#endif
+/* SWISTOP */
 }
 
 static inline int device_trylock(struct device *dev)

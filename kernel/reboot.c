@@ -50,6 +50,12 @@ int reboot_cpu;
 enum reboot_type reboot_type = BOOT_ACPI;
 int reboot_force;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+bool powerfaultflag = false;
+#endif
+/* SWISTOP */
+
 /*
  * If set, this is used for preparing the system to power off.
  */
@@ -275,12 +281,28 @@ EXPORT_SYMBOL_GPL(kernel_halt);
  */
 void kernel_power_off(void)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+		powerfaultflag = true;
+#endif
+/* SWISTOP */
+
 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
 	if (pm_power_off_prepare)
 		pm_power_off_prepare();
 	migrate_to_reboot_cpu();
 	syscore_shutdown();
-	pr_emerg("Power down\n");
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+		pr_emerg("Power down with power fault\n");
+	else
+		pr_emerg("Power down\n");
+	bsseterrcount(0);
+	bsclearpowerfaultflag();
+#endif
+/* SWISTOP */
 	kmsg_dump(KMSG_DUMP_POWEROFF);
 	machine_power_off();
 }
