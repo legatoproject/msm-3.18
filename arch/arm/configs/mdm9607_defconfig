@@ -527,3 +527,8 @@ CONFIG_CRYPTO_CCM=m
 CONFIG_CRYPTO_SEQIV=m
 CONFIG_CRYPTO_CTR=m
 # CONFIG_CRYPTO_CTS is not set
+
+# On Android, only specific users can create sockets, and
+# Legato sandboxed apps cannot cope with it. Therefore,
+# we need to disable this Android feature.
+# CONFIG_ANDROID_PARANOID_NETWORK is not set
