@@ -36,6 +36,14 @@
 #include "pil-q6v5.h"
 #include "pil-msa.h"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/mtd/ubi.h>
+#include <mach/sierra_smem.h>
+#include <mach/sierra_proc_buffer.h>
+#endif
+/* SWISTOP */
+
 #define MAX_VDD_MSS_UV		1150000
 #define PROXY_TIMEOUT_MS	10000
 #define MAX_SSR_REASON_LEN	81U
@@ -128,7 +136,14 @@ static int modem_shutdown(const struct subsys_desc *subsys, bool force_stop)
 static int modem_powerup(const struct subsys_desc *subsys)
 {
 	struct modem_data *drv = subsys_to_drv(subsys);
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	int ret;
+	char partition_name[UBI_MAX_VOLUME_NAME+1]="modem";
+	char pro_name[SIERRA_PROC_NODE_MAX_NAME+1]={0};
+	char *match = NULL;
+#endif
+/* SWISTOP */
 	if (subsys->is_not_loadable)
 		return 0;
 	/*
@@ -140,7 +155,27 @@ static int modem_powerup(const struct subsys_desc *subsys)
 	drv->subsys_desc.ramdump_disable = 0;
 	drv->ignore_errors = false;
 	drv->q6->desc.fw_name = subsys->fw_name;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	ret = pil_boot(&drv->q6->desc);
+
+	if(ret && sierra_support_ar_dualsystem()) {
+		sierra_get_dual_system_proc_buffer(pro_name, SIERRA_PROC_NODE_MAX_NAME);
+		pr_err("pro_name is %s: ", pro_name);
+		match = strstr(pro_name, partition_name);
+		if(match) {
+			ubi_check_bad_image_and_swap(partition_name);
+		}
+		else {
+			pr_err("modem_powerup can't match pro_name\n");
+		}
+	}
+
+	return ret;
+#else
 	return pil_boot(&drv->q6->desc);
+#endif
+/* SWISTOP */
 }
 
 static void modem_crash_shutdown(const struct subsys_desc *subsys)

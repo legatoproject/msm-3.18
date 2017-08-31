@@ -249,7 +249,7 @@ EXPORT_SYMBOL(sierra_smem_ds_write_bad_image_and_swap);
 
 int sierra_support_ar_dualsystem(void)
 {
-	bool ret = 0;
+	int ret = 0;
 	uint32_t hwconfig;
 	uint8_t prod_family;
     
