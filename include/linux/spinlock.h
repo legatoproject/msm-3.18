@@ -311,16 +311,7 @@ do {							\
 
 static inline void spin_lock(spinlock_t *lock)
 {
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	if(powerfaultflag)
-		raw_spin_trylock(&lock->rlock);
-	else
-		raw_spin_lock(&lock->rlock);
-#else
 	raw_spin_lock(&lock->rlock);
-#endif
-/* SWISTOP */
 }
 
 static inline void spin_lock_bh(spinlock_t *lock)
