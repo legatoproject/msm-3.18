@@ -279,10 +279,8 @@ static void getap_multiplex_gpio(void)
 
 	for(i = 0; i < gpio_ext_chip.ngpio; i++)
 	{
-		if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
-		{
-			gpio_ext_chip.mask |= 0x1ULL << i;
-		}
+		if (gpio_ext_chip.mask & (0x1ULL << i))
+			ext_gpio[i].function = FUNCTION_EMBEDDED_HOST;
 	}
 }
 
@@ -317,7 +315,7 @@ static int gpio_map_name_to_num(const char *buf, bool *alias)
 			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
 			{
 				/* the multi-function GPIO is used as another feature, cannot export */
-				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				if(FUNCTION_EMBEDDED_HOST != ext_gpio[i].function)
 				{
 					return -1;
 				}
@@ -352,7 +350,7 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 		{
 			if(gpio_num == ext_gpio[i].gpio_num)
 			{
-				if(FUNCTION_EMBEDDED_HOST == ext_gpio[i].function)
+				if(FUNCTION_EMBEDDED_HOST != ext_gpio[i].function)
 				{
 					return NULL;
 				}
@@ -380,15 +378,11 @@ static int gpio_sync_ri(void)
 		 */
 		ri_owner = bsgetriowner();
 		if (RI_OWNER_APP == ri_owner) {
-			if (ext_gpio[gpio_ri].function != FUNCTION_UNALLOCATED) {
-				pr_debug("%s: RI owner is APP\n", __func__);
-				ext_gpio[gpio_ri].function = FUNCTION_UNALLOCATED;
-			}
+			pr_debug("%s: RI owner is APP\n", __func__);
+			ext_gpio[gpio_ri].function = FUNCTION_EMBEDDED_HOST;
 		} else {
-			if (ext_gpio[gpio_ri].function != FUNCTION_EMBEDDED_HOST) {
-				pr_debug("%s: RI owner is Modem\n", __func__);
-				ext_gpio[gpio_ri].function = FUNCTION_EMBEDDED_HOST;
-			}
+			pr_debug("%s: RI owner is Modem\n", __func__);
+			ext_gpio[gpio_ri].function = FUNCTION_UNALLOCATED;
 		}
 	}
 
