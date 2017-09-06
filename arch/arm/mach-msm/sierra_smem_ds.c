@@ -259,7 +259,7 @@ void ubi_check_bad_image_and_swap(char *ubi_name)
 	uint8_t linux_index = 0;
 	uint8_t modem_index = 0;
 
-	if (0 == sierra_smem_ds_get_ssid(NULL, &modem_index, &linux_index)) {
+	if (0 == sierra_smem_ds_get_ssid(&modem_index, NULL, &linux_index)) {
 			if (0 == strcmp(ubi_name, "rootfs")) {
 				if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
 					bad_image_mask = DS_IMAGE_SYSTEM_2;
@@ -303,70 +303,76 @@ int sierra_smem_handle_bad_partition_name(char * partition_name)
 	uint64_t bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
 	uint8_t linux_index = 0;
 	uint8_t modem_index = 0;
-	uint8_t attach_id = 0;
-	uint8_t current_id = 0;
+	uint8_t swap_flag = 0;
 	int ret = 0;
 
-	if(NULL == partition_name)
-	{
+	if(NULL == partition_name) {
 		pr_err(" %s partition name is null",__func__);
 		return -1;
 	}
 
-	if (0 == strcmp(partition_name, "system")) {
-		pr_err("sierra:-%s-failed: system", __func__);
-		bad_image_mask = DS_IMAGE_SYSTEM_1;
-		attach_id = DS_SSID_SUB_SYSTEM_1;
-	}
-	else if (0 == strcmp(partition_name, "system2")) {
-		pr_err("sierra:-%s-failed: system2", __func__);
-		bad_image_mask = DS_IMAGE_SYSTEM_2;
-		attach_id = DS_SSID_SUB_SYSTEM_2;
-	}
-	else if (0 == strcmp(partition_name, "modem")) {
-		pr_err("sierra:-%s-failed: modem", __func__);
-		bad_image_mask = DS_IMAGE_MODEM_1;
-		attach_id = DS_SSID_SUB_SYSTEM_1;
-	}
-	else if (0 == strcmp(partition_name, "modem2")) {
-		pr_err("sierra:-%s-failed: modem2", __func__);
-		bad_image_mask = DS_IMAGE_MODEM_2;
-		attach_id = DS_SSID_SUB_SYSTEM_2;
-	}
-	else if (0 == strcmp(partition_name, "lefwkro")) {
-		pr_err("sierra:-%s-failed: lefwkro", __func__);
-		bad_image_mask = DS_IMAGE_USERDATA_1;
-		attach_id = DS_SSID_SUB_SYSTEM_1;
-	}
-	else if (0 == strcmp(partition_name, "lefwkro2")) {
-		pr_err("sierra:-%s-failed: lefwkro2", __func__);
-		bad_image_mask = DS_IMAGE_USERDATA_2;
-		attach_id = DS_SSID_SUB_SYSTEM_2;
-	}
+	if (0 == sierra_smem_ds_get_ssid(&modem_index, NULL, &linux_index)) {
+		if (0 == strcmp(partition_name, "system")) {
+			pr_err("sierra:-%s-failed: system", __func__);
+			bad_image_mask = DS_IMAGE_SYSTEM_1;
+			if (DS_SSID_SUB_SYSTEM_1 == linux_index) {
+				swap_flag = 1;
+			}
+		}
+		else if (0 == strcmp(partition_name, "system2")) {
+			pr_err("sierra:-%s-failed: system2", __func__);
+			bad_image_mask = DS_IMAGE_SYSTEM_2;
+			if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+				swap_flag = 1;
+			}
+		}
+		else if (0 == strcmp(partition_name, "modem")) {
+			pr_err("sierra:-%s-failed: modem", __func__);
+			bad_image_mask = DS_IMAGE_MODEM_1;
+			if (DS_SSID_SUB_SYSTEM_1 == modem_index) {
+				swap_flag = 1;
+			}
+		}
+		else if (0 == strcmp(partition_name, "modem2")) {
+			pr_err("sierra:-%s-failed: modem2", __func__);
+			bad_image_mask = DS_IMAGE_MODEM_2;
+			if (DS_SSID_SUB_SYSTEM_2 == modem_index) {
+				swap_flag = 1;
+			}
+		}
+		else if (0 == strcmp(partition_name, "lefwkro")) {
+			pr_err("sierra:-%s-failed: lefwkro", __func__);
+			bad_image_mask = DS_IMAGE_USERDATA_1;
+			if (DS_SSID_SUB_SYSTEM_1 == linux_index) {
+				swap_flag = 1;
+			}
+		}
+		else if (0 == strcmp(partition_name, "lefwkro2")) {
+			pr_err("sierra:-%s-failed: lefwkro2", __func__);
+			bad_image_mask = DS_IMAGE_USERDATA_2;
+			if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
+				swap_flag = 1;
+			}
+		}
 
-	if (0 == sierra_smem_ds_get_ssid(NULL, NULL, &linux_index)) {
-		if (DS_SSID_SUB_SYSTEM_2 == linux_index) {
-			current_id = DS_SSID_SUB_SYSTEM_2;
+		/* It is APP's response to deal with bad image mask when bad image raised in UD system.*/
+		if (swap_flag) {
+			if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
+				sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
+				kernel_restart("ubi check bad image and swap");
+			}
 		}
 		else {
-			current_id = DS_SSID_SUB_SYSTEM_1;
-		}
-	}
-
-	/*It is APP's response to deal with bad image mask when bad image raised in UD system*/
-	if (attach_id == current_id) {
-		if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
-			sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
-			kernel_restart("ubi check bad image and swap");
+			pr_err("sierra:-%s-failed: UD system is not current system", __func__);
+			ret = -EIO;
 		}
 	}
 	else {
-		pr_err("sierra:-%s-failed: UD system is not current system", __func__);
-		ret = -EIO;
-		return ret;
+		panic("sierra_smem_handle_bad_partition_name smem can't visit, system crash");
 	}
 
 	return ret;
 }
+
 EXPORT_SYMBOL(sierra_smem_handle_bad_partition_name);
 
