@@ -267,8 +267,8 @@ static struct ext_gpio_map ext_gpio_mft[]={
 };
 
 /**
- * getap_multiplex_gpio() - set the gpio multiplexing bit in AP
- *
+ * getap_multiplex_gpio() - set the gpio ownership/function in AP
+ *                          based on the mask retrieved from modem
  *
  * Returns nothing
  *
