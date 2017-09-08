@@ -120,7 +120,6 @@ struct msm_softdog_data{
 	struct timer_list softdog_timer;
 	struct cdev softdog_cdev;
 	int dev_id;
-	bool softdog_timeout;
 	bool softdog_en;
 };
 static struct msm_softdog_data msm_softdog[msm_softdog_num];
@@ -131,7 +130,6 @@ static void msm_softdogfire(unsigned long data)
 		(struct msm_softdog_data *)data;
 	if(softdogdd == NULL)
 		return;
-	softdogdd->softdog_timeout = 1;
 	softdogdd->softdog_en = 0;
 	preempt_disable();
 	mdelay(15000);
@@ -146,12 +144,16 @@ static int msm_softdog_open(struct inode *inode, struct file *file)
 	softdogdd = container_of(inode->i_cdev, struct msm_softdog_data, softdog_cdev);
 	if(softdogdd == NULL)
 		return 1;
+	if(softdogdd->softdog_en == 1){
+		mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
+		file->private_data = softdogdd;
+		return 0;
+	}
 	init_timer(&softdogdd->softdog_timer);
 	softdogdd->softdog_timer.data = (unsigned long)softdogdd;
 	softdogdd->softdog_timer.function = msm_softdogfire;
 	softdogdd->softdog_timer.expires = jiffies + soft_margin*HZ;
 	add_timer(&softdogdd->softdog_timer);
-	softdogdd->softdog_timeout = 0;
 	softdogdd->softdog_en = 1;
 	file->private_data = softdogdd;
 	return 0;
@@ -163,7 +165,6 @@ static ssize_t msm_softdog_write(struct file *file, const char __user *data,
     struct msm_softdog_data *softdogdd = file->private_data;
     if(softdogdd == NULL)
 		return 0;
-	softdogdd->softdog_timeout = 0;
 	mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
 	return 1;
 }
@@ -243,7 +244,6 @@ static int msm_watchdog_dev_init(void)
 	}
 	for(i = 0;i < msm_softdog_num;i++){
 		msm_softdog[i].dev_id = i;
-		msm_softdog[i].softdog_timeout = 0;
 		msm_softdog[i].softdog_en = 0;
 	}
 	return 0;
