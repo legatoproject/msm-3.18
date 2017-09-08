@@ -131,9 +131,9 @@ static void msm_softdogfire(unsigned long data)
 	if(softdogdd == NULL)
 		return;
 	softdogdd->softdog_en = 0;
+	pr_err("msm_watchdog%d is timeout, now system will reboot!\n", softdogdd->dev_id);
+	msm_trigger_wdog_bite();
 	preempt_disable();
-	mdelay(15000);
-	preempt_enable();
 }
 
 static int msm_softdog_open(struct inode *inode, struct file *file)
