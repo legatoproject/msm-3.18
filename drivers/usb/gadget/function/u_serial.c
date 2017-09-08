@@ -1488,6 +1488,18 @@ int gserial_alloc_line(unsigned char *line_num)
 		return ret;
 
 	/* ... and sysfs class devices, so mdev/udev make /dev/ttyGS* */
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/*Modify will effedct only /dev/ttyGS0 which is used as NMEA port,
+	 * if ttyGS0 use as other usb function will be effected.
+	 * Cancel the echo
+	 */
+	if(port_num == 0)
+	{
+		gs_tty_driver->init_termios.c_lflag = (gs_tty_driver->init_termios.c_lflag) & (~ ECHO);
+	}
+#endif/* CONFIG_SIERRA */
+/* SWISTOP */
 
 	tty_dev = tty_port_register_device(&ports[port_num].port->port,
 			gs_tty_driver, port_num, NULL);
