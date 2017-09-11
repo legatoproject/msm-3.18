@@ -70,7 +70,7 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
   if (!((enabled == 0) || (enabled == 1)))
     return -EINVAL;
   
-  if(enabled)
+  if(!data->enable && enabled)
   {
     pr_debug("enable div clk\n");
     ret = clk_prepare_enable(data->div_clk);
@@ -80,7 +80,7 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
       return ret;
     }
   }
-  else
+  else if (data->enable && !enabled)
   {
     pr_debug("disable div clk\n");
     clk_disable_unprepare(data->div_clk);
