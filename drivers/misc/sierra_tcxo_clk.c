@@ -19,17 +19,33 @@
 #include <linux/debugfs.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
+#include <linux/qpnp/pin.h>
+#include <linux/of_gpio.h>
+#include <linux/workqueue.h>
+
 
 #define DRIVER_NAME "sierra_tcxo_clk"
 
 struct swi_tcxo {
   uint32_t enable;
+  int clk_gpio;
   struct kobject *tcxo_obj;
   struct attribute_group *attr_group;
   struct device *dev;
   struct clk *div_clk;   /* interface clock */
+  struct delayed_work work;
 };
 struct swi_tcxo *data = NULL;
+
+static struct qpnp_pin_cfg pm9635_gpio01_conf = {
+  .mode = QPNP_PIN_MODE_DIG_OUT,
+  .output_type = QPNP_PIN_OUT_BUF_CMOS,
+  .invert = QPNP_PIN_INVERT_DISABLE,
+  .vin_sel = QPNP_PIN_VIN2,
+  .src_sel = QPNP_PIN_SEL_FUNC_1,
+  .out_strength = QPNP_PIN_OUT_STRENGTH_LOW,
+  .master_en = QPNP_PIN_MASTER_ENABLE,
+};
 
 static ssize_t sierra_tcxo_show(struct kobject *kobj,
   struct kobj_attribute *attr,
@@ -54,7 +70,7 @@ static ssize_t sierra_tcxo_show(struct kobject *kobj,
   uint8_t enabled;
   enabled = data->enable;
 
-  return sprintf(buf, "%u\n", enabled);
+  return sprintf((char *)buf, "%u\n", enabled);
 }
 
 static ssize_t sierra_tcxo_store(struct kobject *kobj,
@@ -70,7 +86,7 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
   if (!((enabled == 0) || (enabled == 1)))
     return -EINVAL;
 
-  if(enabled)
+  if(enabled && !data->enable)
   {
     pr_debug("enable div clk\n");
     ret = clk_prepare_enable(data->div_clk);
@@ -80,7 +96,7 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
       return ret;
     }
   }
-  else
+  else if(!enabled && data->enable)
   {
     pr_debug("disable div clk\n");
     clk_disable_unprepare(data->div_clk);
@@ -91,12 +107,16 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
   return count;
 }
 
+static void clk_gpio_enable(struct work_struct *work)
+{
+  /* Enable tcxo clk gpio */
+  qpnp_pin_config(data->clk_gpio, &pm9635_gpio01_conf);
+}
 static int sierra_tcxo_clk_probe(struct platform_device *pdev)
 {
   int ret = 0;
-
-  pr_debug("sierra_tcxo_clk probe\n");
   dev_info(&pdev->dev, "sierra_tcxo_clk probe\n");
+  struct device_node *np = pdev->dev.of_node;
 
   data = (struct swi_tcxo*)kzalloc(sizeof(struct swi_tcxo*), GFP_KERNEL);
   if (!data) {
@@ -122,6 +142,7 @@ static int sierra_tcxo_clk_probe(struct platform_device *pdev)
     goto exit_free;
   }
 
+  data->clk_gpio = of_get_named_gpio(np,"tcxo-output-gpio",0);
   data->attr_group->attrs = attrs;
   dev_set_drvdata(&pdev->dev, data);
 
@@ -139,6 +160,8 @@ static int sierra_tcxo_clk_probe(struct platform_device *pdev)
   goto error_return;
   }
 
+  INIT_DELAYED_WORK(&data->work, clk_gpio_enable);
+  schedule_delayed_work(&data->work, msecs_to_jiffies(3000));
   return 0;
 
   error_return:
