@@ -1137,7 +1137,6 @@ static inline int lease_modify(struct file_lock **before, int arg,
 }
 #endif /* !CONFIG_FILE_LOCKING */
 
-
 struct fasync_struct {
 	spinlock_t		fa_lock;
 	int			magic;
@@ -1923,6 +1922,16 @@ extern int generic_update_time(struct inode *, struct timespec *, int);
 static inline struct inode *file_inode(const struct file *f)
 {
 	return f->f_inode;
+}
+
+static inline struct dentry *file_dentry(const struct file *file)
+{
+	struct dentry *dentry = file->f_path.dentry;
+
+	if (unlikely(dentry->d_flags & DCACHE_OP_REAL))
+		return dentry->d_op->d_real(dentry, file_inode(file));
+	else
+		return dentry;
 }
 
 /* /sys/fs */
