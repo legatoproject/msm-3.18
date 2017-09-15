@@ -27,6 +27,8 @@ void ubi_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr);
 
 #include <linux/random.h>
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 #define ubi_assert(expr)  do {                                               \
 	if (unlikely(!(expr))) {                                             \
 		pr_crit("UBI assert failed in %s at %u (pid %d)\n",          \
@@ -35,6 +37,16 @@ void ubi_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr);
 		BUG();                                                       \
 	}                                                                    \
 } while (0)
+#else
+#define ubi_assert(expr)  do {                                               \
+	if (unlikely(!(expr))) {                                             \
+		pr_crit("UBI assert failed in %s at %u (pid %d)\n",          \
+		       __func__, __LINE__, current->pid);                    \
+		dump_stack();                                                \
+	}                                                                    \
+} while (0)
+#endif
+/* SWISTOP */
 
 #define ubi_dbg_print_hex_dump(l, ps, pt, r, g, b, len, a)                   \
 		print_hex_dump(l, ps, pt, r, g, b, len, a)
