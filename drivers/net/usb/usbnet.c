@@ -1568,7 +1568,19 @@ static void usbnet_bh (unsigned long param)
 		int	temp = dev->rxq.qlen;
 
 		if (temp < RX_QLEN(dev)) {
+#ifndef CONFIG_SIERRA
 			if (rx_alloc_submit(dev, GFP_KERNEL) == -ENOLINK)
+#else
+			/* The flag GFP_ATOMIC was changed to GFP_KERNEL for the
+			 * change 'Add flow control for UL path to IPA' but
+			 * usbnet_bh is a delay function, NON-ATOMIC calls can
+			 * cause an error in case it is called by an interrupt.
+			 * Hence based on the call decide the type GFP_ATOMIC or
+			 * GFP_KERNEL. */
+			if (rx_alloc_submit(dev,
+					    in_interrupt() ?
+					    GFP_ATOMIC : GFP_KERNEL) == -ENOLINK)
+#endif
 				return;
 			if (temp != dev->rxq.qlen)
 				netif_dbg(dev, link, dev->net,
