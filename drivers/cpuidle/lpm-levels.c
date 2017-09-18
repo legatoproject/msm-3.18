@@ -117,7 +117,12 @@ module_param_named(
 	print_parsed_dt, print_parsed_dt, bool, S_IRUGO | S_IWUSR | S_IWGRP
 );
 
+#ifdef CONFIG_SIERRA
+static bool sleep_disabled = 1;
+#else
 static bool sleep_disabled;
+#endif /*CONFIG_SIERRA*/
+
 module_param_named(sleep_disabled,
 	sleep_disabled, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 
