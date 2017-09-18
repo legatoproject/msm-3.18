@@ -918,7 +918,7 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <1 3 0>, <1 2 0>;
-		qcom,bark-time = <11000>;
+		qcom,bark-time = <25000>;
 		qcom,pet-time = <10000>;
 	};
 

@@ -110,6 +110,12 @@ static int ipi_opt_en;
 module_param(ipi_opt_en, int, 0);
 
 #ifdef CONFIG_SIERRA
+/*
+ * By default stop to kick the msm_watchdog.
+ * When the system starts ok, will start to
+ * kick the msm_watchdog
+ */
+static int stop_kick_watchdog = 1;
 #define MAX_MSM_DOGS	6	/* Maximum number of msm_watchdog devices */
 #define TIMER_MARGIN	60	/* Default is 60 seconds */
 #define msm_softdog_num  3
@@ -400,12 +406,100 @@ static ssize_t wdog_disable_set(struct device *dev,
 static DEVICE_ATTR(disable, S_IWUSR | S_IRUSR, wdog_disable_get,
 							wdog_disable_set);
 
+#ifdef CONFIG_SIERRA
+static ssize_t wdog_barktime_get(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	long barktime;
+	static long WDTHZ = 32765;
+	int ret;
+
+	barktime = __raw_readl(wdog_data->base + WDT0_BARK_TIME)/WDTHZ;
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",barktime);
+	return ret;
+}
+
+static ssize_t wdog_barktime_set(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	const char *p;
+	long barktime;
+	static long WDTHZ = 32765;
+
+	p = memchr(buf, '\n', count);
+	barktime = simple_strtol(buf, p, 10);
+
+	__raw_writel((barktime * WDTHZ), wdog_data->base + WDT0_BARK_TIME);
+	mb();
+	__raw_writel(((barktime+3) * WDTHZ ), wdog_data->base + WDT0_BITE_TIME);
+	mb();
+	return count;
+}
+
+static DEVICE_ATTR(barktime, S_IWUSR | S_IRUSR, wdog_barktime_get, wdog_barktime_set);
+
+static ssize_t wdog_stopautokick_set(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	const char *p;
+	int original_count = count;
+
+	p = memchr(buf, '\n', count);
+
+	if (p)
+		count = p - buf;
+
+	if (!strncasecmp(buf, "1", count)){
+		stop_kick_watchdog = 1;
+	}
+	else if (!strncasecmp(buf, "0", count)){
+		stop_kick_watchdog = 0;
+	}
+
+	__raw_writel(1, wdog_data->base + WDT0_RST);
+
+	return original_count;
+}
+
+static DEVICE_ATTR(stopautokick, S_IWUSR, NULL, wdog_stopautokick_set);
+
+static ssize_t wdog_kick(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	const char *p;
+	int original_count = count;
+	__raw_writel(1, wdog_data->base + WDT0_RST);
+
+	p = memchr(buf, '\n', count);
+	if (p)
+		count = p - buf;
+	if (!strncasecmp(buf, "1", count)){
+		__raw_writel(1, wdog_data->base + WDT0_RST);
+	}
+
+	return original_count;
+}
+
+static DEVICE_ATTR(kick, S_IWUSR, NULL, wdog_kick);
+#endif  /*CONFIG_SIERRA*/
+
 static void pet_watchdog(struct msm_watchdog_data *wdog_dd)
 {
 	int slack, i, count, prev_count = 0;
 	unsigned long long time_ns;
 	unsigned long long slack_ns;
 	unsigned long long bark_time_ns = wdog_dd->bark_time * 1000000ULL;
+
+#ifdef CONFIG_SIERRA
+	if(stop_kick_watchdog == 1){
+		pr_info("Stop pet MSM watchdog.\n");
+		return;
+	}
+#endif  /*CONFIG_SIERRA*/
 
 	for (i = 0; i < 2; i++) {
 		count = (__raw_readl(wdog_dd->base + WDT0_STS) >> 1) & 0xFFFFF;
@@ -754,6 +848,18 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 		cpu_pm_register_notifier(&wdog_cpu_pm_nb);
 	dev_info(wdog_dd->dev, "MSM Watchdog Initialized\n");
 #ifdef CONFIG_SIERRA
+	error = device_create_file(wdog_dd->dev, &dev_attr_stopautokick);
+	if (error)
+		printk( "cannot create sysfs attribute stopautokick\n");
+
+	error = device_create_file(wdog_dd->dev, &dev_attr_barktime);
+	if (error)
+		printk( "cannot create sysfs attribute barktime\n");
+
+	error = device_create_file(wdog_dd->dev, &dev_attr_kick);
+	if (error)
+		printk( "cannot create sysfs attribute kick\n");
+
 	error = msm_watchdog_dev_init();
 	if(error){
 		pr_err("msm_watchdog init failed\n");
