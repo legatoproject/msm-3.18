@@ -3411,11 +3411,11 @@ static int msm_hs_probe(struct platform_device *pdev)
 	unsigned long data;
 	char name[30];
 
-	/* SWISTART */
+/* SWISTART */
 #ifdef CONFIG_SIERRA
 	u32 line;
 #endif /* CONFIG_SIERRA */
-	/* SWISTOP */
+/* SWISTOP */
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
@@ -3469,38 +3469,42 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	/* create config file for APP usage */
-	ret = device_create_file(&pdev->dev, &dev_attr_config);
-	if (unlikely(ret))
-		pr_err("%s():Can't create config attribute\n", __func__);
+	/*line<=1 allows UART1&UART2 run these codes that can configure UART to other function*/
+	if(line <= 1)
+	{
+		/* create config file for APP usage */
+		ret = device_create_file(&pdev->dev, &dev_attr_config);
+		if (unlikely(ret))
+			pr_err("%s():Can't create config attribute\n", __func__);
 
-	uart_hs_sysfs_symlink_set(&pdev->dev);
+		uart_hs_sysfs_symlink_set(&pdev->dev);
 
-	uart_func[line] = bs_uart_fun_get(line);
+		uart_func[line] = bs_uart_fun_get(line);
 
-	if (uart_func[line] == -1) {
-		uart_func[line] = BSUARTFUNC_DISABLED;
-	}
+		if (uart_func[line] == -1) {
+			uart_func[line] = BSUARTFUNC_DISABLED;
+		}
 
-	switch (uart_func[line]) {
-	case BSUARTFUNC_AT:
-		pr_info("ttyHS%d is reserved for AT service.\n", line);
-		uart_func_str_pt[line] = (char *)at_func_string;
-		break;
-	case BSUARTFUNC_NMEA:
-		pr_info("ttyHS%d is reserved for NMEA service.\n", line);
-		uart_func_str_pt[line] = (char *)nmea_func_string;
-		break;
-	case BSUARTFUNC_APP:
-		pr_info("ttyHS%d could be used as generic serial port.\n", line);
-		uart_func_str_pt[line] = (char *)app_func_string;
-		break;
-	default:
-		pr_info("ttyHS%d, function %d is not valid on application processor.\n",
-			line, uart_func[line]);
-		uart_func_str_pt[line] = (char *)inv_func_string;
-		pdev->dev.platform_data = NULL;
-		return -EPERM;
+		switch (uart_func[line]) {
+		case BSUARTFUNC_AT:
+			pr_info("ttyHS%d is reserved for AT service.\n", line);
+			uart_func_str_pt[line] = (char *)at_func_string;
+			break;
+		case BSUARTFUNC_NMEA:
+			pr_info("ttyHS%d is reserved for NMEA service.\n", line);
+			uart_func_str_pt[line] = (char *)nmea_func_string;
+			break;
+		case BSUARTFUNC_APP:
+			pr_info("ttyHS%d could be used as generic serial port.\n", line);
+			uart_func_str_pt[line] = (char *)app_func_string;
+			break;
+		default:
+			pr_info("ttyHS%d, function %d is not valid on application processor.\n",
+				line, uart_func[line]);
+			uart_func_str_pt[line] = (char *)inv_func_string;
+			pdev->dev.platform_data = NULL;
+			return -EPERM;
+		}
 	}
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
