@@ -2205,7 +2205,7 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 #ifdef CONFIG_SIERRA
 	if(bsgetpowerfaultflag())
 	{
-		kernel_power_off();
+		panic("power fault panic!");
 	}
 #endif
 /* SWISTOP */
@@ -2498,7 +2498,7 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 #ifdef CONFIG_SIERRA
 	if(bsgetpowerfaultflag())
 	{
-		kernel_power_off();
+		panic("power fault panic!");
 	}
 #endif
 /* SWISTOP */

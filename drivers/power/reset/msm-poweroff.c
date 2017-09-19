@@ -395,6 +395,20 @@ static void deassert_ps_hold(void)
 
 static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		bsseterrcount(0);
+		bsclearpowerfaultflag();
+		if(pm_power_off)
+		{
+			pm_power_off();
+		}
+	}
+#endif
+/* SWISTOP */
+
 	pr_notice("Going down for restart now\n");
 
 	msm_restart_prepare(cmd);

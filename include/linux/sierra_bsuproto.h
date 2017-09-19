@@ -16,7 +16,6 @@
 #ifndef BS_UPROTO_H
 #define BS_UPROTO_H
 
-extern bool powerfaultflag;
 extern uint8_t bsgethwtype(void);
 extern uint8_t bsgethwrev(void);
 extern int bsgetgpioflag(uint64_t *gpiomask1, uint64_t *gpiomask2);

@@ -1036,23 +1036,7 @@ static void device_restart_work_hdlr(struct work_struct *work)
 	 * Temporary workaround until ramdump userspace application calls
 	 * sync() and fclose() on attempting the dump.
 	 */
-
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	if(!bsgetpowerfaultflag())
-	{
-		msleep(100);
-	}
-
-	if(bsgetbsfunction(BSFUNCTIONS_FORCERESET))
-	{
-		machine_restart(NULL);
-	}
-
-#else
 	msleep(100);
-#endif
-/* SWISTOP */
 	panic("subsys-restart: Resetting the SoC - %s crashed.",
 							dev->desc->name);
 }
@@ -1098,6 +1082,12 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		break;
 	case RESET_SOC:
 		__pm_stay_awake(&dev->ssr_wlock);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* It is a workaround, if we found root cause then we will revert it */
+		panic("subsys-restart: Resetting the SoC - crashed.");
+#endif
+/* SWISTOP */
 		schedule_work(&dev->device_restart_work);
 		return 0;
 	default:
