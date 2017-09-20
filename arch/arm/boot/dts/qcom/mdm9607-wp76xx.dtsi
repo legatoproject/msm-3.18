@@ -279,8 +279,8 @@
 &pm8019_gpios {
 	/* VBUS detect */
 	gpio@c100 { /* GPIO 2 */
-		qcom,mode = <0>;/* Digital input */
-		qcom,vin-sel = <3>;	/* 1.8V (L11) */
+		qcom,mode = <0>;        /* Digital input */
+		qcom,vin-sel = <2>;     /* 1.8V (L11) */
 		qcom,src-sel = <0>;     /* QPNP_PIN_SEL_FUNC_CONSTANT */
 		qcom,pull = <1>;/* NO PULL */
 		qcom,master-en = <1>;
