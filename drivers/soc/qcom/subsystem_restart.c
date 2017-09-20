@@ -40,10 +40,12 @@
 #include <asm/current.h>
 
 #include "peripheral-loader.h"
+#include <linux/reboot.h>
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_bsuproto.h>
+#include <mach/sierra_smem.h>
 #endif
 /* SWISTOP */
 
@@ -1041,6 +1043,12 @@ static void device_restart_work_hdlr(struct work_struct *work)
 	{
 		msleep(100);
 	}
+
+	if(bsgetbsfunction(BSFUNCTIONS_FORCERESET))
+	{
+		machine_restart(NULL);
+	}
+
 #else
 	msleep(100);
 #endif
