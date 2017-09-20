@@ -280,16 +280,7 @@ void kernel_power_off(void)
 		pm_power_off_prepare();
 	migrate_to_reboot_cpu();
 	syscore_shutdown();
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	if(bsgetpowerfaultflag())
-		pr_emerg("Power down with power fault\n");
-	else
-		pr_emerg("Power down\n");
-	bsseterrcount(0);
-	bsclearpowerfaultflag();
-#endif
-/* SWISTOP */
+	pr_emerg("Power down\n");
 	kmsg_dump(KMSG_DUMP_POWEROFF);
 	machine_power_off();
 }
