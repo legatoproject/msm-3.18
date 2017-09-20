@@ -72,4 +72,4 @@ obj-$(CONFIG_QPNP_MISC) 	+= qpnp-misc.o
 obj-$(CONFIG_MEMORY_STATE_TIME) += memory_state_time.o
 #SWISTART
 obj-$(CONFIG_SIERRA_TZDEV) 	+= sierra_tzdev.o
-obj-$(CONFIG_SIERRA)	+= sierra_tcxo_clk.o
+obj-$(CONFIG_SIERRA)	+= sierra_tcxo_clk.o sierra_safe_pwr_remove.o

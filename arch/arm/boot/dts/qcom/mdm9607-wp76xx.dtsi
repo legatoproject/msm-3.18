@@ -188,6 +188,11 @@
 		clock-names = "tcxo_clk";
 	};
 
+	sierra_safe_pwr_remove {
+		compatible = "sierra,safe_pwr_remove";
+		sfpr-gpio = <&pm8019_gpios 6 0>;
+	};
+
 	sound-9306 {
 		status = "disabled";
 	};
