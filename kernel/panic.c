@@ -26,6 +26,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_bsudefs.h>
+#include <mach/sierra_smem.h>
 #endif
 /* SWISTOP */
 
@@ -85,6 +86,16 @@ void panic(const char *fmt, ...)
 	va_list args;
 	long i, i_next = 0;
 	int state = 0;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetbsfunction(BSFUNCTIONS_FORCERESET))
+	{
+	    pr_debug("Force reset so enter machine_restart");
+	    machine_restart(NULL);
+	}
+#endif
+/* SWISTOP */
 
 	trace_kernel_panic(0);
 	/*

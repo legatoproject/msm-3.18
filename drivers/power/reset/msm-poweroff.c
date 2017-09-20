@@ -272,13 +272,24 @@ static void msm_restart_prepare(const char *cmd)
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 
-	/* Write download mode flags if we're panic'ing
+	/*Don't write download mode if force reset
+	 * Write download mode flags if we're panic'ing
 	 * Write download mode flags if restart_mode says so
 	 * Kill download mode if master-kill switch is set
 	 */
-
-	set_dload_mode(download_mode &&
-			(in_panic || restart_mode == RESTART_DLOAD));
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetbsfunction(BSFUNCTIONS_FORCERESET))
+	{
+		set_dload_mode(0);
+		pr_debug("Detect force reset then clear dload\n");
+		bsclearbsfunction(BSFUNCTIONS_FORCERESET);
+	}
+	else
+#endif
+/* SWISTOP */
+		set_dload_mode(download_mode &&
+				(in_panic || restart_mode == RESTART_DLOAD));
 #endif
 
 	if (qpnp_pon_check_hard_reset_stored()) {
