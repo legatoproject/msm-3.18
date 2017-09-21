@@ -823,14 +823,6 @@
 			qcom,pm-qos-irq-latency = <2 250>;
 
 			status = "disabled";
-			ti,non-removable;
-			ti,needs-special-hs-handling;
-			cap-power-off-card;
-			keep-power-in-suspend;
-			wlcore: wlcore@0 {
-				compatible = "ti,wlcore";
-				reg = <2>;
-			};
 	};
 
 	 tsens: tsens@4a8000 {
