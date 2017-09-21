@@ -88,7 +88,7 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			!dual_vfe_res->stats_data[ISP_VFE0] ||
 			!dual_vfe_res->vfe_base[ISP_VFE1] ||
 			!dual_vfe_res->stats_data[ISP_VFE1]) {
-			pr_err("%s:%d error vfe0 %p %p vfe1 %p %p\n", __func__,
+			pr_err("%s:%d error vfe0 %pK %pK vfe1 %pK %pK\n", __func__,
 				__LINE__, dual_vfe_res->vfe_base[ISP_VFE0],
 				dual_vfe_res->stats_data[ISP_VFE0],
 				dual_vfe_res->vfe_base[ISP_VFE1],
@@ -156,7 +156,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	uint32_t stats_idx;
 
 	if (!vfe_dev || !ts || !buf_event || !stream_info) {
-		pr_err("%s:%d failed: invalid params %p %p %p %p\n",
+		pr_err("%s:%d failed: invalid params %pK %pK %pK %pK\n",
 			__func__, __LINE__, vfe_dev, ts, buf_event,
 			stream_info);
 		return -EINVAL;
@@ -846,6 +846,12 @@ int msm_isp_cfg_stats_stream(struct vfe_device *vfe_dev, void *arg)
 	struct msm_vfe_stats_stream_cfg_cmd *stream_cfg_cmd = arg;
 	if (vfe_dev->stats_data.num_active_stream == 0)
 		vfe_dev->hw_info->vfe_ops.stats_ops.cfg_ub(vfe_dev);
+
+	if (stream_cfg_cmd->num_streams > MSM_ISP_STATS_MAX) {
+		pr_err("%s invalid num_streams %d\n", __func__,
+			stream_cfg_cmd->num_streams);
+		return -EINVAL;
+	}
 
 	if (stream_cfg_cmd->enable) {
 		msm_isp_stats_update_cgc_override(vfe_dev, stream_cfg_cmd);

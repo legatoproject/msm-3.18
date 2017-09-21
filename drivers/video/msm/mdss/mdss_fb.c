@@ -2033,6 +2033,10 @@ err_put:
 	dma_buf_put(mfd->fbmem_buf);
 fb_mmap_failed:
 	ion_free(mfd->fb_ion_client, mfd->fb_ion_handle);
+	mfd->fb_attachment = NULL;
+	mfd->fb_table = NULL;
+	mfd->fb_ion_handle = NULL;
+	mfd->fbmem_buf = NULL;
 	return rc;
 }
 
@@ -3124,7 +3128,7 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 
 	if (!mfd || (!mfd->op_enable)) {
 		pr_err("mfd is NULL or operation not permitted\n");
-		goto end;
+		return -EPERM;
 	}
 
 	if ((mdss_fb_is_power_off(mfd)) &&

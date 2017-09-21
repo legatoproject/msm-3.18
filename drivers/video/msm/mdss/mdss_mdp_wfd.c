@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -232,6 +232,12 @@ static int mdss_mdp_wfd_import_data(struct device *device,
 	if (wfd_data->layer.flags & MDP_LAYER_SECURE_SESSION)
 		flags = MDP_SECURE_OVERLAY_SESSION;
 
+	if (buffer->plane_count > MAX_PLANES) {
+		pr_err("buffer plane_count exceeds MAX_PLANES limit:%d",
+				buffer->plane_count);
+		return -EINVAL;
+	}
+
 	memset(planes, 0, sizeof(planes));
 
 	for (i = 0; i < buffer->plane_count; i++) {
@@ -301,7 +307,7 @@ static int mdss_mdp_wfd_validate_out_configuration(struct mdss_mdp_wfd *wfd,
 
 	if (mdss_mdp_is_wb_mdp_intf(wb_idx, ctl->num)) {
 		fmt = mdss_mdp_get_format_params(layer->buffer.format);
-		if (!(fmt->flag & VALID_MDP_WB_INTF_FORMAT)) {
+		if (fmt && !(fmt->flag & VALID_MDP_WB_INTF_FORMAT)) {
 			pr_err("wb=%d does not support dst fmt:%d\n", wb_idx,
 				layer->buffer.format);
 			return -EINVAL;
