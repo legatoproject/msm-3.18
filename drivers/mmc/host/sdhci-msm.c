@@ -1771,6 +1771,9 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	if (of_get_property(np, "qcom,nonhotplug", NULL))
 		pdata->nonhotplug = true;
 
+	if (of_find_property(np, "cap-power-off-card", NULL))
+		pdata->power_off_card = true;
+
 	pdata->largeaddressbus =
 		of_property_read_bool(np, "qcom,large-address-bus");
 
@@ -4279,6 +4282,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (msm_host->pdata->nonhotplug)
 		msm_host->mmc->caps2 |= MMC_CAP2_NONHOTPLUG;
 
+	if (msm_host->pdata->power_off_card)
+		msm_host->mmc->caps |= MMC_CAP_POWER_OFF_CARD;
 
 	/* Initialize ICE if present */
 	if (msm_host->ice.pdev) {
