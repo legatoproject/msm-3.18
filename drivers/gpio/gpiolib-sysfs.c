@@ -60,6 +60,9 @@ static struct gpio_chip gpio_ext_chip = {
 		.base   = 1,
 };
 
+/* GPIOs in this table must only be given the FUNCTION_EMBEDDED_HOST
+ * property by default if they are not configurable through other methods.
+ */
 static struct ext_gpio_map ext_gpio_ar[]={
 	{"1", 15,FUNCTION_UNALLOCATED},
 	{"2", 14,FUNCTION_UNALLOCATED},
@@ -115,6 +118,9 @@ static struct ext_gpio_map ext_gpio_ar[]={
 	{GPIO_NAME_RI,35,FUNCTION_UNALLOCATED}
 };
 
+/* GPIOs in this table must only be given the FUNCTION_EMBEDDED_HOST
+ * property by default if they are not configurable through other methods.
+ */
 static struct ext_gpio_map ext_gpio_wp[]={
 	{"1", -1,FUNCTION_UNALLOCATED},
 	{"2", 38,FUNCTION_UNALLOCATED},
@@ -152,12 +158,12 @@ static struct ext_gpio_map ext_gpio_wp[]={
 	{"34", -1,FUNCTION_UNALLOCATED},
 	{"35", 37,FUNCTION_UNALLOCATED},
 #ifdef CONFIG_GPIO_SWIMCU
-	{"36", SWIMCU_GPIO_TO_SYS(0),FUNCTION_UNALLOCATED},
-	{"37", SWIMCU_GPIO_TO_SYS(1),FUNCTION_UNALLOCATED},
-	{"38", SWIMCU_GPIO_TO_SYS(2),FUNCTION_UNALLOCATED},
+	{"36", SWIMCU_GPIO_TO_SYS(0),FUNCTION_EMBEDDED_HOST},
+	{"37", SWIMCU_GPIO_TO_SYS(1),FUNCTION_EMBEDDED_HOST},
+	{"38", SWIMCU_GPIO_TO_SYS(2),FUNCTION_EMBEDDED_HOST},
 	{"39", -1,FUNCTION_UNALLOCATED},
-	{"40", SWIMCU_GPIO_TO_SYS(3),FUNCTION_UNALLOCATED},
-	{"41", SWIMCU_GPIO_TO_SYS(4),FUNCTION_UNALLOCATED},
+	{"40", SWIMCU_GPIO_TO_SYS(3),FUNCTION_EMBEDDED_HOST},
+	{"41", SWIMCU_GPIO_TO_SYS(4),FUNCTION_EMBEDDED_HOST},
 #else /* CONFIG_GPIO_SWIMCU */
 	{"36", -1,FUNCTION_UNALLOCATED},
 	{"37", -1,FUNCTION_UNALLOCATED},
@@ -178,6 +184,9 @@ static struct ext_gpio_map ext_gpio_wp[]={
 	{GPIO_NAME_RI,25,FUNCTION_UNALLOCATED}
 };
 
+/* GPIOs in this table must only be given the FUNCTION_EMBEDDED_HOST
+ * property by default if they are not configurable through other methods.
+ */
 static struct ext_gpio_map ext_gpio_mft[]={
 	{"0", 0,FUNCTION_UNALLOCATED},
 	{"1", 1,FUNCTION_UNALLOCATED},
@@ -1309,12 +1318,29 @@ static int __init gpiolib_sysfs_init(void)
 #ifdef CONFIG_SIERRA
 	/* Assign product specific GPIO mapping */
 	gpio_set_map_table();
+
+	/* bsgetgpioflag retrieves modem configurable mask */
 	gpio_ext_chip.mask = bsgetgpioflag();
 
-	for (gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
-	{
-		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0)
-		{
+	/* This loop does two things:
+	 *  1. Update the mask for any GPIO set to EMBEDDED_HOST in the
+	 *     default table, which means that pin is EMBEDDED_HOST-only.
+	 *  2. Adds EMBEDDED_HOST function to any GPIO in the modem mask
+	 *
+	 *  Note that GPIO set to EMBEDDED_HOST by default in the map tables
+	 *  cannot be used for other functions.
+	 */
+	for (gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++) {
+		long ext_num;
+		if (kstrtol(ext_gpio[gpio].gpio_name, 0, &ext_num) == 0) {
+			if (ext_gpio[gpio].function == FUNCTION_EMBEDDED_HOST)
+				gpio_ext_chip.mask |= (0x1ULL << (ext_num - 1));
+			else if (gpio_ext_chip.mask & (0x1ULL << (ext_num - 1)))
+				ext_gpio[gpio].function = FUNCTION_EMBEDDED_HOST;
+			else
+				ext_gpio[gpio].function = FUNCTION_UNALLOCATED;
+		}
+		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0) {
 			gpio_ri = gpio;
 			gpio_sync_ri();
 			break;
