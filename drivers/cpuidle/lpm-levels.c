@@ -1050,8 +1050,17 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		if (idx > 0)
 			update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, true);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if (!sleep_disabled) {
+			success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
+					true);
+		}
+#else
 		success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
-				true);
+			true);
+#endif
+/* SWISTOP */
 
 		if (idx > 0)
 			update_debug_pc_event(CPU_EXIT, idx, success,
