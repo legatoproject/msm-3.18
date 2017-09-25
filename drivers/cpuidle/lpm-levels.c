@@ -930,10 +930,14 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 	/*
 	 * idx = 0 is the default LPM state
 	 */
+	int cpu = raw_smp_processor_id();
+
 	if (!idx) {
+      if(lpm_cpu_mode_allow(cpu, 0, from_idle)) {
 		stop_critical_timings();
 		wfi();
 		start_critical_timings();
+      }
 		return 1;
 	} else {
 		int affinity_level = 0;
