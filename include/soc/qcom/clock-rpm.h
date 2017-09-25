@@ -153,6 +153,51 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		}, \
 	};
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define __DEFINE_CLK_RPM_BRANCH_EXTERN(name, active, type, r_id, stat_id, r, \
+					key, rpmrsdata) \
+	static struct rpm_clk active; \
+	static uint32_t name##last_active_set_vote; \
+	static uint32_t name##last_sleep_set_vote; \
+	struct rpm_clk name = { \
+		.rpm_res_type = (type), \
+		.rpm_clk_id = (r_id), \
+		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
+		.peer = &active, \
+		.branch = false, \
+		.rpmrs_data = (rpmrsdata), \
+		.last_active_set_vote = &name##last_active_set_vote, \
+		.last_sleep_set_vote = &name##last_sleep_set_vote, \
+		.c = { \
+			.ops = &clk_ops_rpm_branch, \
+			.dbg_name = #name, \
+			.rate = (r), \
+			CLK_INIT(name.c), \
+		}, \
+	}; \
+	static struct rpm_clk active = { \
+		.rpm_res_type = (type), \
+		.rpm_clk_id = (r_id), \
+		.rpm_status_id = (stat_id), \
+		.rpm_key = (key), \
+		.peer = &name, \
+		.active_only = true, \
+		.branch = false, \
+		.rpmrs_data = (rpmrsdata), \
+		.last_active_set_vote = &name##last_active_set_vote, \
+		.last_sleep_set_vote = &name##last_sleep_set_vote, \
+		.c = { \
+			.ops = &clk_ops_rpm_branch, \
+			.dbg_name = #active, \
+			.rate = (r), \
+			CLK_INIT(active.c), \
+		}, \
+	};
+#endif
+/* SWISTOP */
+
 #define DEFINE_CLK_RPM_SMD(name, active, type, r_id, dep) \
 	__DEFINE_CLK_RPM(name, active, type, r_id, 0, dep, \
 				RPM_SMD_KEY_RATE, &clk_rpmrs_data_smd)
@@ -177,4 +222,12 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 #define DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(name, active, r_id) \
 	__DEFINE_CLK_RPM_BRANCH(name, active, RPM_CLK_BUFFER_A_REQ, r_id, 0, \
 	1000, RPM_KEY_PIN_CTRL_CLK_BUFFER_ENABLE_KEY, &clk_rpmrs_data_smd)
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define DEFINE_CLK_RPM_SMD_XO_BUFFER_EXTERN(name, active, r_id) \
+	__DEFINE_CLK_RPM_BRANCH_EXTERN(name, active, RPM_CLK_BUFFER_A_REQ, r_id, 0, \
+	1000, RPM_KEY_SOFTWARE_ENABLE, &clk_rpmrs_data_smd)
+#endif
+/* SWISTOP */
 #endif

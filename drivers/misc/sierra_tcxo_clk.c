@@ -19,8 +19,10 @@
 #include <linux/debugfs.h>
 #include <linux/clk.h>
 #include <linux/slab.h>
+#include <soc/qcom/clock-rpm.h>
 
 #define DRIVER_NAME "sierra_tcxo_clk"
+extern struct rpm_clk rf_clk2;
 
 struct swi_tcxo {
   uint32_t enable;
@@ -70,9 +72,16 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
   if (!((enabled == 0) || (enabled == 1)))
     return -EINVAL;
   
-  if(enabled)
+  if(enabled && (!data->enable))
   {
     pr_debug("enable div clk\n");
+    /* There are two step to open RFCLK2, first use branch as a global
+     * control and then use driver to enable /disable clock. put branch
+     * enable here is to avoid short clock output when modem boot up, so
+     * there is no need to set branch to false when use dirver interface to disable clock.
+     */
+    rf_clk2.branch = true;
+    rf_clk2.peer->branch = true;
     ret = clk_prepare_enable(data->div_clk);
     if(ret)
     {
@@ -80,7 +89,7 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
       return ret;
     }
   }
-  else
+  else if((!enabled) && (data->enable))
   {
     pr_debug("disable div clk\n");
     clk_disable_unprepare(data->div_clk);
