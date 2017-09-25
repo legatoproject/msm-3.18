@@ -19,6 +19,9 @@
 		i2c2 = &i2c_2;
 		spi1 = &spi_2;
 		spi2 = &spi_3;
+		serial = &blsp1_uart1_ls;
+		uart0 = &blsp1_uart1;
+		uart1 = &blsp1_uart2;		
 	};
 
 	reserved-memory {
@@ -152,6 +155,23 @@
 		status = "disabled";
 	};
 
+	blsp1_uart1_ls: serial_ls@78af000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+
+		qcom,msm-bus,name = "blsp1_uart1_ls";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			    <86 512 0 0>,
+			    <86 512 500 800>;
+		status = "disabled";
+	};
+
 	blsp1_uart3: serial@78b1000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b1000 0x200>;
@@ -162,7 +182,7 @@
 		status = "disabled";
 	};
 
-	blsp1_uart2: uart@0x78b0000 {
+	blsp1_uart2: serial@0x78b0000 {
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x78b0000 0x200>,
 		      <0x7884000 0x23000>;
@@ -434,6 +454,33 @@
 		};
 	};
 
+
+
+	blsp1_uart1_ls{
+		uart1_console_tx_active_ls: uart1_console_tx_active_ls {
+			mux {
+				pins = "gpio20";
+				function = "blsp_uart_tx_b1";
+			};
+			config {
+				pins = "gpio20";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		uart1_console_rx_active_ls: uart1_console_rx_active_ls {
+			mux {
+				pins = "gpio21";
+				function = "blsp_uart_rx_b1";
+			};
+			config {
+				pins = "gpio21";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
 		uart2_console_active: uart2_console_active {
 			mux {
 				pins = "gpio4", "gpio5", "gpio6", "gpio7";
@@ -835,11 +882,19 @@
 };
 
 &blsp1_uart3 {
-	status = "ok";
+	status = "disabled";
 };
 
 &blsp1_uart2 {
 	status = "ok";
+};
+
+&blsp1_uart1_ls {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_console_tx_active_ls &uart1_console_rx_active_ls>;
+	qcom,tx-gpio = <&tlmm_pinmux 20 0>;
+	qcom,rx-gpio= <&tlmm_pinmux 21 0>;
 };
 
 &blsp1_uart1 {
