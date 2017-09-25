@@ -3230,6 +3230,18 @@ static int emac_remove(struct platform_device *pdev)
 	}
 
 	pm_runtime_disable(netdev->dev.parent);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Here is a WA for insmod/rmmod emac.ko, when rmmod emac.ko
+	 * the emac controller is in a wrong state,and the phy SM is
+	 * still running,so we reset the contoller and disconnect the
+	 * phy driver when rmmod emac.ko.
+	 */
+	emac_hw_reset_mac(hw);
+	if (adpt->phy.is_ext_phy_connect)
+		phy_disconnect(adpt->phydev);
+#endif
+/* SWISTOP */
 
 	/* Disable EPHY WOL interrupt in suspend */
 	if (phy->is_wol_irq_reg)
