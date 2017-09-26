@@ -217,6 +217,7 @@ static struct wl1271_if_operations sdio_ops = {
 };
 
 #ifdef CONFIG_OF
+#if 0
 /* backport dt parsing function from upstream */
 static struct wl12xx_platform_data *wlcore_probe_of(struct device *dev)
 {
@@ -256,7 +257,8 @@ err:
 	kfree(pdata);
 	return NULL;
 }
-#endif
+#endif /* #if 0 */
+#endif /* #ifdef CONFIG_OF */
 
 static const struct of_device_id wlcore_of_match[] = {
 	{
