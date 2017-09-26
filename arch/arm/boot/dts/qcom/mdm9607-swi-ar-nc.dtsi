@@ -56,7 +56,14 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
+		qcom,msm-bus,name = "blsp1_uart2_ls";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					<86 512 0 0>,
+					<86 512 500 800>;
 		status = "disabled";
+		
 	};
 
 	sound {
@@ -369,6 +376,12 @@
 	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
+	qcom,msm-bus,name = "blsp1_uart5";
+	qcom,msm-bus,num-cases = <2>;
+	qcom,msm-bus,num-paths = <1>;
+	qcom,msm-bus,vectors-KBps =
+				<86 512 0 0>,
+				<86 512 500 800>;
 };
 
 &i2c_4 {
