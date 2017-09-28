@@ -1,5 +1,5 @@
 /*
- * pm.h  --  Power management driver for Sierra Wireless WP76xx MCU
+ * pm.h  --  Power management driver for Sierra Wireless MCU
  *
  * Copyright (c) 2016 Sierra Wireless, Inc.
  *
@@ -22,6 +22,8 @@
  * SWIMCU device initialization and exit.
  */
 int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags);
+
+int swimcu_pm_sysfs_opt_update(struct swimcu *swimcu);
 
 void swimcu_pm_sysfs_deinit(struct swimcu *swimcu);
 

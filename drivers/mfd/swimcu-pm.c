@@ -161,17 +161,24 @@ static struct adc_trigger_config {
 	bool select;
 } adc_trigger_config[] = {
 	[SWIMCU_ADC_PTA12] = {0, 1800, false},
-	[SWIMCU_ADC_PTB1] = {0, 1800, false},
+	[SWIMCU_ADC_PTB1]  = {0, 1800, false},
 };
 
 static uint32_t adc_interval = 0;
-static char *poweroff_argv[] = {"/sbin/poweroff", NULL};
+static char* poweroff_argv[] = {"/sbin/poweroff", NULL};
 
 #define SWIMCU_PM_WAIT_SYNC_TIME 40000
+
 #define PM_STATE_IDLE     0
 #define PM_STATE_SYNC     1
 #define PM_STATE_SHUTDOWN 2
 static int swimcu_pm_state = PM_STATE_IDLE;
+
+/* MCU psm support configuration */
+static uint32_t swimcu_psm_time = 0;
+static int swimcu_psm_enable = 0;
+static enum mci_protocol_pm_psm_sync_option_e
+                swimcu_psm_sync_select = MCI_PROTOCOL_PM_PSM_SYNC_OPTION_NONE;
 
 /************
 *
@@ -367,12 +374,18 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	enum swimcu_adc_compare_mode adc_compare_mode;
 	int adc_bitmask;
 
+	if ((pm < SWIMCU_PM_OFF) || (pm > SWIMCU_PM_MAX))
+	{
+		swimcu_log(PM, "%s: invalid power mode %d\n", __func__, pm);
+		return -ERANGE;
+	}
+
 	if (pm == SWIMCU_PM_OFF) {
 		swimcu_log(PM, "%s: disable\n", __func__);
 		return 0;
 	}
 
-	if (pm == SWIMCU_PM_BOOT_SOURCE) {
+	if ((pm == SWIMCU_PM_BOOT_SOURCE) || (pm == SWIMCU_PM_PSM_SYNC)) {
 		/* setup GPIO and ADC wakeup sources */
 		for( wi = 0; wi < ARRAY_SIZE(wusrc_param); wi++ ) {
 			if( wusrc_param[wi].type == MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_EXT_PINS ) {
@@ -428,6 +441,7 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 			wu_source |= (u16)MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_TIMER;
 			swimcu_log(PM, "%s: wu on timer %u\n", __func__, wakeup_time);
 		}
+
 		if (SWIMCU_ADC_INVALID != adc_wu_src) {
 			wu_config.source_type = MCI_PROTOCOL_WAKEUP_SOURCE_TYPE_ADC;
 			wu_config.args.channel = adc_bitmask;
@@ -464,15 +478,31 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 
 	}
 
-	if ((wu_source != 0) || (pm == SWIMCU_PM_POWER_SWITCH)) {
-		pr_info("%s: sending wait_time_config", __func__);
-		rc = swimcu_pm_wait_time_config(swimcu,
-				SWIMCU_PM_WAIT_SYNC_TIME, 0);
-		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == rc) {
-			swimcu_pm_state = PM_STATE_SYNC;
+	if ((wu_source != 0) || (pm == SWIMCU_PM_POWER_SWITCH) || (pm == SWIMCU_PM_PSM_SYNC)) {
+
+		if (pm == SWIMCU_PM_PSM_SYNC) {
+
+			/* make sure there is a minimal support for PSM sync */
+			if (swimcu_psm_sync_select == MCI_PROTOCOL_PM_PSM_SYNC_OPTION_NONE) {
+				swimcu_psm_sync_select = MCI_PROTOCOL_PM_PSM_SYNC_OPTION_A;
+			}
+
+			pr_info("%s: sending psm_sync_config", __func__);
+			rc = swimcu_psm_sync_config(swimcu,
+				swimcu_psm_sync_select, SWIMCU_PM_WAIT_SYNC_TIME, swimcu_psm_time);
+
+		} else {
+
+			pr_info("%s: sending wait_time_config", __func__);
+			rc = swimcu_pm_wait_time_config(swimcu, SWIMCU_PM_WAIT_SYNC_TIME, 0);
 		}
 
-		else if(MCI_PROTOCOL_STATUS_CODE_UNKNOWN_COMMAND == rc) {
+		if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == rc) {
+
+			swimcu_pm_state = PM_STATE_SYNC;
+
+		} else if (MCI_PROTOCOL_STATUS_CODE_UNKNOWN_COMMAND == rc) {
+
 			pr_info("%s: pm wait_time_config not recognized by MCU, \
 				proceed with legacy shutdown\n", __func__);
 			swimcu_pm_state = PM_STATE_SHUTDOWN;
@@ -487,8 +517,7 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 		}
 
 		if(PM_STATE_SYNC == swimcu_pm_state) {
-			call_usermodehelper(poweroff_argv[0],
-				poweroff_argv, NULL, UMH_NO_WAIT);
+			call_usermodehelper(poweroff_argv[0], poweroff_argv, NULL, UMH_NO_WAIT);
 		}
 	}
 	else {
@@ -624,18 +653,16 @@ static ssize_t enable_store(struct kobject *kobj,
 	int tmp_enable;
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_boot_source_kobj);
 
-	if (0 == (ret = kstrtoint(buf, 0, &tmp_enable))) {
-		if ((tmp_enable < SWIMCU_PM_OFF) || (tmp_enable > SWIMCU_PM_MAX)) {
-			ret = -ERANGE;
-		}
-		else if ((pm_enable > SWIMCU_PM_OFF) ||
-			/* ULPM already initiated */
-			(0 == (ret = pm_set_mcu_ulpm_enable(swimcu, tmp_enable)))) {
-			/* send ULPM command */
+	ret = kstrtoint(buf, 0, &tmp_enable);
+	if (0 == ret) {
+
+		ret = pm_set_mcu_ulpm_enable(swimcu, tmp_enable);
+		if (0 == ret) {
 			pm_enable = tmp_enable;
 			ret = count;
 		}
 	}
+
 	if (ret < 0)
 		pr_err("%s: invalid input %s ret %d\n", __func__, buf, ret);
 	return ret;
@@ -663,7 +690,10 @@ static ssize_t version_show(
 {
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_firmware_kobj);
 
-	swimcu_ping(swimcu);
+	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == swimcu_ping(swimcu)) {
+	  (void) swimcu_pm_sysfs_opt_update(swimcu);
+	}
+
 	return scnprintf(buf, PAGE_SIZE, "%03d.%03d\n", swimcu->version_major, swimcu->version_minor);
 }
 
@@ -747,6 +777,118 @@ static ssize_t pm_adc_interval_attr_store(struct kobject *kobj,
 	return ret;
 };
 
+
+/* PSM synchronization support directory */
+static ssize_t swimcu_psm_sync_support_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	u32 psm_opt;
+	struct swimcu *swimcup;
+
+	/* Extract PSM support option bits and shift right to make it starting from bit 0 */
+	swimcup = container_of(kobj, struct swimcu, pm_psm_kobj);
+	psm_opt = swimcup->opt_func_mask & MCI_PROTOCOL_APPL_OPT_FUNC_PSM_SYNC_ALL;
+	psm_opt >>= 1;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", psm_opt);
+}
+
+static ssize_t swimcu_psm_sync_select_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", swimcu_psm_sync_select);
+}
+
+static ssize_t swimcu_psm_sync_select_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int ret;
+	u32 sync_support_mask, sync_select;
+	struct swimcu *swimcup;
+
+	ret = kstrtouint(buf, 0, &sync_select);
+	if (0 == ret) {
+		/* make sure the selected option is supported by the MCUFW */
+		swimcup = container_of(kobj, struct swimcu, pm_psm_kobj);
+		sync_support_mask = swimcup->opt_func_mask & MCI_PROTOCOL_APPL_OPT_FUNC_PSM_SYNC_ALL;
+
+		/* user input is the bit position in the bitmask starting from bit 0
+		*  supported PSM sync option in opt_func_mask starting from bit 1
+		*/
+		if ((sync_select > 0) && ((1 << sync_select) & sync_support_mask)) {
+			swimcu_psm_sync_select = (enum mci_protocol_pm_psm_sync_option_e) sync_select;
+			ret = count;
+		} else {
+			ret = -EINVAL;
+		}
+	} else {
+		ret = -EINVAL;
+	}
+
+	if (ret < 0) {
+		pr_err("%s: invalid input %s ret %d\n", __func__, buf, ret);
+	}
+	return ret;
+}
+
+static ssize_t swimcu_psm_enable_attr_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d\n", swimcu_psm_enable);
+}
+
+static ssize_t swimcu_psm_enable_attr_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int tmp_enable, ret;
+	struct swimcu *swimcup;
+
+	ret = kstrtouint(buf, 0, &tmp_enable);
+	if ((0 == ret) && (tmp_enable == SWIMCU_PSM_ENTER))
+	{
+		swimcup = container_of(kobj, struct swimcu, pm_psm_kobj);
+		ret = pm_set_mcu_ulpm_enable(swimcup, SWIMCU_PM_PSM_SYNC);
+		if (0 == ret) {
+			swimcu_psm_enable = tmp_enable;
+			ret = count;
+		} else {
+			ret = -EINVAL;
+		}
+	} else {
+		ret = -EINVAL;
+		pr_err("%s: invalid input %s\n", __func__, buf);
+	}
+	return ret;
+}
+
+/* sysfs entry to read PSM synchronization support options */
+static const struct kobj_attribute swimcu_psm_sync_support_attr = {
+	.attr = {
+		.name = "sync_support",
+		.mode = S_IRUGO
+	},
+	.show = &swimcu_psm_sync_support_attr_show,
+};
+
+/* sysfs entry to select PSM synchronization options */
+static const struct kobj_attribute swimcu_psm_sync_select_attr = {
+	.attr = {
+		.name = "sync_select",
+		.mode = S_IRUGO | S_IWUSR | S_IWGRP
+	},
+	.show = &swimcu_psm_sync_select_attr_show,
+	.store = &swimcu_psm_sync_select_attr_store,
+};
+
+/* sysfs entry to enable PSM/ULPM synchronization */
+static const struct kobj_attribute swimcu_psm_enable_attr = {
+	.attr = {
+		.name = "enable",
+		.mode = S_IRUGO | S_IWUSR | S_IWGRP
+	},
+	.show = &swimcu_psm_enable_attr_show,
+	.store = &swimcu_psm_enable_attr_store,
+};
+
 /************
 *
 * Name:     swimcu_set_wakeup_source
@@ -780,6 +922,7 @@ void swimcu_set_wakeup_source(enum mci_protocol_wakeup_source_type_e type, u16 v
 		enum swimcu_gpio_index gpio = swimcu_get_gpio_from_port_pin(port, pin);
 		wi = find_wusrc_index_from_id(type, gpio);
 	}
+
 	if (wi != WUSRC_INVALID) {
 		swimcu_log(PM, "%s: %d\n", __func__, wi);
 		wusrc_value[wi].triggered = 1;
@@ -927,6 +1070,7 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 		goto sysfs_add_exit;
 	}
 
+	swimcu_log(INIT, "%s: func_flags=0x%x\n", __func__, func_flags);
 	if (func_flags & SWIMCU_FUNC_FLAG_FWUPD) {
 	/* firmware object */
 
@@ -1008,11 +1152,125 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 		kobject_uevent(&swimcu->pm_boot_source_kobj, KOBJ_ADD);
 	}
 
-	swimcu_log(INIT, "%s: success func %d\n", __func__, func_flags);
+	if (func_flags & SWIMCU_FUNC_FLAG_PSM) {
+	/* power save mode object */
+		ret = kobject_init_and_add(&swimcu->pm_psm_kobj, &ktype, module_kobj, "psm");
+		if (ret) {
+			pr_err("%s: cannot create PSM kobject\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		ret = sysfs_create_file(&swimcu->pm_psm_kobj, &swimcu_psm_sync_support_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create PSM sync support node\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		ret = sysfs_create_file(&swimcu->pm_psm_kobj, &swimcu_psm_sync_select_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create PSM sync select node\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		ret = sysfs_create_file(&swimcu->pm_psm_kobj, &swimcu_psm_enable_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create PSM sync enable node\n", __func__);
+			ret = -ENOMEM;
+			goto sysfs_add_exit;
+		}
+
+		kobject_uevent(&swimcu->pm_psm_kobj, KOBJ_ADD);
+	}
+
+	swimcu_log(INIT, "%s: success func=0x%x\n", __func__, func_flags);
 	return 0;
 
 sysfs_add_exit:
-	swimcu_log(INIT, "%s: fail func %d, ret %d\n", __func__, func_flags, ret);
+	swimcu_log(INIT, "%s: fail func=0x%x, ret %d\n", __func__, func_flags, ret);
 	swimcu_pm_sysfs_deinit(swimcu);
 	return ret;
+}
+
+/************
+*
+* Name:     swimcu_pm_opt_sysfs_remove
+*
+* Purpose:  Remove specific sysfs tree(s) under /sys/module/swimcu_pm
+*
+* Parms:    swimcup    - pointer to device data structure.
+*           func_flags - bitmask indicates the functions of which the sysfs tree
+*                        to be removed:
+*                        SWIMCU_FUNC_FLAG_WATCHDOG
+*                        SWIMCU_FUNC_FLAG_PSM
+*
+* Return:   0 if successful;
+*           -ERRNO otherwise
+*
+* Abort:    none
+*
+************/
+static void swimcu_pm_opt_sysfs_remove(struct swimcu *swimcup, int func_flags)
+{
+	struct kobject *module_kobj;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj)
+	{
+		pr_err("%s: cannot find kobject for module %s\n", __func__, KBUILD_MODNAME);
+	}
+
+	if (func_flags & SWIMCU_FUNC_FLAG_PSM) {
+
+		swimcu_log(INIT, "%s: remove PSM sysfs nodes\n", __func__);
+
+		kobject_uevent(&swimcup->pm_psm_kobj, KOBJ_REMOVE);
+
+		sysfs_remove_file(&swimcup->pm_psm_kobj, &swimcu_psm_sync_support_attr.attr);
+		sysfs_remove_file(&swimcup->pm_psm_kobj, &swimcu_psm_sync_select_attr.attr);
+		sysfs_remove_file(&swimcup->pm_psm_kobj, &swimcu_psm_enable_attr.attr);
+
+		kobject_del(&swimcup->pm_psm_kobj);
+	}
+}
+
+/************
+*
+* Name:     swimcu_pm_sysfs_opt_update
+*
+* Purpose:  Update a sysfs tree under /sys/module/swimcu_pm for optional function
+*
+* Parms:    swimcup - pointer to device data structure
+*
+* Return:   0 if successful;
+*           -ERRNO otherwise
+*
+* Abort:    none
+*
+************/
+int swimcu_pm_sysfs_opt_update(struct swimcu *swimcup)
+{
+	int ret = 0;
+
+	swimcu_log(INIT, "%s: driver_init_mask=0x%x opt_func_mask=0x%x\n", __func__, swimcup->driver_init_mask, swimcup->opt_func_mask);
+	if (swimcup->opt_func_mask & MCI_PROTOCOL_APPL_OPT_FUNC_PSM_SYNC_ALL) {
+		if (!(swimcup->driver_init_mask & SWIMCU_DRIVER_INIT_PSM)) {
+			ret = swimcu_pm_sysfs_init(swimcup, SWIMCU_FUNC_FLAG_PSM);
+			if (0 == ret) {
+				swimcup->driver_init_mask |= SWIMCU_DRIVER_INIT_PSM;
+			} else {
+				dev_err(swimcup->dev, "PSM sysfs init failed\n");
+				return ret;
+			}
+		}
+	} else {
+		if (swimcup->driver_init_mask & SWIMCU_DRIVER_INIT_PSM) {
+			swimcu_pm_opt_sysfs_remove(swimcup, SWIMCU_FUNC_FLAG_PSM);
+			swimcup->driver_init_mask &= ~SWIMCU_DRIVER_INIT_PSM;
+		}
+	}
+
+	return 0;
 }

@@ -50,7 +50,7 @@ int swimcu_debug_mask = SWIMCU_DEFAULT_DEBUG_LOG;
 int swimcu_fault_mask = 0;
 int swimcu_fault_count = 0;
 
-/* ADC provided by MCU */
+/* WPx5 ADC2 and ADC3 provided by MCU */
 static const enum mci_protocol_adc_channel_e adc_chan_cfg[] = {
 	[SWIMCU_ADC_PTA12] = MCI_PROTOCOL_ADC0_SE0,
 	[SWIMCU_ADC_PTB1]  = MCI_PROTOCOL_ADC0_SE8
@@ -154,8 +154,9 @@ void swimcu_set_fault_mask(int fault)
  * Notes:
  *
  ************/
-int swimcu_adc_set_trigger_mode (enum swimcu_adc_index adc,
-				int trigger, int interval)
+int swimcu_adc_set_trigger_mode (
+	enum swimcu_adc_index adc,
+	int trigger, int interval)
 {
 	int ret = -EINVAL;
 
@@ -185,7 +186,8 @@ int swimcu_adc_set_trigger_mode (enum swimcu_adc_index adc,
  * Parms:    adc           - 0 or 1
  *           mode          - compare function mode
  *           compare_val1  - 1st trigger value in mV
- *           compare_val2  - 2nd trigger value, only used for WITHIN and BEYOND compare modes
+ *           compare_val2  - 2nd trigger value, only used
+ *                           for WITHIN and BEYOND compare modes
  *
  * Return:   0 if successful
  *           -ERRNO otherwise
@@ -195,9 +197,11 @@ int swimcu_adc_set_trigger_mode (enum swimcu_adc_index adc,
  * Notes:
  *
  ************/
-int swimcu_adc_set_compare_mode (enum swimcu_adc_index adc,
-				enum swimcu_adc_compare_mode mode,
-				unsigned compare_val1, unsigned compare_val2)
+int swimcu_adc_set_compare_mode (
+	enum swimcu_adc_index adc,
+	enum swimcu_adc_compare_mode mode,
+	unsigned compare_val1,
+	unsigned compare_val2)
 {
 	int cv1;
 	int cv2;
@@ -471,8 +475,9 @@ static int swimcu_process_events(struct swimcu *swimcu)
  * Notes:    called from sierra_gpio_wake_n
  *
  ************/
-static int swimcu_event_trigger (struct notifier_block *self,
-				unsigned long event, void *unused)
+static int swimcu_event_trigger (
+	struct notifier_block *self,
+	unsigned long event, void *unused)
 {
 	struct swimcu *swimcu = container_of(self, struct swimcu, nb);
 
@@ -502,7 +507,7 @@ static void swimcu_event_init (struct swimcu *swimcu)
 
 /************
  *
- * Name:     swimcu_event_init
+ * Name:     swimcu_client_dev_register
  *
  * Purpose:  Register a client device
  *
@@ -519,9 +524,10 @@ static void swimcu_event_init (struct swimcu *swimcu)
  *           device init due to a single platform device failing.
  *
  */
-static int swimcu_client_dev_register(struct swimcu *swimcu,
-				const char *name,
-				struct platform_device **pdev)
+static int swimcu_client_dev_register(
+	struct swimcu *swimcu,
+	const char *name,
+	struct platform_device **pdev)
 {
 	int ret;
 
@@ -667,6 +673,11 @@ int swimcu_device_init(struct swimcu *swimcu)
 		ret = 0; /* this is not necessarily an error. MCI firmware update procedure will take over */
 		goto exit;
 	}
+
+	swimcu_log(INIT, "%s: mcufw ver=%d.%03d target=%d opt=0x%X\n", __func__,
+			swimcu->version_major, swimcu->version_minor,
+			swimcu->target_dev_id, swimcu->opt_func_mask);
+
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_PING)) {
 		/* first communication with MCU since statup */
 		swimcu_gpio_retrieve(swimcu); /* get gpio config from MCU */
@@ -683,6 +694,12 @@ int swimcu_device_init(struct swimcu *swimcu)
 	{
 		swimcu_log(INIT, "%s: Disable MCU USB VBUS Detection for DV5.2\n", __func__);
 		swimcu_vbus_detect_disable(swimcu);
+	}
+
+	if (0 != swimcu_pm_sysfs_opt_update(swimcu))
+	{
+		dev_err(swimcu->dev, "Cannot update optional sysfs\n");
+		goto exit;
 	}
 
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_FW)) {
@@ -739,7 +756,7 @@ int swimcu_device_init(struct swimcu *swimcu)
 		}
 	}
 
-	swimcu_log(INIT, "%s: success\n", __func__);
+	swimcu_log(INIT, "%s: success 0x%x\n", __func__, swimcu->driver_init_mask);
 	return 0;
 
 exit:
