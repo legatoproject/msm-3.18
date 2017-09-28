@@ -684,6 +684,12 @@ extern enum mci_protocol_status_code_e swimcu_pm_wait_time_config(
 				uint32_t wait_sync_time,
 				uint32_t wait_pwr_off_time);
 
+enum mci_protocol_status_code_e swimcu_psm_sync_config(
+				struct swimcu *swimcu,
+				uint32_t sync_option,
+				uint32_t wait_time,
+				uint32_t mdm_off_time);
+
 extern enum mci_protocol_status_code_e swimcu_pm_pwr_off(
 				struct swimcu* swimcu);
 

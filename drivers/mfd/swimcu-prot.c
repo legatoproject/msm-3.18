@@ -738,6 +738,11 @@ enum mci_protocol_status_code_e swimcu_ping(struct swimcu *swimcu)
 
 	mutex_lock(&swimcu->mcu_transaction_mutex);
 
+	swimcu->version_major = 0;
+	swimcu->version_minor = 0;
+	swimcu->target_dev_id = 0;
+	swimcu->opt_func_mask = 0x0;
+
 	/* Ping the micro-controller and wait for response */
 	frame.type = MCI_PROTOCOL_FRAME_TYPE_PING_REQ;
 	s_code = mci_protocol_frame_send(swimcu, &frame);
@@ -1555,6 +1560,53 @@ enum mci_protocol_status_code_e swimcu_pm_wait_time_config(
 
 /************
  *
+ * Name:     swimcu_psm_sync_config
+ *
+ * Purpose:  To config MCU to synchronize power on/off state with MDM
+ *
+ * Parms:    swimcu       - pointer to the swimcu data structure
+ *           sync_option  - selected PSM synchronization option
+ *           wait_time    - max wait time in milliseconds for MCU to wait until
+ *                          the MDM power-off procedure is complete
+ *           mdm_off_time - expected time in milliseconds for MDM in in off state
+ *                          (include wait_time)
+ *
+ * Return:   MCI_PROTOCOL_STATUS_CODE_SUCCESS if successful;
+ *           other status code otherwise.
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+enum mci_protocol_status_code_e swimcu_psm_sync_config(
+	struct swimcu *swimcu,
+	uint32_t sync_option,
+	uint32_t wait_time,
+	uint32_t mdm_off_time)
+{
+	enum mci_protocol_status_code_e s_code;
+	uint8_t count = MCI_PROTOCOL_PM_PSM_SYNC_CONFIG_PARAMS_COUNT;
+	uint32_t buffer[MCI_PROTOCOL_PM_PSM_SYNC_CONFIG_PARAMS_COUNT];
+
+	buffer[0] = sync_option;
+	buffer[0] <<= MCI_PROTOCOL_PM_PSM_SYNC_CONFIG_OPTION_SHIFT;
+	buffer[0]  &= MCI_PROTOCOL_PM_PSM_SYNC_CONFIG_OPTION_MASK;
+	buffer[0]  |= (uint32_t)MCI_PROTOCOL_PM_OPTYPE_PSM_SYNC_CONFIG;
+
+	buffer[1] = wait_time;
+	buffer[2] = mdm_off_time;
+
+	swimcu_log(PROT, "%s: configuring PSM synchronization option %08x %8x\n",
+		__func__, buffer[0], buffer[1]);
+
+	s_code = mci_protocol_command(swimcu, MCI_PROTOCOL_COMMAND_TAG_APPL_PM_SERVICE,
+		buffer, MCI_PROTOCOL_CMD_PARAMS_COUNT_MAX, &count, 0x00);
+	return s_code;
+}
+
+/************
+ *
  * Name:     mci_appl_pm_profile_config
  *
  * Purpose:  To encode the profile configuration
@@ -1883,3 +1935,4 @@ enum mci_protocol_status_code_e mci_appl_timer_stop(
 	}
 	return s_code;
 }
+
