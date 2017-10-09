@@ -72,6 +72,11 @@ struct nand_flash_dev nand_flash_ids[] = {
 	{"MT29F2G08ABBGA3W 2G  1.8V 4-bit",
 		{ .id = {0x2c, 0xaa, 0x90, 0x15, 0x06, 0x00, 0x00, 0x00} },
 		SZ_2K, SZ_256, SZ_128K, 0, 5, 80, NAND_ECC_INFO(8, SZ_512) },
+
+/* add Fidelix FMN2ET2TCF-18IG 2Gb 4k page size */
+	{"FMN2ET2TCF-18IG 2G  1.8V 8-bit",
+		{ .id = {0xf8, 0xaa, 0x80, 0x11, 0x20, 0x02, 0x00, 0x00} },
+		SZ_4K, SZ_256, SZ_256K, 0, 6, 128, NAND_ECC_INFO(4, SZ_512) },
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
@@ -214,6 +219,11 @@ struct nand_manufacturers nand_manuf_ids[] = {
 	{NAND_MFR_EON, "Eon"},
 	{NAND_MFR_SANDISK, "SanDisk"},
 	{NAND_MFR_INTEL, "Intel"},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{NAND_MFR_FIDELIX, "Fidelix"},
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	{0x0, "Unknown"}
 };
 
