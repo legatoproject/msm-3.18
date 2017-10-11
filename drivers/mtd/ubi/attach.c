@@ -1417,6 +1417,15 @@ int ubi_attach(struct ubi_device *ubi, int force_scan)
 	int err;
 	struct ubi_attach_info *ai;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if ((NULL != current) && (NULL != current->parent))
+		pr_info("func %s, pid %d, name %s\n", __func__, current->pid, current->parent->comm);
+	else
+		pr_info("func %s, current is error\n", __func__);
+#endif
+/* SWISTOP */
+
 	ai = alloc_ai();
 	if (!ai)
 		return -ENOMEM;
