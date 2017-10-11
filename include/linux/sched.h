@@ -217,9 +217,11 @@ print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq);
 #define TASK_WAKEKILL		128
 #define TASK_WAKING		256
 #define TASK_PARKED		512
-#define TASK_STATE_MAX		1024
+#define TASK_NOLOAD		1024
+#define TASK_STATE_MAX		2048
 
-#define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWP"
+
+#define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPN"
 
 extern char ___assert_task_state[1 - 2*!!(
 		sizeof(TASK_STATE_TO_CHAR_STR)-1 != ilog2(TASK_STATE_MAX)+1)];
@@ -229,6 +231,7 @@ extern char ___assert_task_state[1 - 2*!!(
 #define TASK_STOPPED		(TASK_WAKEKILL | __TASK_STOPPED)
 #define TASK_TRACED		(TASK_WAKEKILL | __TASK_TRACED)
 
+#define TASK_IDLE		(TASK_UNINTERRUPTIBLE | TASK_NOLOAD)
 /* Convenience macros for the sake of wake_up */
 #define TASK_NORMAL		(TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE)
 #define TASK_ALL		(TASK_NORMAL | __TASK_STOPPED | __TASK_TRACED)
@@ -404,6 +407,7 @@ extern signed long schedule_timeout(signed long timeout);
 extern signed long schedule_timeout_interruptible(signed long timeout);
 extern signed long schedule_timeout_killable(signed long timeout);
 extern signed long schedule_timeout_uninterruptible(signed long timeout);
+extern signed long schedule_timeout_idle(signed long timeout);
 asmlinkage void schedule(void);
 extern void schedule_preempt_disabled(void);
 
