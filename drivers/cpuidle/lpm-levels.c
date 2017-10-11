@@ -820,14 +820,10 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 	/*
 	 * idx = 0 is the default LPM state
 	 */
-	int cpu = raw_smp_processor_id();
-
 	if (!idx) {
-      if(lpm_cpu_mode_allow(cpu, 0, from_idle)) {
 		stop_critical_timings();
 		wfi();
 		start_critical_timings();
-      }
 		return 1;
 	} else {
 		int affinity_level = 0;
@@ -922,8 +918,17 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		if (idx > 0)
 			update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, true);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if (!sleep_disabled) {
+			success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
+					true);
+		}
+#else
 		success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
-				true);
+			true);
+#endif
+/* SWISTOP */
 
 		if (idx > 0)
 			update_debug_pc_event(CPU_EXIT, idx, success,

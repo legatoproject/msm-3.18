@@ -223,7 +223,8 @@ static void cpu_idle_loop(void)
 			if (cpu_idle_force_poll || tick_check_broadcast_expired())
 				cpu_idle_poll();
 			else
-				cpu_idle_poll();
+				cpuidle_idle_call();
+
 			arch_cpu_idle_exit();
 		}
 
