@@ -286,7 +286,7 @@ void ubi_check_bad_image_and_swap(char *ubi_name)
 			}
 			if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
 				sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
-				kernel_restart("ubi check bad image and swap");
+				emergency_restart();
 			}
 	}
 	else {
@@ -359,7 +359,7 @@ int sierra_smem_handle_bad_partition_name(char * partition_name)
 		if (swap_flag) {
 			if (DS_IMAGE_FLAG_NOT_SET != bad_image_mask) {
 				sierra_smem_ds_write_bad_image_and_swap(bad_image_mask);
-				kernel_restart("ubi check bad image and swap");
+				emergency_restart();
 			}
 		}
 		else {

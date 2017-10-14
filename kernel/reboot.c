@@ -66,6 +66,22 @@ void (*pm_power_off_prepare)(void);
  */
 void emergency_restart(void)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* clear error reset count */
+	bsseterrcount(0);
+
+	/* set linux reset type */
+	if((bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR) &&
+		true != bscheckapplresettypeflag())
+	{
+		bssetresettype(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
+	}
+
+	dump_stack();
+#endif
+	/* SWISTOP */
+
 	kmsg_dump(KMSG_DUMP_EMERG);
 	machine_emergency_restart();
 }
