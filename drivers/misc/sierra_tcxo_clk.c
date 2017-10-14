@@ -33,7 +33,6 @@ struct swi_tcxo {
   struct attribute_group *attr_group;
   struct device *dev;
   struct clk *div_clk;   /* interface clock */
-  struct delayed_work work;
 };
 struct swi_tcxo *data = NULL;
 
@@ -107,11 +106,15 @@ static ssize_t sierra_tcxo_store(struct kobject *kobj,
   return count;
 }
 
-static void clk_gpio_enable(struct work_struct *work)
+static void clk_gpio_enable(struct work_struct *ignored)
 {
   /* Enable tcxo clk gpio */
   qpnp_pin_config(data->clk_gpio, &pm9635_gpio01_conf);
+  pr_debug("clock gpio enable\n");
 }
+
+static DECLARE_DELAYED_WORK(tcxo_work, clk_gpio_enable);
+
 static int sierra_tcxo_clk_probe(struct platform_device *pdev)
 {
   int ret = 0;
@@ -160,8 +163,7 @@ static int sierra_tcxo_clk_probe(struct platform_device *pdev)
   goto error_return;
   }
 
-  INIT_DELAYED_WORK(&data->work, clk_gpio_enable);
-  schedule_delayed_work(&data->work, msecs_to_jiffies(3000));
+  schedule_delayed_work(&tcxo_work, msecs_to_jiffies(3000));
   return 0;
 
   error_return:
@@ -178,6 +180,7 @@ static int sierra_tcxo_clk_probe(struct platform_device *pdev)
 
 static int sierra_tcxo_clk_remove(struct platform_device *pdev)
 {
+  cancel_delayed_work_sync(&tcxo_work);
 
   if(data->tcxo_obj)
   {
