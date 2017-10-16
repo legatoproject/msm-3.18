@@ -775,7 +775,8 @@ struct __attribute__((packed)) bscoworkmsg
   uint32_t bsfunctions;      /* bitmask for functions configured by modem side(ex. HISC) */
   uint8_t  bsresinfotype;    /* reset info type */
   uint8_t  bsresinfosource;  /* reset info source */
-  uint8_t  bsbreserved[2];   /* The unused memory */
+  uint8_t  bserrorfatalcount;/* sbl error fatal count */
+  uint8_t  bsbreserved[1];   /* The unused memory */
   uint32_t bsreserved[7];    /* The unused memory */
   uint32_t magic_end;        /* Magic ending flag */
   uint32_t crc32;            /* CRC32 of above fields */
