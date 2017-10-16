@@ -986,11 +986,6 @@ struct dwc3 {
 
 	wait_queue_head_t	wait_linkstate;
 	void			*dwc_ipc_log_ctxt;
-
-#ifdef CONFIG_SIERRA
-	/* Indicate if there have been a stall handshake responded to HOST side */
-	bool 			ep0_protocol_stall;
-#endif
 };
 
 /* -------------------------------------------------------------------------- */

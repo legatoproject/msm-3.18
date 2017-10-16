@@ -238,6 +238,9 @@
 #define NTN_DMA_RX_CH_CNT	(6)
 #define NTN_TX_Q_CNT		(3)
 #define NTN_RX_Q_CNT		(4)
+/*VLAN ids range for IPA offload*/
+#define MIN_VLAN_ID 1
+#define MAX_VLAN_ID 4094
 
 /**************************** Neutrino Defines Ends Here ***************************/
 
@@ -457,7 +460,7 @@
 		"<error>"))
 
 #define DWC_ETH_QOS_MAC_ADDR_LEN 6
-#define DWC_ETH_QOS_ETH_FRAME_LEN (ETH_FRAME_LEN + ETH_FCS_LEN + VLAN_HLEN)
+#define DWC_ETH_QOS_ETH_FRAME_LEN (1<<11)
 
 #define DWC_ETH_QOS_ETH_FRAME_LEN_IPA	(1<<11) /*IPA can support 2KB max pkt length*/
 
@@ -468,7 +471,8 @@
 #define DWC_ETH_QOS_MAX_DATA_PER_TX_BUF (1 << 12)	/* for testing purpose: 4 KB Maximum data per buffer pointer(in Bytes) */
 #define DWC_ETH_QOS_MAX_DATA_PER_TXD (DWC_ETH_QOS_MAX_DATA_PER_TX_BUF * 2)	/* Maxmimum data per descriptor(in Bytes) */
 
-#define DWC_ETH_QOS_MAX_SUPPORTED_MTU (DWC_ETH_QOS_ETH_FRAME_LEN)
+#define DWC_ETH_QOS_MAX_MTU_SIZE (1 << 11)     /*2KB to support gaint packets*/
+#define DWC_ETH_QOS_MAX_SUPPORTED_MTU DWC_ETH_QOS_MAX_MTU_SIZE
 #define DWC_ETH_QOS_MIN_SUPPORTED_MTU (ETH_ZLEN + ETH_FCS_LEN + VLAN_HLEN)
 
 #define DWC_ETH_QOS_RDESC3_OWN	0x80000000
@@ -1494,6 +1498,8 @@ struct DWC_ETH_QOS_prv_ipa_data {
 	/* Dev state */
 	bool is_dev_ready;
 	struct work_struct ntn_ipa_rdy_work;
+	bool vlan_enable;
+	unsigned short vlan_id;
 };
 
 struct DWC_ETH_QOS_prv_data {
@@ -1790,6 +1796,35 @@ void DWC_ETH_QOS_adjust_link(struct net_device *dev);
 
 /* For debug prints*/
 #define DRV_NAME "DWC_ETH_QOS_drv.c"
+#define dev_name_ipa_rx "IPA_RX"
+#define dev_name_emac_rx "EMAC_RX"
+#define dev_name_ipa_tx "IPA_TX"
+#define dev_name_emac_tx "EMAC_TX"
+
+#define PRINT_MAC(eth_ptr,count) \
+do {\
+   int i;\
+   unsigned char* ptr = eth_ptr;\
+   for ( i = 0;i <= (count);i++,(ptr)++)\
+   {\
+     printk("%02x%c",*ptr,i == (count)?' ':':');\
+   }\
+   printk("\n");\
+}while(0)
+
+#define PRINT_MAC_INFO( skb, _hw, _dir )\
+do {\
+	struct ethhdr* eth;\
+	skb_reset_mac_header(skb);\
+	eth = eth_hdr(skb);\
+	printk("eth type of pkt from %s: 0x%04x \n ",dev_name_##_hw##_##_dir,ntohs(eth->h_proto) );\
+	printk("Dst Mac address of pkt from %s:  ",dev_name_##_hw##_##_dir );\
+	PRINT_MAC(eth->h_dest,5);\
+	printk("Src Mac address of the pkt from %s:  ",dev_name_##_hw##_##_dir );\
+	PRINT_MAC(eth->h_source,5);\
+	printk("Dump of next 4B of skb->data from %s:  ",dev_name_##_hw##_##_dir );\
+	PRINT_MAC((unsigned char*)(skb->data)+ETH_HLEN,3 );\
+}while(0)
 
 #ifdef RELEASE_PACKAGE
 #undef NTN_DEBUG_L1

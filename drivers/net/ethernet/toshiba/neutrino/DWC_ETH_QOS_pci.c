@@ -293,6 +293,7 @@ static void parse_config_file(USHORT mdio_bus_id)
 	if(IS_ERR(filep)) {
 		NMSGPR_ALERT( "Mac configuration file not found\n");
 		NMSGPR_ALERT( "Using Default MAC Address\n");
+		kfree(data);
 		return;
 	}
 	else  {
@@ -417,7 +418,9 @@ static void DWC_ETH_QOS_pci_recovery_work_handler(struct work_struct *recovery)
 	   This avoids PCI writes which timeout since the link is down
 	   and cause the system to hang */
 	NMSGPR_ALERT("%s: Stopping phy and detaching net device\n", __func__);
-	phy_stop(pdata->phydev);
+	if (pdata->enable_phy && pdata->phydev)
+		phy_stop(pdata->phydev);
+
 	netif_device_detach(pdata->dev);
 }
 

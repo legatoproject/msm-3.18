@@ -795,10 +795,6 @@ static void dwc3_ep0_inspect_setup(struct dwc3 *dwc,
 	}
 
 	dbg_setup(0x00, ctrl);
-
-#ifdef CONFIG_SIERRA
-	dwc->ep0_protocol_stall = false;
-#endif
 	if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_STANDARD)
 		ret = dwc3_ep0_std_request(dwc, ctrl);
 	else
@@ -811,9 +807,6 @@ out:
 	if (ret < 0) {
 		dbg_event(0x0, "ERRSTAL", ret);
 		dwc3_ep0_stall_and_restart(dwc);
-#ifdef CONFIG_SIERRA
-		dwc->ep0_protocol_stall = true;
-#endif
 	}
 }
 
@@ -1094,31 +1087,22 @@ static void dwc3_ep0_xfernotready(struct dwc3 *dwc,
 
 	switch (event->status) {
 	case DEPEVT_STATUS_CONTROL_DATA:
-		dwc3_trace(trace_dwc3_ep0, "Control Data");
 		dep->dbg_ep_events.control_data++;
 
 		/*
-		 * according to USB2.0 spec 9.3.1, if the wLength of a control
-		 * transfer is zero,signifying there is no Data stage,and if such
-		 * event occur for a two stage transfer,there must be some
-		 * controller mistake occur.
-		 *
-		 * and from the point of robust programing, we should check the
-		 * extreme error condition,if such situation occured we should return
-		 * right away.
-		 *
-		 * this is only a workaround, we still looking for the root cause that
-		 * why such abnormal event occured in USB controller.
-		 *
+		 * When we issue a STALL and RESTART of EP0 OUT, then
+		 * ep0_next_event is set as DWC3_EP0_COMPLETE and we wait for
+		 * the next setup packet. We will ignore a XferNotReady (DATA)
+		 * event until setup packet arrives, so as to avoid HW latency
+		 * issues.
 		 */
-#ifdef CONFIG_SIERRA
-		if(dwc->three_stage_setup == false && dwc->ep0_protocol_stall == true)
-		{
-			dev_dbg(dwc->dev, "this is a wrong stage,and the STALL handsake have sended!\n");
-			dbg_event(epnum, "WRONGSTAGE", 0);
+		if (dwc->ep0_next_event == DWC3_EP0_COMPLETE) {
+			dwc3_trace(trace_dwc3_ep0, "Ignore Control Data");
 			return;
 		}
-#endif
+
+		dwc3_trace(trace_dwc3_ep0, "Control Data");
+
 		/*
 		 * We already have a DATA transfer in the controller's cache,
 		 * if we receive a XferNotReady(DATA) we will ignore it, unless

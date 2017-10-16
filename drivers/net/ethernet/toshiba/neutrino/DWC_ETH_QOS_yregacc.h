@@ -18844,7 +18844,7 @@
 
 /*#define MAC_HFR0_SAVLANINS_Mask (ULONG)(~(~0<<(1)))*/
 
-#define MAC_HFR0_SAVLANINS_Mask (ULONG)(0x1)
+#define MAC_HFR0_SAVLANINS_Mask (ULONG)(0x0)
 
 #define MAC_HFR0_SAVLANINS_UdfRd(data) do {\
 		MAC_HFR0_RgRd(data);\

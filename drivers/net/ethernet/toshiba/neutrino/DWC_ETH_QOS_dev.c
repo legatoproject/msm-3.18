@@ -1916,7 +1916,7 @@ static INT configure_mac_for_vlan_pkt(struct DWC_ETH_QOS_prv_data *pdata)
 #ifdef NTN_DRV_TEST_LOOPBACK
 	MAC_VLANTR_EVLS_UdfWr(0x0);
 #else
-	MAC_VLANTR_EVLS_UdfWr(0x3);
+	MAC_VLANTR_EVLS_UdfWr(0x0);
 #endif
 	/* Enable operation on the outer VLAN Tag, if present */
 	MAC_VLANTR_ERIVLT_UdfWr(0);
@@ -4018,7 +4018,9 @@ static INT configure_mac(struct DWC_ETH_QOS_prv_data *pdata)
                  * as 65 is not a valid channel it want route any multicast packet to channel. This will
                  * avoid RX DMA stall issue that was observed in past. */
 		//regval = ioread32((void*)(dwc_eth_ntn_reg_pci_base_addr + 0x3004));
-		regval = 0x02FF0000;
+		/* Configure the register value to 0xFFFF0000, so  all VLAN
+		   unbridged IP packets are still sent to IPA */
+		regval = 0xFFFF0000;
 		//regval = (regval & 0x00FF0000) | 0x02000000;
 		iowrite32(regval, (void*)(pdata->dev->base_addr + 0x3004));
 	}

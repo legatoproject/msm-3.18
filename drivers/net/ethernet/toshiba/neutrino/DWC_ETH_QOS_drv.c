@@ -1384,6 +1384,7 @@ static const struct net_device_ops DWC_ETH_QOS_netdev_ops = {
 #endif
 	.ndo_vlan_rx_add_vid = DWC_ETH_QOS_vlan_rx_add_vid,
 	.ndo_vlan_rx_kill_vid = DWC_ETH_QOS_vlan_rx_kill_vid,
+	.ndo_change_mtu         = DWC_ETH_QOS_change_mtu,
 };
 
 struct net_device_ops *DWC_ETH_QOS_get_netdev_ops(void)
@@ -1493,9 +1494,12 @@ static int DWC_ETH_QOS_alloc_rx_buf(UINT chInx, struct DWC_ETH_QOS_prv_data *pda
 
 static void DWC_ETH_QOS_configure_rx_fun_ptr(struct DWC_ETH_QOS_prv_data *pdata)
 {
+	int max_frame = 0;
 	DBGPR("-->DWC_ETH_QOS_configure_rx_fun_ptr\n");
+	max_frame = pdata->dev->mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;;
+	pdata->rx_buffer_len =  max_frame > DWC_ETH_QOS_ETH_FRAME_LEN ?
+                                   ALIGN(max_frame, 8) : DWC_ETH_QOS_ETH_FRAME_LEN;
 
-	pdata->rx_buffer_len = DWC_ETH_QOS_ETH_FRAME_LEN;
 	pdata->clean_rx = DWC_ETH_QOS_clean_rx_irq;
 	pdata->alloc_rx_buf = DWC_ETH_QOS_alloc_rx_buf;
 
@@ -2922,6 +2926,7 @@ static inline void DWC_ETH_QOS_get_rx_vlan(struct DWC_ETH_QOS_prv_data *pdata,
 			struct s_RX_NORMAL_DESC *rx_normal_desc)
 {
 	USHORT vlan_tag = 0;
+	ULONG vlan_tag_strip = 0;
 
 	if ((pdata->dev_state & NETIF_F_HW_VLAN_CTAG_RX) == NETIF_F_HW_VLAN_CTAG_RX) {
 		/* Receive Status RDES0 Valid ? */
@@ -2931,9 +2936,14 @@ static inline void DWC_ETH_QOS_get_rx_vlan(struct DWC_ETH_QOS_prv_data *pdata,
 			DBGPR_VLAN("%s:VLAN: RDES3.DWC_ETH_QOS_RDESC3_RS0V\n",__func__);
 			if (((rx_normal_desc->RDES3 & DWC_ETH_QOS_RDESC3_LT) == 0x40000)
 				|| ((rx_normal_desc->RDES3 & DWC_ETH_QOS_RDESC3_LT) == 0x50000)) {
-				vlan_tag = rx_normal_desc->RDES0 & 0xffff;
-				/* insert VLAN tag into skb */
-				__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
+                               /* read the VLAN tag stripping register */
+                                MAC_VLANTR_EVLS_UdfRd(vlan_tag_strip);
+                                if ( vlan_tag_strip )
+                                {
+				    vlan_tag = rx_normal_desc->RDES0 & 0xffff;
+				    /* insert VLAN tag into skb */
+				    __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
+                                }
 				pdata->xstats.rx_vlan_pkt_n++;
 				DBGPR_VLAN("%s:VLAN: RDES3.DWC_ETH_QOS_RDESC3_LT, TAG=%x\n",__func__,vlan_tag);
 			}
@@ -3386,7 +3396,6 @@ static int DWC_ETH_QOS_set_features(struct net_device *dev, netdev_features_t fe
 		DBGPR_VLAN("%s:VLAN: State change - txvlan disable\n",__func__);
 	}
 #endif	/* DWC_ETH_QOS_ENABLE_VLAN_TAG */
-
 	DBGPR("<--DWC_ETH_QOS_set_features\n");
 
 	return 0;
@@ -3416,6 +3425,43 @@ static netdev_features_t DWC_ETH_QOS_fix_features(struct net_device *dev, netdev
 	DBGPR("<--DWC_ETH_QOS_fix_features: %#llx\n", features);
 
 	return features;
+}
+
+static int DWC_ETH_QOS_change_mtu(struct net_device *netdev, int new_mtu)
+{
+	struct DWC_ETH_QOS_prv_data *pdata = netdev_priv(netdev);
+	int old_mtu   = netdev->mtu;
+	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
+
+	/*for MIN MTU, it may be possible that HW can add padded bytes to
+	  make it 60B. However, currently MIN MTU is not being supporting
+	  via this command
+        */
+	if ((max_frame < DWC_ETH_QOS_MIN_SUPPORTED_MTU) ||
+	    (max_frame > DWC_ETH_QOS_MAX_SUPPORTED_MTU)) {
+		NMSGPR_ERR("invalid MTU setting %s: %s: %d: %d\n",__FILE__,__FUNCTION__,__LINE__,max_frame);
+		return -EINVAL;
+	}
+	/*set MTU */
+	if (old_mtu != new_mtu && netif_running(netdev)) {
+		NDBGPR_L2("changing MTU from %d to %d\n", netdev->mtu, new_mtu);
+		netdev->mtu = new_mtu;
+		pdata->dev->mtu = new_mtu;
+		pdata->rx_buffer_len = max_frame > DWC_ETH_QOS_ETH_FRAME_LEN ?
+				   ALIGN(max_frame, 8) : DWC_ETH_QOS_ETH_FRAME_LEN;
+		netdev_update_features(netdev);
+		/*reconfigure or restart the mac */
+		DWC_ETH_QOS_close(netdev);
+		DWC_ETH_QOS_open(netdev);
+		/*program the MAC HW for giant pkt if max_frame> 1522 B*/
+		if ( max_frame > DWC_ETH_QOS_ETH_FRAME_LEN )
+		{
+		    MAC_MCR_GPSLCE_UdfWr((ULONG)0x1);
+		    MAC_MECR_GPSL_UdfWr((ULONG)0x1<<11);
+		}
+	}
+
+	return 0;
 }
 
 
@@ -4517,7 +4563,68 @@ static int NTN_TDM_Config(struct DWC_ETH_QOS_prv_data *pdata, struct ifr_data_st
         return ret;
 }
 
+static int DWC_ETH_QOS_handle_prv_ioctl_ipa(struct DWC_ETH_QOS_prv_data *pdata,
+		struct ifreq *ifr)
+{
+	struct ifr_data_struct_ipa *ipa_ioctl_data;
+	int ret = 0;
+	int chInx_tx_ipa, chInx_rx_ipa;
+	unsigned long missing;
 
+	DBGPR("-->DWC_ETH_QOS_handle_prv_ioctl_ipa\n");
+
+	if ( !ifr || !ifr->ifr_ifru.ifru_data  )
+		return -EINVAL;
+
+	ipa_ioctl_data = kzalloc(sizeof(struct ifr_data_struct_ipa), GFP_KERNEL);
+	if (!ipa_ioctl_data)
+		return -ENOMEM;
+
+	missing = copy_from_user(ipa_ioctl_data, ifr->ifr_ifru.ifru_data, sizeof(struct ifr_data_struct_ipa));
+	if (missing) 
+		return -EFAULT;
+
+	chInx_tx_ipa = ipa_ioctl_data->chInx_tx_ipa;
+	chInx_rx_ipa = ipa_ioctl_data->chInx_rx_ipa;
+
+	if ( (chInx_tx_ipa != NTN_TX_DMA_CH_2) ||
+			(chInx_rx_ipa != NTN_RX_DMA_CH_0) )
+	{
+		NMSGPR_ERR("the RX/TX channels passed are not owned by IPA,correct channels to \
+				pass TX: %d RX: %d \n",NTN_TX_DMA_CH_2,NTN_RX_DMA_CH_0);
+		return DWC_ETH_QOS_CONFIG_FAIL;
+	}
+
+	switch ( ipa_ioctl_data->cmd ){
+
+		case DWC_ETH_QOS_IPA_VLAN_ENABLE_CMD:
+		   if (!pdata->prv_ipa.vlan_enable) {
+			   if (ipa_ioctl_data->vlan_id > MIN_VLAN_ID && ipa_ioctl_data->vlan_id <= MAX_VLAN_ID){
+				   pdata->prv_ipa.vlan_id = ipa_ioctl_data->vlan_id;
+				   ret = DWC_ETH_QOS_disable_enable_ipa_offload(pdata,chInx_tx_ipa,chInx_rx_ipa);
+				   if (!ret)
+					pdata->prv_ipa.vlan_enable = true;
+		   }
+		   else
+			NMSGPR_ERR("INVALID VLAN-ID: %d passed in the IOCTL cmd \n",ipa_ioctl_data->vlan_id);
+		   }
+		   break;
+		case DWC_ETH_QOS_IPA_VLAN_DISABLE_CMD:
+			if (pdata->prv_ipa.vlan_enable) {
+				pdata->prv_ipa.vlan_id = 0;
+				ret = DWC_ETH_QOS_disable_enable_ipa_offload(pdata,chInx_tx_ipa,chInx_rx_ipa);
+				if (!ret)
+					pdata->prv_ipa.vlan_enable = false;
+			}
+		   break;
+
+		default:
+			ret = -EOPNOTSUPP;
+			NMSGPR_ERR( "Unsupported IPA IOCTL call\n");
+	}
+
+	return ret;
+}
 /*!
  * \brief Driver IOCTL routine
  *
@@ -5221,6 +5328,14 @@ static int DWC_ETH_QOS_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		ret = DWC_ETH_QOS_handle_prv_ioctl(pdata, req);
 		req->command_error = ret;
 		break;
+
+	case DWC_ETH_QOS_PRV_IOCTL_IPA:
+		if ( !pdata->prv_ipa.ipa_uc_ready ) {
+			NMSGPR_INFO("IPA uc is not ready \n");
+			break;
+		}
+		ret = DWC_ETH_QOS_handle_prv_ioctl_ipa(pdata, ifr);
+        break;
 
 	case SIOCSHWTSTAMP:
 		ret = DWC_ETH_QOS_handle_hwtstamp_ioctl(pdata, ifr);

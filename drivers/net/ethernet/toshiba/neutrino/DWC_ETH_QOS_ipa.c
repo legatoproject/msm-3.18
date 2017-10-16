@@ -53,31 +53,31 @@ static const char *bit_mask_string[] = {
 
 int DWC_ETH_QOS_enable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata)
 {
-	int ret;
+	int ret = Y_SUCCESS;
 	struct hw_if_struct *hw_if = &pdata->hw_if;
 
 	/* Enable offload flag in NTN HW */
 	hw_if->enable_offload(pdata);
 
-	if (!pdata->prv_ipa.ipa_offload_init) {
+	if (pdata->prv_ipa.ipa_uc_ready  && !pdata->prv_ipa.ipa_offload_init) {
 		ret = DWC_ETH_QOS_ipa_offload_init(pdata);
 		if (ret) {
 			pdata->prv_ipa.ipa_offload_init = false;
 			NMSGPR_ERR("IPA Offload Init Failed \n");
 			goto fail;
 		}
-		NDBGPR_L1("IPA Offload Initialized Successfully \n");
+		NMSGPR_INFO("IPA Offload Initialized Successfully \n");
 		pdata->prv_ipa.ipa_offload_init = true;
 	}
 
-	if (!pdata->prv_ipa.ipa_offload_conn) {
+	if (pdata->prv_ipa.ipa_uc_ready && !pdata->prv_ipa.ipa_offload_conn) {
 		ret = DWC_ETH_QOS_ipa_offload_connect(pdata);
 		if (ret) {
 			NMSGPR_ERR("IPA Offload Connect Failed \n");
 			pdata->prv_ipa.ipa_offload_conn = false;
 			goto fail;
 		}
-		NDBGPR_L1("IPA Offload Connect Successfully\n");
+		NMSGPR_INFO("IPA Offload Connect Successfully\n");
 		pdata->prv_ipa.ipa_offload_conn = true;
 	}
 
@@ -90,7 +90,7 @@ int DWC_ETH_QOS_enable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata)
 
 	if (!pdata->prv_ipa.ipa_debugfs_exists) {
 		if (!DWC_ETH_QOS_ipa_create_debugfs(pdata)) {
-			NDBGPR_L1("NTN Debugfs created  \n");
+			NMSGPR_INFO("NTN Debugfs created  \n");
 			pdata->prv_ipa.ipa_debugfs_exists = true;
 		} else NMSGPR_ERR("NTN Debugfs failed \n");
 	}
@@ -99,6 +99,20 @@ int DWC_ETH_QOS_enable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata)
 	return ret;
 
 fail:
+	if ( pdata->prv_ipa.ipa_offload_conn ) {
+		if( DWC_ETH_QOS_ipa_offload_disconnect(pdata) )
+			NMSGPR_ERR("IPA Offload Disconnect Failed \n");
+		else
+			NMSGPR_INFO("IPA Offload Disconnect Successfully \n");
+		pdata->prv_ipa.ipa_offload_conn = false;
+	}
+	if ( pdata->prv_ipa.ipa_offload_init ) {
+		if ( DWC_ETH_QOS_ipa_offload_cleanup(pdata ))
+			NMSGPR_ERR("IPA Offload Cleanup Failed \n");
+		else
+			NMSGPR_INFO("IPA Offload Cleanup Success \n");
+		pdata->prv_ipa.ipa_offload_init = false;
+	}
 	/* Disable offload flag in NTN HW */
 	hw_if->disable_offload(pdata);
 
@@ -107,8 +121,8 @@ fail:
 
 int DWC_ETH_QOS_disable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata)
 {
-	int ret;
 	struct hw_if_struct *hw_if = &pdata->hw_if;
+	int ret = Y_SUCCESS;
 
 	/* De-configure IPA Related Stuff */
 	if (pdata->prv_ipa.ipa_offload_conn) {
@@ -118,7 +132,7 @@ int DWC_ETH_QOS_disable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata)
 			return ret;
 		}
 		pdata->prv_ipa.ipa_offload_conn = false;
-		NDBGPR_L1("IPA Offload Disconnect Successfully \n");
+		NMSGPR_INFO("IPA Offload Disconnect Successfully \n");
 	}
 
 	if (pdata->prv_ipa.ipa_offload_init) {
@@ -127,7 +141,7 @@ int DWC_ETH_QOS_disable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata)
 			NMSGPR_ERR("IPA Offload Cleanup Failed, err: %d\n", ret);
 			return ret;
 		}
-		NDBGPR_L1("IPA Offload Cleanup Success \n");
+		NMSGPR_INFO("IPA Offload Cleanup Success \n");
 		pdata->prv_ipa.ipa_offload_init = false;
 	}
 	NMSGPR_INFO("IPA Offload Disabled successfully\n");
@@ -143,6 +157,63 @@ int DWC_ETH_QOS_disable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata)
 	hw_if->disable_offload(pdata);
 
 	return ret;
+}
+
+/* This function is called from IOCTL when new RX/TX properties have to
+   be registered with IPA e.g VLAN hdr insertion deletion */
+int DWC_ETH_QOS_disable_enable_ipa_offload(struct DWC_ETH_QOS_prv_data *pdata, int chInx_tx_ipa, int chInx_rx_ipa)
+{
+		struct hw_if_struct *hw_if = &(pdata->hw_if);
+		int ret = Y_SUCCESS;
+
+		/*stop the IPA owned DMA channels */
+		ret = hw_if->stop_dma_rx(chInx_rx_ipa, pdata);
+		if (ret != Y_SUCCESS) {
+			   NMSGPR_ERR("%s stop_dma_rx failed %d\n", __func__, ret);
+			   return ret;
+		}
+
+		ret = hw_if->stop_dma_tx(chInx_tx_ipa, pdata);
+		if (ret != Y_SUCCESS) {
+			  NMSGPR_ERR("%s stop_dma_tx failed %d\n", __func__, ret);
+			  return ret;
+		}
+
+		/*disable IPA pipe first*/
+		ret = DWC_ETH_QOS_disable_ipa_offload(pdata);
+		if ( ret ){
+					 NMSGPR_ERR("%s:%d unable to disable ipa offload\n",
+							   __func__, __LINE__);
+					 return ret;
+		}
+		else {
+			 hw_if->tx_desc_init(pdata, chInx_tx_ipa);
+			 hw_if->rx_desc_init(pdata, chInx_rx_ipa);
+
+			 /*if VLAN-id is passed, then make the VLAN+ETH hdr
+			   and register the RX/TX properties*/
+			 ret = DWC_ETH_QOS_enable_ipa_offload(pdata);
+			 if (ret) {
+					   NMSGPR_ERR("%s:%d unable to enable ipa offload\n",
+									  __func__, __LINE__);
+					   return ret;
+			 }
+			 else {
+				ret = hw_if->start_dma_tx(chInx_tx_ipa, pdata);
+				if (ret != Y_SUCCESS) {
+						NMSGPR_ERR("%s start_dma_tx failed %d\n", __func__, ret);
+						return ret;
+				}
+
+				ret = hw_if->start_dma_rx(chInx_rx_ipa, pdata);
+				if (ret != Y_SUCCESS){
+						NMSGPR_ERR("%s start_dma_rx failed %d\n", __func__, ret);
+						return ret;
+				}
+			 }
+		}
+
+		return ret;
 }
 
 static void DWC_ETH_QOS_ipaUcRdy_wq(struct work_struct *work)
@@ -262,6 +333,8 @@ int DWC_ETH_QOS_ipa_offload_init(struct DWC_ETH_QOS_prv_data *pdata)
 	struct DWC_ETH_QOS_prv_ipa_data *ntn_ipa = &pdata->prv_ipa;
 	struct ethhdr ntn_l2_hdr_v4;
 	struct ethhdr ntn_l2_hdr_v6;
+	struct vlan_ethhdr ntn_vlan_hdr_v4;
+	struct vlan_ethhdr ntn_vlan_hdr_v6;
 	int ret;
 
 	if(!pdata) {
@@ -273,24 +346,42 @@ int DWC_ETH_QOS_ipa_offload_init(struct DWC_ETH_QOS_prv_data *pdata)
 	memset(&out, 0, sizeof(out));
 
 	/* Building ETH Header */
-	memset(&ntn_l2_hdr_v4, 0, sizeof(ntn_l2_hdr_v4));
-	memset(&ntn_l2_hdr_v6, 0, sizeof(ntn_l2_hdr_v6));
-	memcpy(&ntn_l2_hdr_v4.h_source, pdata->dev->dev_addr, ETH_ALEN);
-	ntn_l2_hdr_v4.h_proto = htons(ETH_P_IP);
-	memcpy(&ntn_l2_hdr_v6.h_source, pdata->dev->dev_addr, ETH_ALEN);
-	ntn_l2_hdr_v6.h_proto = htons(ETH_P_IPV6);
+	if ( !pdata->prv_ipa.vlan_id ) {
+		memset(&ntn_l2_hdr_v4, 0, sizeof(ntn_l2_hdr_v4));
+		memset(&ntn_l2_hdr_v6, 0, sizeof(ntn_l2_hdr_v6));
+		memcpy(&ntn_l2_hdr_v4.h_source, pdata->dev->dev_addr, ETH_ALEN);
+		ntn_l2_hdr_v4.h_proto = htons(ETH_P_IP);
+		memcpy(&ntn_l2_hdr_v6.h_source, pdata->dev->dev_addr, ETH_ALEN);
+		ntn_l2_hdr_v6.h_proto = htons(ETH_P_IPV6);
+		in.hdr_info[0].hdr = (u8 *)&ntn_l2_hdr_v4;
+		in.hdr_info[0].hdr_len = ETH_HLEN;
+		in.hdr_info[1].hdr = (u8 *)&ntn_l2_hdr_v6;
+		in.hdr_info[1].hdr_len = ETH_HLEN;
+	}
+	if ( pdata->prv_ipa.vlan_id > MIN_VLAN_ID && pdata->prv_ipa.vlan_id <= MAX_VLAN_ID ) {
+		memset(&ntn_vlan_hdr_v4, 0, sizeof(ntn_vlan_hdr_v4));
+		memset(&ntn_vlan_hdr_v6, 0, sizeof(ntn_vlan_hdr_v6));
+		memcpy(&ntn_vlan_hdr_v4.h_source, pdata->dev->dev_addr, ETH_ALEN);
+		ntn_vlan_hdr_v4.h_vlan_proto = htons(ETH_P_8021Q);
+		ntn_vlan_hdr_v4.h_vlan_encapsulated_proto = htons(ETH_P_IP);
+		ntn_vlan_hdr_v4.h_vlan_TCI = htons(pdata->prv_ipa.vlan_id);
+		in.hdr_info[0].hdr = (u8 *)&ntn_vlan_hdr_v4;
+		in.hdr_info[0].hdr_len = VLAN_ETH_HLEN;
+		memcpy(&ntn_vlan_hdr_v6.h_source, pdata->dev->dev_addr, ETH_ALEN);
+		ntn_vlan_hdr_v6.h_vlan_proto = htons(ETH_P_8021Q);
+		ntn_vlan_hdr_v6.h_vlan_encapsulated_proto = htons(ETH_P_IPV6);
+		ntn_vlan_hdr_v6.h_vlan_TCI = htons(pdata->prv_ipa.vlan_id);
+		in.hdr_info[1].hdr = (u8 *)&ntn_vlan_hdr_v6;
+		in.hdr_info[1].hdr_len = VLAN_ETH_HLEN;
+	}
 
 	/* Building IN params */
 	in.netdev_name = pdata->dev->name;
 	in.priv = pdata;
 	in.notify = ntn_ipa_notify_cb;
 	in.proto = IPA_UC_NTN;
-	in.hdr_info[0].hdr = (u8 *)&ntn_l2_hdr_v4;
-	in.hdr_info[0].hdr_len = ETH_HLEN;
 	in.hdr_info[0].dst_mac_addr_offset = 0;
 	in.hdr_info[0].hdr_type = IPA_HDR_L2_ETHERNET_II;
-	in.hdr_info[1].hdr = (u8 *)&ntn_l2_hdr_v6;
-	in.hdr_info[1].hdr_len = ETH_HLEN;
 	in.hdr_info[1].dst_mac_addr_offset = 0;
 	in.hdr_info[1].hdr_type = IPA_HDR_L2_ETHERNET_II;
 
