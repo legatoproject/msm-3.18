@@ -529,7 +529,17 @@ CONFIG_CRYPTO_SHA256=y
 # Enable Hardware Random Number Generator
 CONFIG_HW_RANDOM_MSM_LEGACY=y
 CONFIG_UBI_VOLS_NOT_CHK_CRC="rootfs legato"
-# SWISTOP
 # Set Kernel log buffer size to 256KB
 CONFIG_LOG_BUF_SHIFT=18
 # CONFIG_ANDROID_PARANOID_NETWORK is not set
+# Enable for systemtap
+CONFIG_KPROBES=y
+CONFIG_RELAY=y
+
+# Enable lockup detecting
+CONFIG_LOCKDEP=y
+CONFIG_LOCKUP_DETECTOR=y
+CONFIG_HARDLOCKUP_DETECTOR=y
+
+# SWISTOP
+
