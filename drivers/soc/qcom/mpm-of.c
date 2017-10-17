@@ -680,9 +680,22 @@ EXPORT_SYMBOL(msm_mpm_suspend_wake);
 static void msm_mpm_work_fn(struct work_struct *work)
 {
 	unsigned long flags;
+	int ret;
+
 	while (1) {
 		bool allow;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if (!wait_for_completion_timeout(&wake_wq,
+					msecs_to_jiffies(30000)))
+		{
+			pr_warn("Timed out waiting mpm workqueue completion\n");
+			continue;
+		}
+#else
 		wait_for_completion(&wake_wq);
+#endif
+/* SWISTART */
 		spin_lock_irqsave(&msm_mpm_lock, flags);
 		allow = msm_mpm_irqs_detectable(true) &&
 				msm_mpm_gpio_irqs_detectable(true);
