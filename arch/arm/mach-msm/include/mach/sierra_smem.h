@@ -171,6 +171,22 @@
 #define BC_SMEM_MSG_MAGIC_BEG      0x92B15380U
 #define BC_SMEM_MSG_MAGIC_END      0x31DDF742U
 
+/* Reliability feature configuration data region*/
+#define RELIABILITY_CNFG_FTUR_BEG           0x434e4647   /* "CNFG" in ASCII*/
+#define RELIABILITY_CNFG_FTUR_END           0x434e4647   /* "CNFG" in ASCII*/
+#define CNFG_FTUR_SIZE                      255          /* reliability configuration array length */
+#define INVALID_RELIABILITY_CNFG_DATA       0xFF         /* Invalid reliability configuration data */
+#define SPI_RECOVERY_MODE                   2            /* SPI recovery mode */
+#define USB_RECOVERY_MODE                   1            /* USB recovery mode */
+#define DEFAULT_RECOVERY_MODE               1            /* USB recovery mode by default*/
+#define ENSABLE_PROGRAM_SCRUGB              2            /* Enable program scrub */
+#define DEFAULT_PROGRAM_SCRUGB              1            /* Disable program scrub by default*/
+#define SUPPORT_GPIO_TRIG_RECOVERY          2            /* Support SPI GPIO trigger recovery mode */
+#define DISABLE_GPIO_TRIG_RECOVERY          1            /* Disable SPI GPIO trigger recovery mode by default*/
+#define DEFAULT_MIRROR_SET                  2            /* Both systems are mirror by default*/
+#define ENABLE_SIERRA_UART_LOG              1            /* Enable sierra uart log*/
+#define DISABLE_SIERRA_UART_LOG             2            /* Disable sierra uart log*/
+
 #define BS_SMEM_SECBOOT_MAGIC_BEG      0x5342494DU
 #define BS_SMEM_SECBOOT_MAGIC_END      0x5342494DU
 
@@ -381,6 +397,20 @@ enum bcmsg_mailbox_e
   BCMSG_MBOX_APPL,
   BCMSG_MBOX_MAX  = BCMSG_MBOX_APPL,
   BCMSG_MBOX_NUM,
+};
+
+enum blfeaturecnfg
+{
+    BC_FTURCNFG_MIN,
+    BC_FTURCNFG_DUMP_MODE = BC_FTURCNFG_MIN,
+    BC_FTURCNFG_RECOVERY_MODE,
+    BC_FTURCNFG_SIERRA_UART_LOG_FLAG,
+    BC_FTURCNFG_MIRROR_SET,
+    BC_FTURCNFG_PROGRAM_SCRUB,
+    BC_FTURCNFG_POWER_FAULT_MODE,
+    BC_FTURCNFG_POWER_FAULT_GPIO,
+    BC_FTURCNFG_SUP_GPIO_TRIG_RCVY,
+    BC_FTURCNFG_MAX = BC_FTURCNFG_SUP_GPIO_TRIG_RCVY,
 };
 
 /************
