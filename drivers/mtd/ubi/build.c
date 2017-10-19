@@ -1145,6 +1145,15 @@ int ubi_detach_mtd_dev(int ubi_num, int anyway)
 {
 	struct ubi_device *ubi;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if ((NULL != current) && (NULL != current->parent))
+		pr_info("func %s, pid %d, name %s\n", __func__, current->pid, current->parent->comm);
+	else
+		pr_info("func %s, current is error\n", __func__);
+#endif
+/* SWISTOP */
+
 	if (ubi_num < 0 || ubi_num >= UBI_MAX_DEVICES)
 		return -EINVAL;
 

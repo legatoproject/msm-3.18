@@ -207,7 +207,10 @@ retry:
 
 /* SWISTART */
 		sierra_inquire_smem_ptable_name(partition_name, ubi->mtd->index, UBI_MAX_VOLUME_NAME);
-		ubi_err(ubi, "partition_name:%s", partition_name);
+		if ((NULL != current) && (NULL != current->parent))
+			ubi_err(ubi, "partition_name:%s, pid %d, name %s", partition_name, current->pid, current->parent->comm);
+		else
+			ubi_err(ubi, "ubi_io_read current is error");
 
 		err = sierra_get_dual_system_proc_buffer(pro_name, SIERRA_PROC_NODE_MAX_NAME);
 		if(!err) {
