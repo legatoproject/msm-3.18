@@ -68,16 +68,6 @@ void emergency_restart(void)
 {
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	/* clear error reset count */
-	bsseterrcount(0);
-
-	/* set linux reset type */
-	if((bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR) &&
-		true != bscheckapplresettypeflag())
-	{
-		bssetresettype(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
-	}
-
 	dump_stack();
 #endif
 /* SWISTOP */
@@ -241,19 +231,6 @@ void kernel_restart(char *cmd)
 		pr_emerg("Restarting system\n");
 	else
 		pr_emerg("Restarting system with command '%s'\n", cmd);
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	/* clear error reset count */
-	bsseterrcount(0);
-
-	/* set linux reset type */
-	if((bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR) && 
-		true != bscheckapplresettypeflag())
-	{
-		bssetresettype(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
-	}
-#endif
-/* SWISTOP */
 	kmsg_dump(KMSG_DUMP_RESTART);
 	machine_restart(cmd);
 }
