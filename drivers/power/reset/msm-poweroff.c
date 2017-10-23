@@ -406,6 +406,17 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 			pm_power_off();
 		}
 	}
+
+	/* clear error reset count */
+	if (!(in_panic || restart_mode == RESTART_DLOAD))
+		bsseterrcount(0);
+
+	/* set linux reset type */
+	if((bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR) &&
+		true != bscheckapplresettypeflag())
+	{
+		bssetresettype(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
+	}
 #endif
 /* SWISTOP */
 
