@@ -26,7 +26,9 @@
 	};
 
 	aliases {
-		/*serial0 = &blsp1_uart5;*/
+		serial = &blsp1_uart2_ls;
+		uart0 = &blsp1_uart2;
+		uart1 = &blsp1_uart5;
 		spi2  = &spi_2;
 	};
 };
@@ -46,6 +48,17 @@
 		interrupt-names = "vbus_det_irq";
 	};
 
+	blsp1_uart2_ls: serial@78b0000 { /* BLSP1 UART2 */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78b0000 0x200>;
+		interrupts = <0 108 0>;
+
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
+	};
+
 	tlmm_pinmux: pinctrl@1000000 {
 		/*undefine use of qcom,tlmm-emmc-boot-select*/
 		qcom,tlmm-emmc-boot-select;
@@ -57,6 +70,18 @@
 			};
 			config {
 				pins = "gpio8", "gpio9";
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		uart2_console_active: uart2_console_active {
+			mux {
+				pins = "gpio4", "gpio5";
+				function = "blsp_uart2";
+			};
+			config {
+				pins = "gpio4", "gpio5";
 				drive-strength = <2>;
 				bias-pull-down;
 			};
@@ -340,8 +365,10 @@
 	status = "ok";
 };
 
-&blsp1_uart3 {
+&blsp1_uart2_ls {
 	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_console_active>;
 };
 
 &qnand_1 {
