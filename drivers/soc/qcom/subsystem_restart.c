@@ -1084,8 +1084,10 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		__pm_stay_awake(&dev->ssr_wlock);
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-		/* It is a workaround, if we found root cause then we will revert it */
-		panic("subsys-restart: Resetting the SoC - crashed.");
+		if(bsgetpowerfaultflag())
+		{
+			panic("power fault panic!");
+		}
 #endif
 /* SWISTOP */
 		schedule_work(&dev->device_restart_work);
