@@ -63,6 +63,13 @@
 		qcom,bam-producer-pipe-index = <21>;
 		qcom,master-id = <86>;
 		sierra,deassert-time = <20>;
+
+		spidev1@0 {
+			compatible = "sierra,spidev";
+			spi-max-frequency = <50000000>;
+			reg = <0>;
+		};
+
 		spidev2@0 {
 			compatible = "sierra,spidev";
 			spi-max-frequency = <50000000>;
