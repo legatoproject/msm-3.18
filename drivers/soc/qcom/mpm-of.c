@@ -671,7 +671,6 @@ static void msm_mpm_work_fn(struct work_struct *work)
 		if (!wait_for_completion_timeout(&wake_wq,
 					msecs_to_jiffies(30000)))
 		{
-			pr_warn("Timed out waiting mpm workqueue completion\n");
 			continue;
 		}
 #else
