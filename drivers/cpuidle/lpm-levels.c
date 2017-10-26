@@ -124,6 +124,18 @@ module_param_named(
 
 #ifdef CONFIG_SIERRA
 static bool sleep_disabled = 1;
+struct notifier_block lpm_panic_blk;
+
+static int panic_lpm_handler(struct notifier_block *this,
+			      unsigned long event, void *ptr)
+{
+	/* When the kernel panic, will disable LPM sleep mode
+	 * to make MSM_WATCHDOG can bark and make sure system
+	 * restart successfully.
+	 */
+	sleep_disabled = 1;
+	return NOTIFY_DONE;
+}
 #else
 static bool sleep_disabled;
 #endif /*CONFIG_SIERRA*/
@@ -1381,6 +1393,17 @@ static int lpm_probe(struct platform_device *pdev)
 
 	if (print_parsed_dt)
 		cluster_dt_walkthrough(lpm_root_node);
+
+	/*
+	 * Register panic notifier. When the kernel panic, will disable LPM
+	 * sleep mode to make MSM_WATCHDOG can bark and make sure system
+	 * restart successfully.
+	 */
+#ifdef CONFIG_SIERRA
+	lpm_panic_blk.notifier_call = panic_lpm_handler;
+	atomic_notifier_chain_register(&panic_notifier_list,
+				       &lpm_panic_blk);
+#endif /*CONFIG_SIERRA*/
 
 	/*
 	 * Register hotplug notifier before broadcast time to ensure there
