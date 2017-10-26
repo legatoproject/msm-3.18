@@ -320,6 +320,11 @@ static int panic_wdog_handler(struct notifier_block *this,
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+
+#ifdef CONFIG_SIERRA
+	stop_kick_watchdog = 1;
+#endif /*CONFIG_SIERRA*/
+
 	return NOTIFY_DONE;
 }
 
