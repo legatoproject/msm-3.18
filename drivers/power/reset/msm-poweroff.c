@@ -78,6 +78,11 @@ static void *dload_mode_addr;
 static bool dload_mode_enabled;
 static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int emergency_restart_flag = 0;
+#endif
+/* SWISTOP */
 
 static int dload_set(const char *val, struct kernel_param *kp);
 /* interface for exporting attributes */
@@ -302,6 +307,19 @@ static void msm_restart_prepare(const char *cmd)
 		need_warm_reset = (get_dload_mode() ||
 				(cmd != NULL && cmd[0] != '\0'));
 	}
+
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(emergency_restart_flag || bsgetwarmresetflag())
+	{
+		need_warm_reset = true;
+		emergency_restart_flag = 0;
+		bsclearwarmresetflag();
+	}
+	pr_err("need_warm_reset: %d\n", need_warm_reset);
+#endif
+/* SWISTOP */
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {

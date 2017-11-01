@@ -32,7 +32,9 @@ extern int8_t bs_uart_fun_get (uint uart_num);
 
 extern struct bs_resin_timer bsgetresintimer(void);
 extern bool bsgetpowerfaultflag(void);
-extern bool bsclearpowerfaultflag(void);
+extern void bsclearpowerfaultflag(void);
 extern bool bsgetbsfunction(uint32_t bitmask);
-extern bool bsclearbsfunction(uint32_t bitmask);
+extern void bsclearbsfunction(uint32_t bitmask);
+extern bool bsgetwarmresetflag(void);
+extern void bsclearwarmresetflag(void);
 #endif
