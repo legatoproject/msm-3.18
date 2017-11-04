@@ -1508,7 +1508,6 @@ enum mci_protocol_status_code_e swimcu_pm_wait_time_config(
 	enum mci_protocol_status_code_e s_code;
 	uint8_t count = MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_PARAMS_COUNT;
 	uint32_t buffer[MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG_PARAMS_COUNT];
-	uint32_t bitfield;
 
 	buffer[0] = (uint32_t)MCI_PROTOCOL_PM_POWER_OFF_TIME_CONFIG;
 	buffer[1] = wait_sync_time;

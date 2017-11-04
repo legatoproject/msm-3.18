@@ -165,7 +165,7 @@ static struct adc_trigger_config {
 };
 
 static uint32_t adc_interval = 0;
-static const char * const poweroff_argv[] = {"/sbin/poweroff", NULL};
+static char *poweroff_argv[] = {"/sbin/poweroff", NULL};
 
 #define SWIMCU_PM_WAIT_SYNC_TIME 40000
 #define PM_STATE_IDLE     0
