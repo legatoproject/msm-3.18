@@ -141,6 +141,12 @@
 	sierra,deassert-time = <20>;
 };
 
+&i2c_4 {
+	bmi160@68 {
+		status = "disabled";
+	};
+};
+
 &usb_otg {
 	qcom,hsusb-otg-phy-init-seq =
 		<0x44 0x80 0x30 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
