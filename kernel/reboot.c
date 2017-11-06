@@ -50,6 +50,12 @@ int reboot_cpu;
 enum reboot_type reboot_type = BOOT_ACPI;
 int reboot_force;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+extern int emergency_restart_flag;
+#endif
+/* SWISTOP */
+
 /*
  * If set, this is used for preparing the system to power off.
  */
@@ -68,6 +74,7 @@ void emergency_restart(void)
 {
 /* SWISTART */
 #ifdef CONFIG_SIERRA
+	emergency_restart_flag = 1;
 	dump_stack();
 #endif
 	/* SWISTOP */

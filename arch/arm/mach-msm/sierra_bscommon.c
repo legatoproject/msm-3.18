@@ -580,7 +580,7 @@ EXPORT_SYMBOL(bsgetpowerfaultflag);
  * Notes:
  *
  ************/
-bool bsclearpowerfaultflag(void)
+void bsclearpowerfaultflag(void)
 {
 	struct bscoworkmsg *mp;
 	unsigned char *virtual_addr;
@@ -673,7 +673,7 @@ EXPORT_SYMBOL(bsgetbsfunction);
  * Notes:
  *
  ************/
-bool bsclearbsfunction(uint32_t bitmask)
+void bsclearbsfunction(uint32_t bitmask)
 {
 	struct bscoworkmsg *mp;
 	unsigned char *virtual_addr;
@@ -692,3 +692,88 @@ bool bsclearbsfunction(uint32_t bitmask)
 	return;
 }
 EXPORT_SYMBOL(bsclearbsfunction);
+
+/************
+ *
+ * Name:     bsgetwarmresetflag()
+ *
+ * Purpose:  Get the warm reset flag
+ *
+ * Parms:    none
+ *
+ * Return:   returns whether we need do warm reset
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+bool bsgetwarmresetflag(void)
+{
+	struct bscoworkmsg *mp;
+	unsigned char *virtual_addr;
+	bool result = false;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (virtual_addr) {
+	/*  APPL mailbox */
+		virtual_addr += BSMEM_COWORK_OFFSET;
+
+		mp = (struct bscoworkmsg *)virtual_addr;
+
+		if (mp->magic_beg == BS_SMEM_COWORK_MAGIC_BEG &&
+			mp->magic_end == BS_SMEM_COWORK_MAGIC_END ) {
+			/* doube check CRC */
+			if (mp->crc32 == crc32_le(~0, (void *)mp, BS_COWORK_CRC_SIZE)) {
+				result = (mp->bsfunctions & BSFUNCTIONS_WARMRESET)? true: false;
+			} else {
+				printk(KERN_ERR"sierra:-%s-failed: crc error", __func__);
+			}
+		} else {
+			pr_err(KERN_ERR"sierra:-%s-failed: smem have not initized", __func__);
+			return false;
+		}
+	} else {
+		pr_err(KERN_ERR"sierra:-%s-failed: get virtual_add error", __func__);
+		return false;
+	}
+
+	return result;
+}
+EXPORT_SYMBOL(bsgetwarmresetflag);
+
+/************
+ *
+ * Name:     bsclearwarmresetflag()
+ *
+ * Purpose:  Clear the warm reset flag
+ *
+ * Parms:    none
+ *
+ * Return:   none
+ *
+ * Abort:    none
+ *
+ * Notes:
+ *
+ ************/
+void bsclearwarmresetflag(void)
+{
+	struct bscoworkmsg *mp;
+	unsigned char *virtual_addr;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (virtual_addr)
+	{
+		/*  APPL mailbox */
+		virtual_addr += BSMEM_COWORK_OFFSET;
+		mp = (struct bscoworkmsg *)virtual_addr;
+
+		mp->bsfunctions &= ~BSFUNCTIONS_WARMRESET;
+		mp->crc32 = crc32(~0, (void *)mp, BS_COWORK_CRC_SIZE);
+	}
+
+	return;
+}
+EXPORT_SYMBOL(bsclearwarmresetflag);
+
