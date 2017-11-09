@@ -110,6 +110,11 @@ static int ipi_opt_en;
 module_param(ipi_opt_en, int, 0);
 
 #ifdef CONFIG_SIERRA
+#define MSM_SOFTDOG_MAGIC 'W'
+#define GET_MSM_SOFTDOG_MARGIN _IOR(MSM_SOFTDOG_MAGIC, 1, int)
+#define SET_MSM_SOFTDOG_MARGIN _IOW(MSM_SOFTDOG_MAGIC, 2, int)
+#define STOP_KICK_MSM_SOFTDOG _IO(MSM_SOFTDOG_MAGIC, 3)
+#define START_KICK_MSM_SOFTDOG _IO(MSM_SOFTDOG_MAGIC, 4)
 /*
  * By default stop to kick the msm_watchdog.
  * When the system starts ok, will start to
@@ -117,9 +122,8 @@ module_param(ipi_opt_en, int, 0);
  */
 static int stop_kick_watchdog = 1;
 #define MAX_MSM_DOGS	6	/* Maximum number of msm_watchdog devices */
-#define TIMER_MARGIN	60	/* Default is 60 seconds */
 #define msm_softdog_num  3
-static unsigned int soft_margin = TIMER_MARGIN;	/* in seconds */
+static unsigned int soft_margin = 60;	/* Default is 60 seconds */
 static struct class *msm_softdog_class;
 static dev_t msm_softdog_devt;
 struct msm_softdog_data{
@@ -151,6 +155,7 @@ static int msm_softdog_open(struct inode *inode, struct file *file)
 	if(softdogdd == NULL)
 		return 1;
 	if(softdogdd->softdog_en == 1){
+		printk(KERN_INFO"msm_softdog%d was reopened! \n", softdogdd->dev_id);
 		mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
 		file->private_data = softdogdd;
 		return 0;
@@ -162,6 +167,7 @@ static int msm_softdog_open(struct inode *inode, struct file *file)
 	add_timer(&softdogdd->softdog_timer);
 	softdogdd->softdog_en = 1;
 	file->private_data = softdogdd;
+	printk(KERN_INFO"msm_softdog%d was opened! \n", softdogdd->dev_id);
 	return 0;
 }
 
@@ -175,15 +181,52 @@ static ssize_t msm_softdog_write(struct file *file, const char __user *data,
 	return 1;
 }
 
-static int msm_softdog_release(struct inode *inode, struct file *file)
+static int  msm_softdog_ioctl( struct file *file, unsigned int command, unsigned long arg)
 {
-	struct msm_softdog_data *softdogdd;
-
-	/* Get the corresponding watchdog device */
-	softdogdd = container_of(inode->i_cdev, struct msm_softdog_data, softdog_cdev);
+	struct msm_softdog_data *softdogdd = file->private_data;
 	if(softdogdd == NULL)
 		return 1;
-	del_timer_sync(&softdogdd->softdog_timer);
+
+	switch(command)
+	{
+	case SET_MSM_SOFTDOG_MARGIN :
+		soft_margin = arg;
+		if(softdogdd->softdog_en == 1){
+			mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
+			printk(KERN_INFO"Set msm_softdog%d margin to %d \n", softdogdd->dev_id, arg);
+		}
+		break;
+	case GET_MSM_SOFTDOG_MARGIN :
+		arg = (softdogdd->softdog_timer.expires - jiffies)/HZ;
+		printk(KERN_INFO"Get msm_softdog%d, it is %d \n", softdogdd->dev_id, arg);
+		break;
+	case STOP_KICK_MSM_SOFTDOG :
+		if(softdogdd->softdog_en == 1){
+			del_timer_sync(&softdogdd->softdog_timer);
+			softdogdd->softdog_en = 0;
+			printk(KERN_INFO"msm_softdog%d was stoped! \n", softdogdd->dev_id);
+		}
+		break;
+	case START_KICK_MSM_SOFTDOG :
+		if(softdogdd->softdog_en == 1){
+			printk(KERN_INFO"msm_softdog%d was restarted! \n", softdogdd->dev_id);
+			mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
+			file->private_data = softdogdd;
+			return 0;
+		}
+		init_timer(&softdogdd->softdog_timer);
+		softdogdd->softdog_timer.data = (unsigned long)softdogdd;
+		softdogdd->softdog_timer.function = msm_softdogfire;
+		softdogdd->softdog_timer.expires = jiffies + soft_margin*HZ;
+		add_timer(&softdogdd->softdog_timer);
+		softdogdd->softdog_en = 1;
+		file->private_data = softdogdd;
+		printk(KERN_INFO"msm_softdog%d was started!\n", softdogdd->dev_id);
+		break;
+	default :
+		break ;
+	}
+
 	return 0;
 }
 
@@ -191,6 +234,7 @@ static const struct file_operations msm_softdog_fops = {
 	.owner		= THIS_MODULE,
 	.write		= msm_softdog_write,
 	.open		= msm_softdog_open,
+	.unlocked_ioctl		= msm_softdog_ioctl,
 };
 
 static void msm_watchdog_dev_unregister(struct msm_softdog_data *softdog_dd)
