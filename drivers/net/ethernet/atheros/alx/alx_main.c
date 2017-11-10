@@ -4786,7 +4786,13 @@ static void alx_ipa_cleanup_rm(struct alx_adapter *adpt)
         if (ret)
                 pr_err("Resource:IPA_RM_RESOURCE_ODU_ADAPT_PROD del fail %d\n",
 					ret);
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		ret = ipa_rm_inactivity_timer_destroy(IPA_RM_RESOURCE_ODU_ADAPT_PROD);
+		if (ret)
+			pr_err("Resource:IPA RM inactivity timer destroy fail %d\n", ret);
+#endif
+/* SWISTOP */
         ret = ipa_rm_delete_resource(IPA_RM_RESOURCE_ODU_ADAPT_CONS);
         if (ret)
                 pr_err("Resource:IPA_RM_RESOURCE_ODU_ADAPT_CONS del fail %d\n",
