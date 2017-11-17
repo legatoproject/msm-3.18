@@ -86,6 +86,7 @@ static void *dload_type_addr;
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 int emergency_restart_flag = 0;
+static int trigger_wdog_bite = 0;
 #endif
 /* SWISTOP */
 
@@ -321,6 +322,7 @@ static void msm_restart_prepare(const char *cmd)
 		need_warm_reset = true;
 		emergency_restart_flag = 0;
 		bsclearwarmresetflag();
+		trigger_wdog_bite = 1;
 	}
 	pr_err("need_warm_reset: %d\n", need_warm_reset);
 #endif
@@ -442,7 +444,13 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 	 * device will take the usual restart path.
 	 */
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (trigger_wdog_bite)
+#else
 	if (WDOG_BITE_ON_PANIC && in_panic)
+#endif
+/* SWISTOP */
 		msm_trigger_wdog_bite();
 #endif
 
