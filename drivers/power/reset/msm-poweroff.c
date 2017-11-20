@@ -413,9 +413,21 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 	 * Trigger a watchdog bite here and if this fails,
 	 * device will take the usual restart path.
 	 */
-
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	if (WDOG_BITE_ON_PANIC && in_panic)
 		msm_trigger_wdog_bite();
+#else /* CONFIG_SIERRA */
+	/* also do wdog_bite based on Sierra warm reset flag, this will
+	 * maintain DDR self-refresh (case 03196576)
+	 */
+	if (WDOG_BITE_ON_PANIC &&
+		(in_panic || (reset_mode_swi == RESET_MODE_SWI_WARM))) {
+		pr_notice("reboot: trigger wdog bite\n");
+		msm_trigger_wdog_bite();
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 #endif
 
 	scm_disable_sdi();
