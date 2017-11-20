@@ -740,7 +740,7 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 		}
 		if (GET_VALUE(varDMA_RXCHSTS, DMA_RXCHSTS_RS_LPOS, DMA_RXCHSTS_RS_HPOS) & 1) {
 			pdata->xstats.rx_process_stopped_irq_n[chInx]++;
-				NMSGPR_ALERT( "RX Stopped for Channel = %d\n", chInx);
+				NDBGPR_L2("RX Stopped for Channel = %d\n", chInx);
 			DWC_ETH_QOS_GStatus = -E_DMA_RX_TS;
 		}
 		if (GET_VALUE(varDMA_RXCHSTS, DMA_RXCHSTS_FE_LPOS, DMA_RXCHSTS_FE_HPOS) & 1) {
@@ -748,12 +748,13 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 			DWC_ETH_QOS_GStatus = -E_DMA_RX_FE;
 
 			DMA_RXCHSTS_FESTS_UdfRd(chInx, varBitField);
-			NMSGPR_ALERT( "RX Fatal Bus error Status %#lx\n", varBitField);
+			NDBGPR_L2("RX Fatal Bus error Status %#lx\n", varBitField);
 
 			DMA_RXCHSTS_CHSTS_UdfRd(chInx, varBitField);
-			NMSGPR_ALERT( "RX Channel Status %#lx\n", varBitField);
+			NDBGPR_L2("RX Channel Status %#lx\n", varBitField);
 
-			DWC_ETH_QOS_restart_dev(pdata, chInx);
+			pdata->restart_channel_idx = chInx;
+			schedule_work(&pdata->restartdev_work);
 		}
 
 			chSts = GET_VALUE(var_raw_DMA_RXCHSTS, DMA_RXCHSTS_CHSTS_LPOS, DMA_RXCHSTS_CHSTS_HPOS);
@@ -764,7 +765,7 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 					break;
 				case DMA_RXCHSTS_CHSTS_STOP:
 					DMA_RXCHCTL_RgRd(chInx, temp);
-					NMSGPR_ALERT( "RX Channel %d Stopped : CTL = %lx\n", chInx, temp);
+					NDBGPR_L2("RX Channel %d Stopped : CTL = %lx\n", chInx, temp);
 					break;
 			}
     	}
@@ -804,7 +805,7 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 		}
 		if (GET_VALUE(varDMA_TXCHSTS, DMA_TXCHSTS_TS_LPOS, DMA_TXCHSTS_TS_HPOS) & 1) {
 			pdata->xstats.tx_process_stopped_irq_n[chInx]++;
-				NMSGPR_ALERT( "TX Stopped for Channel = %d\n", chInx);
+				NDBGPR_L2("TX Stopped for Channel = %d\n", chInx);
 			DWC_ETH_QOS_GStatus = -E_DMA_TX_TS;
 		}
 		if (GET_VALUE(varDMA_TXCHSTS, DMA_TXCHSTS_UNF_LPOS, DMA_TXCHSTS_UNF_HPOS) & 1) {
@@ -819,19 +820,20 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 			DWC_ETH_QOS_GStatus = -E_DMA_TX_FE;
 
                         DMA_TXCHSTS_FESTS_UdfRd(chInx, varBitField);
-            NMSGPR_ALERT( "TX Fatal Bus error Status %#lx\n", varBitField);
+            NDBGPR_L2("TX Fatal Bus error Status %#lx\n", varBitField);
 
                         DMA_TXCHSTS_CHSTS_UdfRd(chInx, varBitField);
-            NMSGPR_ALERT( "TX Channel Status %#lx\n", varBitField);
+            NDBGPR_L2("TX Channel Status %#lx\n", varBitField);
 
-			DWC_ETH_QOS_restart_dev(pdata, chInx);
+			pdata->restart_channel_idx = chInx;
+			schedule_work(&pdata->restartdev_work);
 		}
 
 		if ( (GET_VALUE(varDMA_TXCHSTS, DMA_TXCHSTS_ETC_LPOS, DMA_TXCHSTS_ETC_HPOS) & 1) ){
 			NDBGPR_L2( "ETC Interrupt is not handled\n");
 		}
 		if ( (GET_VALUE(varDMA_TXCHSTS, DMA_TXCHSTS_CDE_LPOS, DMA_TXCHSTS_CDE_HPOS) & 1) ){
-			NMSGPR_ALERT( "CDE Interrupt is not handled\n");
+			NDBGPR_L2("CDE Interrupt is not handled\n");
 		}
 
 			chSts = GET_VALUE(var_raw_DMA_TXCHSTS, DMA_TXCHSTS_CHSTS_LPOS, DMA_TXCHSTS_CHSTS_HPOS);
@@ -841,8 +843,10 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 					//NMSGPR_ALERT( "TX Channel %d Suspended\n", chInx);
 					break;
 				case DMA_TXCHSTS_CHSTS_STOP:
-					NMSGPR_ALERT( "TX Channel %d Stopped\n", chInx);
-					break;
+					NDBGPR_L2("TX Channel %d Stopped\n", chInx);
+ 					break;
+				default:
+				    break;
 			}
 
     }
@@ -870,7 +874,7 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 		/* RGMII/SMII interrupt */
 		if (GET_VALUE(varMAC_ISR, MAC_ISR_RGSMIIS_LPOS, MAC_ISR_RGSMIIS_HPOS) & 1) {
 			MAC_PCS_RgRd(varMAC_PCS);
-			NMSGPR_ALERT( "RGMII/SMII interrupt: MAC_PCS = %#lx\n", varMAC_PCS);
+			NDBGPR_L2("RGMII/SMII interrupt: MAC_PCS = %#lx\n", varMAC_PCS);
 			if ((varMAC_PCS & 0x80000) == 0x80000) {
 				pdata->pcs_link = 1;
 				netif_carrier_on(dev);
@@ -903,7 +907,7 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 
 		/* PCS Link Status interrupt */
 		if (GET_VALUE(varMAC_ISR, MAC_ISR_PCSLCHGIS_LPOS, MAC_ISR_PCSLCHGIS_HPOS) & 1) {
-			NMSGPR_ALERT( "PCS Link Status interrupt\n");
+			NDBGPR_L2("PCS Link Status interrupt\n");
 			MAC_ANS_RgRd(varMAC_ANS);
 			if (GET_VALUE(varMAC_ANS, MAC_ANS_LS_LPOS, MAC_ANS_LS_HPOS) & 1) {
 				NMSGPR_ALERT( "Link: Up\n");
@@ -918,7 +922,7 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 
 		/* PCS Auto-Negotiation Complete interrupt */
 		if (GET_VALUE(varMAC_ISR, MAC_ISR_PCSANCIS_LPOS, MAC_ISR_PCSANCIS_HPOS) & 1) {
-			NMSGPR_ALERT( "PCS Auto-Negotiation Complete interrupt\n");
+			NDBGPR_L2("PCS Auto-Negotiation Complete interrupt\n");
 			MAC_ANS_RgRd(varMAC_ANS);
 		}
 
@@ -930,12 +934,12 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 
 	/* Handle MAC LPI interrupts */
 	if (GET_VALUE(varNTN_INTC_INTSTATUS, NTN_INTC_INTSTATUS_MAC_LPI_LPOS, NTN_INTC_INTSTATUS_MAC_LPI_HPOS)) {
-		NMSGPR_ALERT( "Neutrino INTC MAC LPI status bit is set.\n");
+		NDBGPR_L2("Neutrino INTC MAC LPI status bit is set.\n");
         }
 
 	/* Handle MAC PM interrupts */
 	if (GET_VALUE(varNTN_INTC_INTSTATUS, NTN_INTC_INTSTATUS_MAC_PM_LPOS, NTN_INTC_INTSTATUS_MAC_PM_HPOS)) {
-		NMSGPR_ALERT( "Neutrino INTC MAC PM status bit is set.\n");
+		NDBGPR_L2("Neutrino INTC MAC PM status bit is set.\n");
         }
 
 	/* Handle TDM interrupts */
@@ -944,25 +948,25 @@ irqreturn_t DWC_ETH_QOS_ISR_SW_DWC_ETH_QOS(int irq, void *device_id)
 		NTN_INTC_TDMSTATUS_RgWr(var_NTN_INTC_TDMSTATUS);
 
 		if(var_NTN_INTC_TDMSTATUS & NTN_INTC_TDM_IP_0_OVERFLOW){
-			NMSGPR_ALERT( "Neutrino TDM Input 0 Overflow detected.\n");
+			NDBGPR_L2("Neutrino TDM Input 0 Overflow detected.\n");
 		}
 		if(var_NTN_INTC_TDMSTATUS & NTN_INTC_TDM_IP_1_OVERFLOW){
-			NMSGPR_ALERT( "Neutrino TDM Input 1 Overflow detected.\n");
+			NDBGPR_L2("Neutrino TDM Input 1 Overflow detected.\n");
 		}
 		if(var_NTN_INTC_TDMSTATUS & NTN_INTC_TDM_IP_2_OVERFLOW){
-			NMSGPR_ALERT( "Neutrino TDM Input 2 Overflow detected.\n");
+			NDBGPR_L2("Neutrino TDM Input 2 Overflow detected.\n");
 		}
 		if(var_NTN_INTC_TDMSTATUS & NTN_INTC_TDM_IP_3_OVERFLOW){
-			NMSGPR_ALERT( "Neutrino TDM Input 3 Overflow detected.\n");
+			NDBGPR_L2("Neutrino TDM Input 3 Overflow detected.\n");
 		}
 		if(var_NTN_INTC_TDMSTATUS & NTN_INTC_TDM_OP_OVERFLOW){
-			NMSGPR_ALERT( "Neutrino TDM Output Overflow detected.\n");
+			NDBGPR_L2("Neutrino TDM Output Overflow detected.\n");
 		}
 		if(var_NTN_INTC_TDMSTATUS & NTN_INTC_TDM_OP_UNDERFLOW){
-			NMSGPR_ALERT( "Neutrino TDM Output Underflow detected.\n");
+			NDBGPR_L2("Neutrino TDM Output Underflow detected.\n");
 		}
 		if(var_NTN_INTC_TDMSTATUS & NTN_INTC_TDM_GENERAL_ERROR){
-			NMSGPR_ALERT( "Neutrino TDM General error detected.\n");
+			NDBGPR_L2("Neutrino TDM General error detected.\n");
 		}
         }
 
@@ -5301,7 +5305,7 @@ static int DWC_ETH_QOS_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		return -EINVAL;
 	}
 
-	spin_lock(&pdata->lock);
+	mutex_lock(&pdata->mlock);
 	switch (cmd) {
 	case SIOCGMIIPHY:
 		data->phy_id = pdata->phyaddr;
@@ -5345,7 +5349,7 @@ static int DWC_ETH_QOS_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		ret = -EOPNOTSUPP;
 		NDBGPR_L1( "Unsupported IOCTL call\n");
 	}
-	spin_unlock(&pdata->lock);
+	mutex_unlock(&pdata->mlock);
 
 	DBGPR("<--DWC_ETH_QOS_ioctl\n");
 
@@ -5656,6 +5660,16 @@ void DWC_ETH_QOS_powerup_handler(struct work_struct *work)
 	DBGPR("<--DWC_ETH_QOS_powerup_handler\n");
 	DWC_ETH_QOS_powerup(pdata->dev, DWC_ETH_QOS_IOCTL_CONTEXT);
 	DBGPR("-->DWC_ETH_QOS_powerup_handler\n");
+}
+
+/* Work function to call restart device */
+void DWC_ETH_QOS_restart_dev_handler(struct work_struct *work)
+{
+	struct DWC_ETH_QOS_prv_data *pdata = container_of(work,
+		struct DWC_ETH_QOS_prv_data, restartdev_work);
+	DBGPR("-->DWC_ETH_QOS_restart_dev_handler\n");
+	DWC_ETH_QOS_restart_dev(pdata, pdata->restart_channel_idx);
+	DBGPR("<--DWC_ETH_QOS_restart_dev_handler\n");
 }
 
 /*!

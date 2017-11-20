@@ -1109,11 +1109,13 @@ static int DWC_ETH_QOS_probe(struct pci_dev *pdev,
 #endif	/* end of DWC_ETH_QOS_CONFIG_PTP */
 
 	spin_lock_init(&pdata->lock);
+	mutex_init(&pdata->mlock);
 	spin_lock_init(&pdata->tx_lock);
 	mutex_init(&pdata->pmt_lock);
 	spin_lock_init(&pdata->fqtss_lock);
 
 	INIT_WORK(&pdata->powerup_work, DWC_ETH_QOS_powerup_handler);
+	INIT_WORK(&pdata->restartdev_work, DWC_ETH_QOS_restart_dev_handler);
 
 	ret = register_netdev(dev);
 	if (ret) {
@@ -1248,6 +1250,7 @@ static void DWC_ETH_QOS_remove(struct pci_dev *pdev)
 	}
 
 	desc_if->free_queue_struct(pdata);
+
 
 	/* Deregister from PCI link events */
 	DWC_ETH_QOS_pci_event_deregister(pdev);

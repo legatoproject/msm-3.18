@@ -758,9 +758,9 @@ static int DWC_ETH_QOS_getsettings(struct net_device *dev,
 
 		cmd->transceiver = XCVR_EXTERNAL;
 
-		spin_lock_irq(&pdata->lock);
+		mutex_lock(&pdata->mlock);
 		ret = phy_ethtool_gset(pdata->phydev, cmd);
-		spin_unlock_irq(&pdata->lock);
+		mutex_unlock(&pdata->mlock);
 	}
 
 	DBGPR("<--DWC_ETH_QOS_getsettings\n");
@@ -821,9 +821,10 @@ static int DWC_ETH_QOS_setsettings(struct net_device *dev,
 		spin_unlock_irq(&pdata->lock);
 	} else {
 	        if (pdata->enable_phy) {
-		        spin_lock_irq(&pdata->lock);
+		        mutex_lock(&pdata->mlock);
+		        // makes call to phy_start_aneg
 		        ret = phy_ethtool_sset(pdata->phydev, cmd);
-		        spin_unlock_irq(&pdata->lock);
+		        mutex_unlock(&pdata->mlock);
 		} else {
 		        NMSGPR_ALERT("%s: PHY is not supported.\n", __func__);
 		}
