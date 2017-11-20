@@ -57,7 +57,7 @@ static const struct ud_usb_interface ud_interface_68A2[] = {
 	{	3,		"modem"				},
 	{	4,		"at" 				},
 	{	5,		"raw_data"			},
-	{	6,		"osa"				},
+	{	6,		"osa"				}, /* open sim access */
 	{	8,		"rmnet0"			},
 	{	9,		"mass_storage"			},
 	{	10,		"rmnet1"			},
