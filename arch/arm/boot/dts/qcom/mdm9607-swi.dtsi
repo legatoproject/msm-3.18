@@ -63,8 +63,6 @@
 				1 &intc 0 238 0
 				2 &tlmm_pinmux 5 0>;
 
-		qcom,inject-rx-on-wakeup;
-		qcom,rx-char-to-inject = <0xFD>;
 		qcom,bam-tx-ep-pipe-index = <2>;
 		qcom,bam-rx-ep-pipe-index = <3>;
 		qcom,master-id = <86>;
