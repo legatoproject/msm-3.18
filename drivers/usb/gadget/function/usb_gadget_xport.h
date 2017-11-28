@@ -27,6 +27,12 @@ enum transport_type {
 	USB_GADGET_XPORT_CHAR_BRIDGE,
 	USB_GADGET_XPORT_BAM_DMUX,
 	USB_GADGET_XPORT_NONE,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	USB_GADGET_XPORT_OSA,
+#endif
+/* SWISTOP */
+
 };
 
 #define XPORT_STR_LEN	12
@@ -54,6 +60,12 @@ static char *xport_to_str(enum transport_type t)
 		return "CHAR_BRIDGE";
 	case USB_GADGET_XPORT_BAM_DMUX:
 		return "BAM_DMUX";
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_OSA:
+		return "OSA";
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_NONE:
 		return "NONE";
 	default:
@@ -68,6 +80,12 @@ static enum transport_type str_to_xport(const char *name)
 
 	if (!strncasecmp("TTY", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_TTY;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (!strncasecmp("OSA", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_OSA;
+#endif
+/* SWISTOP */
 	if (!strncasecmp("SMD", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMD;
 	if (!strncasecmp("QTI", name, XPORT_STR_LEN))

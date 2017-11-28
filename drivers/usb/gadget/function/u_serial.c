@@ -1474,8 +1474,15 @@ int gserial_alloc_line(unsigned char *line_num)
 	coding.bCharFormat = 8;
 	coding.bParityType = USB_CDC_NO_PARITY;
 	coding.bDataBits = USB_CDC_1_STOP_BITS;
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* if the NMEA is not exist, skip port ttyGS0 */
+	port_num = nmea_port_exist() ? 0:1;
+	for ( ; port_num < MAX_U_SERIAL_PORTS; port_num++) {
+#else /* !CONFIG_SIERRA */
 	for (port_num = 0; port_num < MAX_U_SERIAL_PORTS; port_num++) {
+#endif
+/* SWISTART */
 		ret = gs_port_alloc(port_num, &coding);
 		if (ret == -EBUSY)
 			continue;
