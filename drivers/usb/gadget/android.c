@@ -32,6 +32,12 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/android.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+#include <linux/usb/sierra_ududefs.h>
+#endif
+/* SWISTOP */
+
 #include <linux/qcom/diag_dload.h>
 
 #include "gadget_chips.h"
@@ -42,6 +48,7 @@
 #endif
 #include "u_fs.h"
 #include "u_ecm.h"
+#include "u_eem.h"
 #include "u_ncm.h"
 #ifdef CONFIG_SND_RAWMIDI
 #include "f_midi.c"
@@ -1514,6 +1521,8 @@ static struct android_usb_function audio_function = {
 };
 #endif
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 /* PERIPHERAL uac2 */
 struct uac2_function_config {
 	struct usb_function *func;
@@ -1571,6 +1580,8 @@ static struct android_usb_function uac2_function = {
 	.cleanup	= uac2_function_cleanup,
 	.bind_config	= uac2_function_bind_config,
 };
+#endif
+/* SWISTOP */
 
 #ifdef CONFIG_MEDIA_SUPPORT
 /* PERIPHERAL VIDEO */
@@ -2676,6 +2687,143 @@ static struct android_usb_function rndis_qc_function = {
 	.attributes	= rndis_function_attributes,
 };
 
+struct eem_function_config {
+	u8      ethaddr[ETH_ALEN];
+	char	new_host_addr[20];
+	struct usb_function *func;
+	struct usb_function_instance *fi;
+	struct eth_dev *dev;
+};
+
+static int eem_function_init(struct android_usb_function *f,
+							struct usb_composite_dev *cdev)
+{
+	f->config = kzalloc(sizeof(struct eem_function_config), GFP_KERNEL);
+
+	if (!f->config)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static void eem_function_cleanup(struct android_usb_function *f)
+{
+	struct eem_function_config *config = f->config;
+	if (config) {
+		usb_put_function(config->func);
+		usb_put_function_instance(config->fi);
+	}
+
+	kfree(f->config);
+	f->config = NULL;
+}
+
+static int eem_function_bind_config(struct android_usb_function *f,
+									struct usb_configuration *c)
+{
+	int ret;
+	struct eem_function_config *eem = f->config;
+	struct f_eem_opts *eem_opts = NULL;
+
+	if (!eem) {
+		pr_err("%s: eem config is null\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_info("%s MAC: %s\n", __func__, eem->new_host_addr);
+
+	eem->fi = usb_get_function_instance("eem");
+	if (IS_ERR(eem->fi))
+		return PTR_ERR(eem->fi);
+
+	eem_opts = container_of(eem->fi, struct f_eem_opts, func_inst);
+	strlcpy(eem_opts->net->name, "eem%d", sizeof(eem_opts->net->name));
+	gether_set_qmult(eem_opts->net, qmult);
+	/* Reuse previous host_addr if already assigned */
+	if (eem->ethaddr[0]) {
+		gether_set_host_addr(eem_opts->net, eem->new_host_addr);
+		pr_debug("reusing host ethernet address\n");
+	} else {
+		/* first time, use one specified by user else random mac */
+		if (!gether_set_host_addr(eem_opts->net, host_addr))
+			pr_info("using host ethernet address: %s", host_addr);
+	}
+	if (!gether_set_dev_addr(eem_opts->net, dev_addr))
+		pr_info("using self ethernet address: %s", dev_addr);
+
+	gether_set_gadget(eem_opts->net, c->cdev->gadget);
+	ret = gether_register_netdev(eem_opts->net);
+	if (ret) {
+		pr_err("%s: register_netdev failed\n", __func__);
+		return ret;
+	}
+
+	eem_opts->bound = true;
+	gether_get_host_addr_u8(eem_opts->net, eem->ethaddr);
+	gether_get_host_addr(eem_opts->net, eem->new_host_addr,
+					sizeof(eem->new_host_addr));
+
+	eem->func = usb_get_function(eem->fi);
+	if (IS_ERR(eem->func)) {
+		pr_err("%s: usb_get_function failed\n", __func__);
+		return PTR_ERR(eem->func);
+	}
+
+	return usb_add_function(c, eem->func);
+}
+
+static void eem_function_unbind_config(struct android_usb_function *f,
+										struct usb_configuration *c)
+{
+	struct eem_function_config *eem = f->config;
+
+	usb_put_function_instance(eem->fi);
+}
+
+static ssize_t eem_ethaddr_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct eem_function_config *eem = f->config;
+
+	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
+		eem->ethaddr[0], eem->ethaddr[1], eem->ethaddr[2],
+		eem->ethaddr[3], eem->ethaddr[4], eem->ethaddr[5]);
+}
+
+static ssize_t eem_ethaddr_store(struct device *dev,
+				struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct eem_function_config *eem = f->config;
+
+	if (sscanf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
+			(int *)&eem->ethaddr[0], (int *)&eem->ethaddr[1],
+			(int *)&eem->ethaddr[2], (int *)&eem->ethaddr[3],
+			(int *)&eem->ethaddr[4], (int *)&eem->ethaddr[5]) == 6)
+		return size;
+
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(eem_ethaddr, S_IRUGO | S_IWUSR, eem_ethaddr_show,
+					eem_ethaddr_store);
+
+static struct device_attribute *eem_function_attributes[] = {
+	&dev_attr_eem_ethaddr,
+	NULL
+};
+
+
+static struct android_usb_function eem_function = {
+	.name       = "eem",
+	.init       = eem_function_init,
+	.cleanup    = eem_function_cleanup,
+	.bind_config    = eem_function_bind_config,
+	.unbind_config  = eem_function_unbind_config,
+	.attributes = eem_function_attributes,
+};
+
 static int ecm_function_init(struct android_usb_function *f,
 				struct usb_composite_dev *cdev)
 {
@@ -3260,6 +3408,7 @@ static struct android_usb_function *supported_functions[] = {
 	[ANDROID_RNDIS_BAM] = &rndis_qc_function,
 	[ANDROID_ECM] = &ecm_function,
 	[ANDROID_NCM] = &ncm_function,
+	[ANDROID_EEM] = &eem_function,
 	[ANDROID_UMS] = &mass_storage_function,
 	[ANDROID_ACCESSORY] = &accessory_function,
 	[ANDROID_AUDIO_SRC] = &audio_source_function,
@@ -3281,7 +3430,11 @@ static struct android_usb_function *default_functions[] = {
 	&ecm_qc_function,
 #ifdef CONFIG_SND_PCM
 	&audio_function,
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	&uac2_function,
+#endif
+/* SWISTOP */
 #endif
 #ifdef CONFIG_MEDIA_SUPPORT
 	&video_function,
@@ -3299,6 +3452,7 @@ static struct android_usb_function *default_functions[] = {
 	&rndis_qc_function,
 	&ecm_function,
 	&ncm_function,
+	&eem_function,
 	&mass_storage_function,
 	&accessory_function,
 	&audio_source_function,

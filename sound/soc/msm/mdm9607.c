@@ -23,6 +23,11 @@
 #include <sound/pcm.h>
 #include <sound/jack.h>
 #include <sound/q6afe-v2.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <sound/msm-dai-q6-v2.h>
+#endif
+/* SWISTOP */
 #include <soc/qcom/socinfo.h>
 #include <qdsp6v2/msm-pcm-routing-v2.h>
 #include <sound/q6core.h>
@@ -30,6 +35,11 @@
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9330.h"
 #include "../codecs/wcd9306.h"
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif /* SIERRA */
+/* SWISTOP */
 
 /* Spk control */
 #define MDM_SPK_ON 1
@@ -67,7 +77,16 @@
 #define GCC_PLLTEST_PAD_CFG (GCC_CLK_CTL_REG + 0x7400C)
 
 #define GCC_DEBUG_CLK_CTL_EN_VALUE 0x100ec
+
+/* SWISTART */
+/* HW advise to replace default 10mA to 6mA. this drive strength has better overshoot.
+Related qualcomm case: 02872684 */
+#ifndef CONFIG_SIERRA
 #define GCC_PLLTEST_PAD_CFG_EN_VALUE 0x1200
+#else
+#define GCC_PLLTEST_PAD_CFG_EN_VALUE 0x1100
+#endif
+/* SWISTOP */
 
 #define I2S_SEL 0
 #define I2S_PCM_SEL 1
@@ -86,6 +105,7 @@
 #define CLOCK_OFF 0
 
 /* Machine driver Name*/
+
 #define DRV_NAME "mdm9607-asoc-snd"
 
 enum mi2s_pcm_mux {
@@ -143,6 +163,21 @@ static int mdm_mi2s_mode = I2S_PCM_MASTER_MODE;
 static int mdm_sec_mi2s_mode = I2S_PCM_MASTER_MODE;
 static int mdm_auxpcm_mode = I2S_PCM_MASTER_MODE;
 static int mdm_sec_auxpcm_mode = I2S_PCM_MASTER_MODE;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+//static int mdm_auxpcm_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+static int mdm_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL ;
+static int mdm_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING ;
+static int mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
+
+static int mdm_sec_auxpcm_rate = SAMPLE_RATE_8KHZ;
+//static int mdm_sec_auxpcm_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+static int mdm_sec_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL;
+static int mdm_sec_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING;
+static int mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
+#endif
+/* SWISTOP */
 
 static int mdm_spk_control;
 static atomic_t aux_ref_count;
@@ -419,7 +454,16 @@ err:
 done:
 	if (ret < 0)
 		atomic_dec(&mi2s_ref_count);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (bs_support_get(BSFEATURE_INTERNALCODEC) == false)
+		return 0;
+	else
+		return ret;
+#else
 	return ret;
+#endif /* SIERRA */
+/* SWISTOP */
 }
 
 static int mdm_sec_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
@@ -1155,12 +1199,28 @@ static void mdm_sec_auxpcm_shutdown(struct snd_pcm_substream *substream)
 		if (ret)
 			pr_err("%s: failed to set sec gpios to sleep: %d\n",
 					__func__, ret);
+/* SWISTART */
+/*Case Number: 02604384*/
+#ifdef CONFIG_SIERRA
+		pr_err("shutdown second auxpcm\n");
+		ret = mdm_sec_mi2s_clk_ctl(rtd, false, 0, pdata->sec_mi2s_mode);
+		if (ret < 0)
+			pr_err("%s Clock disable failed\n", __func__);
+
+#endif
+/* SWISTOP */
 	}
 }
 
 static int mdm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+/* SWISTART */
+/*Case Number: 02604384*/
+#ifdef CONFIG_SIERRA
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+#endif
+/* SWISTOP */
 	struct snd_soc_card *card = rtd->card;
 	struct mdm_machine_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
@@ -1191,12 +1251,19 @@ static int mdm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 				ret = -EINVAL;
 				goto err;
 			}
+/* SWISTART */
+/*Case Number: 02604384*/
+#ifdef CONFIG_SIERRA
+			mdm_gpio_set_mux_ctl(pdata);
+#endif
+/* SWISTOP */
 		} else {
 			pr_err("%s lpaif_sec_muxsel_virt_addr is NULL\n",
 			       __func__);
 			ret = -EINVAL;
 			goto done;
 		}
+
 		if (pdata->sec_auxpcm_mode == 1) {
 			ret = wcd_gpio_ctrl_select_active_state
 						(pdata->sec_master_p);
@@ -1212,6 +1279,40 @@ static int mdm_sec_auxpcm_startup(struct snd_pcm_substream *substream)
 				goto err;
 			}
 		}
+
+/* SWISTART */
+/*Case Number: 02604384*/
+#ifdef CONFIG_SIERRA
+		/*
+		* This sets the CONFIG PARAMETER WS_SRC.
+		* 1 means  master mode.
+		* 0 means  slave mode.
+		*/
+		pr_debug("startup second auxpcm,sec_auxpcm_mode=%d\n",pdata->sec_auxpcm_mode);
+		if (pdata->sec_auxpcm_mode == 1) {
+			ret = mdm_sec_mi2s_clk_ctl(rtd, true,
+							mdm_sec_mi2s_rate, pdata->sec_mi2s_mode);
+			if (ret < 0) {
+				pr_err("%s clock enable failed\n", __func__);
+				goto err;
+			}
+		} else if (pdata->sec_auxpcm_mode == 0) {
+			/*
+			* Enable mclk here, if needed for external codecs.
+			* Optional. Refer primary mi2s slave interface.
+			*/
+			ret = snd_soc_dai_set_fmt(cpu_dai,
+					SND_SOC_DAIFMT_CBM_CFM);
+			if (ret < 0)
+				pr_err("%s Set fmt for cpu dai failed\n",
+					__func__);
+		} else {
+			pr_err("%s Invalid secondary mi2s mode\n", __func__);
+			atomic_dec(&sec_mi2s_ref_count);
+			ret = -EINVAL;
+		}
+#endif
+/* SWISTOP */
 	}
 err:
 	afe_enable_lpass_core_shared_clock(SECONDARY_I2S_RX, CLOCK_OFF);
@@ -1255,9 +1356,258 @@ static int mdm_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int mdm_sec_auxpcm_rate_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_sec_auxpcm_rate;
+	return 0;
+}
+
+static int mdm_sec_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_sec_auxpcm_rate = SAMPLE_RATE_8KHZ;
+		break;
+	case 1:
+		mdm_sec_auxpcm_rate = SAMPLE_RATE_16KHZ;
+		break;
+	default:
+		mdm_sec_auxpcm_rate = SAMPLE_RATE_8KHZ;
+		break;
+	}
+	return 0;
+}
+
+static int mdm_auxpcm_sync_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_auxpcm_sync;
+	return 0;
+}
+
+static int mdm_auxpcm_sync_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_EXTERNAL;
+		break;
+	case 1:
+		mdm_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL;
+		break;
+	default:
+		mdm_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL;
+		break;
+	}
+	pr_debug("%s: mdm_auxpcm_sync = %d, ucontrol->value.integer.value[0] = %d\n",
+		__func__,
+		mdm_auxpcm_sync,
+		(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mdm_auxpcm_quant_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_auxpcm_quant;
+	return 0;
+}
+
+static int mdm_auxpcm_quant_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_auxpcm_quant = AFE_PORT_PCM_ALAW_NOPADDING;
+		break;
+	case 1:
+		mdm_auxpcm_quant = AFE_PORT_PCM_MULAW_NOPADDING;
+		break;
+	case 2:
+		mdm_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING;
+		break;
+	case 3:
+		mdm_auxpcm_quant = AFE_PORT_PCM_ALAW_PADDING;
+		break;
+	case 4:
+		mdm_auxpcm_quant = AFE_PORT_PCM_MULAW_PADDING;
+		break;
+	case 5:
+		mdm_auxpcm_quant = AFE_PORT_PCM_LINEAR_PADDING;
+		break;
+	default:
+		mdm_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING;
+		break;
+	}
+	pr_debug("%s: mdm_auxpcm_quant = %d, ucontrol->value.integer.value[0] = %d\n",
+		__func__,
+		mdm_auxpcm_quant,
+		(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mdm_auxpcm_frame_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_auxpcm_frame;
+	return 0;
+}
+
+static int mdm_auxpcm_frame_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_8;
+		break;
+	case 1:
+		mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_16;
+		break;
+	case 2:
+		mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_32;
+		break;
+	case 3:
+		mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_64;
+		break;
+	case 4:
+		mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_128;
+		break;
+	case 5:
+		mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
+		break;
+	default:
+		mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
+		break;
+	}
+	pr_debug("%s: mdm_auxpcm_frame = %d, ucontrol->value.integer.value[0] = %d\n",
+		__func__,
+		mdm_auxpcm_frame,
+		(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mdm_sec_auxpcm_sync_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_sec_auxpcm_sync;
+	return 0;
+}
+
+static int mdm_sec_auxpcm_sync_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_sec_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_EXTERNAL;
+		break;
+	case 1:
+		mdm_sec_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL;
+		break;
+	default:
+		mdm_sec_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL;
+		break;
+	}
+	pr_debug("%s: mdm_auxpcm_sync = %d, ucontrol->value.integer.value[0] = %d\n",
+			__func__,
+			mdm_sec_auxpcm_sync,
+			(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mdm_sec_auxpcm_quant_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_sec_auxpcm_quant;
+	return 0;
+}
+
+static int mdm_sec_auxpcm_quant_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_sec_auxpcm_quant = AFE_PORT_PCM_ALAW_NOPADDING;
+		break;
+	case 1:
+		mdm_sec_auxpcm_quant = AFE_PORT_PCM_MULAW_NOPADDING;
+		break;
+	case 2:
+		mdm_sec_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING;
+		break;
+	case 3:
+		mdm_sec_auxpcm_quant = AFE_PORT_PCM_ALAW_PADDING;
+		break;
+	case 4:
+		mdm_sec_auxpcm_quant = AFE_PORT_PCM_MULAW_PADDING;
+		break;
+	case 5:
+		mdm_sec_auxpcm_quant = AFE_PORT_PCM_LINEAR_PADDING;
+		break;
+	default:
+		mdm_sec_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING;
+		break;
+	}
+	pr_debug("%s: mdm_auxpcm_quant = %d, ucontrol->value.integer.value[0] = %d\n",
+			__func__,
+			mdm_sec_auxpcm_quant,
+			(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mdm_sec_auxpcm_frame_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_sec_auxpcm_frame;
+	return 0;
+}
+
+static int mdm_sec_auxpcm_frame_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_8;
+		break;
+	case 1:
+		mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_16;
+		break;
+	case 2:
+		mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_32;
+		break;
+	case 3:
+		mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_64;
+		break;
+	case 4:
+		mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_128;
+		break;
+	case 5:
+		mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
+		break;
+	default:
+		mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
+		break;
+	}
+	pr_debug("%s: mdm_auxpcm_frame = %d, ucontrol->value.integer.value[0] = %d\n",
+			__func__,
+			mdm_sec_auxpcm_frame,
+			(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+#endif
+/* SWISTOP */
+
 static int mdm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					  struct snd_pcm_hw_params *params)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    struct msm_dai_auxpcm_pdata *auxpcm_pdata = rtd->cpu_dai->dev->platform_data;
+#endif
+/* SWISTOP */
 	struct snd_interval *rate =
 		hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
 
@@ -1267,8 +1617,132 @@ static int mdm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	rate->min = rate->max = mdm_auxpcm_rate;
 	channels->min = channels->max = 1;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	auxpcm_pdata->mode_8k.frame  = mdm_auxpcm_frame;
+	auxpcm_pdata->mode_16k.frame = mdm_auxpcm_frame;
+	auxpcm_pdata->mode_8k.quant  = mdm_auxpcm_quant;
+	auxpcm_pdata->mode_16k.quant = mdm_auxpcm_quant;
+	auxpcm_pdata->mode_8k.sync   = mdm_auxpcm_sync;
+	auxpcm_pdata->mode_16k.sync  = mdm_auxpcm_sync;
+
+	if (mdm_auxpcm_sync == AFE_PORT_PCM_SYNC_SRC_INTERNAL) {
+		auxpcm_pdata->mode_8k.mode  = mdm_auxpcm_mode;
+		auxpcm_pdata->mode_16k.mode = mdm_auxpcm_mode;
+
+		/* Pleae note that the less PCM clk supported is 512kHz, clk_tbl_pcm[] */
+		if (mdm_auxpcm_mode == AFE_PORT_PCM_AUX_MODE_PCM) {
+			auxpcm_pdata->mode_8k.pcm_clk_rate =
+				(int)(SAMPLE_RATE_8KHZ * 8 * (0x0001 << mdm_auxpcm_frame));
+			auxpcm_pdata->mode_16k.pcm_clk_rate =
+				(int)(SAMPLE_RATE_16KHZ  * 8 * (0x0001 << mdm_auxpcm_frame));
+
+			if( auxpcm_pdata->mode_8k.pcm_clk_rate < 64000)
+				auxpcm_pdata->mode_8k.pcm_clk_rate = 64000;
+
+			if( auxpcm_pdata->mode_16k.pcm_clk_rate < 128000)
+				auxpcm_pdata->mode_16k.pcm_clk_rate = 128000;
+		} else {
+			auxpcm_pdata->mode_8k.pcm_clk_rate = 128000;
+			auxpcm_pdata->mode_8k.frame= AFE_PORT_PCM_BITS_PER_FRAME_16;
+		}
+	} else {
+		/* AUX mode can't work at slave mode  */
+		auxpcm_pdata->mode_8k.mode  = AFE_PORT_PCM_AUX_MODE_PCM;
+		auxpcm_pdata->mode_16k.mode = AFE_PORT_PCM_AUX_MODE_PCM;
+		auxpcm_pdata->mode_8k.pcm_clk_rate  = 0;
+		auxpcm_pdata->mode_16k.pcm_clk_rate = 0;
+	}
+
+	pr_debug("%s() Pdata 8kHz: Mode=%d  Sync=%d  Frame=%d Quant=%d Clock=%d \n",
+			__func__,
+			auxpcm_pdata->mode_8k.mode,
+			auxpcm_pdata->mode_8k.sync,
+			auxpcm_pdata->mode_8k.frame,
+			auxpcm_pdata->mode_8k.quant,
+			auxpcm_pdata->mode_8k.pcm_clk_rate);
+	pr_debug("%s() Pdata 16kHz: Mode=%d  Sync=%d  Frame=%d Quant=%d Clock=%d \n",
+			__func__,
+			auxpcm_pdata->mode_16k.mode,
+			auxpcm_pdata->mode_16k.sync,
+			auxpcm_pdata->mode_16k.frame,
+			auxpcm_pdata->mode_16k.quant,
+			auxpcm_pdata->mode_16k.pcm_clk_rate);
+#endif
+/* SWISTOP */
 	return 0;
 }
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int mdm_sec_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					  struct snd_pcm_hw_params *params)
+{
+    struct msm_dai_auxpcm_pdata *sec_auxpcm_pdata = rtd->cpu_dai->dev->platform_data;
+	struct snd_interval *rate =
+		hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels =
+		hw_param_interval(params, SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = mdm_sec_auxpcm_rate;
+	channels->min = channels->max = 1;
+
+	sec_auxpcm_pdata->mode_8k.frame  = mdm_sec_auxpcm_frame;
+	sec_auxpcm_pdata->mode_16k.frame = mdm_sec_auxpcm_frame;
+	sec_auxpcm_pdata->mode_8k.quant  = mdm_sec_auxpcm_quant;
+	sec_auxpcm_pdata->mode_16k.quant = mdm_sec_auxpcm_quant;
+	sec_auxpcm_pdata->mode_8k.sync   = mdm_sec_auxpcm_sync;
+	sec_auxpcm_pdata->mode_16k.sync  = mdm_sec_auxpcm_sync;
+
+	if (mdm_sec_auxpcm_sync == AFE_PORT_PCM_SYNC_SRC_INTERNAL) {
+		sec_auxpcm_pdata->mode_8k.mode  = mdm_sec_auxpcm_mode;
+		sec_auxpcm_pdata->mode_16k.mode = mdm_sec_auxpcm_mode;
+
+		/* Pleae note that the less PCM clk supported is 512kHz, clk_tbl_pcm[] */
+		if (mdm_sec_auxpcm_mode == AFE_PORT_PCM_AUX_MODE_PCM) {
+			sec_auxpcm_pdata->mode_8k.pcm_clk_rate =
+				(int)(SAMPLE_RATE_8KHZ * 8 * (0x0001 << mdm_sec_auxpcm_frame));
+			sec_auxpcm_pdata->mode_16k.pcm_clk_rate =
+				(int)(SAMPLE_RATE_16KHZ * 8 * (0x0001 << mdm_sec_auxpcm_frame));
+
+			if (sec_auxpcm_pdata->mode_8k.pcm_clk_rate < 64000)
+					sec_auxpcm_pdata->mode_8k.pcm_clk_rate = 64000;
+
+			if (sec_auxpcm_pdata->mode_16k.pcm_clk_rate < 128000)
+					sec_auxpcm_pdata->mode_16k.pcm_clk_rate = 128000;
+
+		} else {
+			sec_auxpcm_pdata->mode_8k.pcm_clk_rate = 128000;
+			sec_auxpcm_pdata->mode_8k.frame = AFE_PORT_PCM_BITS_PER_FRAME_16;
+		}
+	} else {
+		/* AUX mode can't work at slave mode  */
+		sec_auxpcm_pdata->mode_8k.mode  = AFE_PORT_PCM_AUX_MODE_PCM;
+		sec_auxpcm_pdata->mode_16k.mode = AFE_PORT_PCM_AUX_MODE_PCM;
+		sec_auxpcm_pdata->mode_8k.pcm_clk_rate  = 0;
+		sec_auxpcm_pdata->mode_16k.pcm_clk_rate = 0;
+	}
+
+	pr_debug("%s() Pdata 8kHz: Mode=%d  Sync=%d  Frame=%d Quant=%d Clock=%d \n",
+			__func__,
+			sec_auxpcm_pdata->mode_8k.mode,
+			sec_auxpcm_pdata->mode_8k.sync,
+			sec_auxpcm_pdata->mode_8k.frame,
+			sec_auxpcm_pdata->mode_8k.quant,
+			sec_auxpcm_pdata->mode_8k.pcm_clk_rate);
+	pr_debug("%s() Pdata 16kHz: Mode=%d  Sync=%d  Frame=%d Quant=%d Clock=%d \n",
+			__func__,
+			sec_auxpcm_pdata->mode_16k.mode,
+			sec_auxpcm_pdata->mode_16k.sync,
+			sec_auxpcm_pdata->mode_16k.frame,
+			sec_auxpcm_pdata->mode_16k.quant,
+			sec_auxpcm_pdata->mode_16k.pcm_clk_rate);
+
+	return 0;
+}
+#endif
+/* SWISTOP */
 
 static const struct snd_soc_dapm_widget mdm9607_dapm_widgets[] = {
 
@@ -1292,8 +1766,12 @@ static const struct snd_soc_dapm_widget mdm9607_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic3", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic4", NULL),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MIC("Digital Mic5", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
+#endif
+/* SWISTOP */
 };
 
 static const char *const spk_function[] = {"Off", "On"};
@@ -1353,6 +1831,65 @@ static const struct snd_kcontrol_new mdm_snd_controls[] = {
 				 mdm_sec_auxpcm_mode_put),
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static const char *auxpcm_mode_text[] = {"PCM", "AUX"};
+static const char *auxpcm_sync_text[] = {"EXT", "INT"};
+static const char *auxpcm_quant_text[] = {"ALAW_NOPAD", "MULAW_NOPAD", "LINER_NOPAD", "ALAW_PAD", "MULAW_PAD", "LINER_PAD"};
+static const char *auxpcm_frame_text[] = {"BPB_8", "BPF_16", "BPF_32", "BPF_64", "BPF_128", "BPF_256"};
+
+static const struct soc_enum mdm_auxpcm_enum[] = {
+		SOC_ENUM_SINGLE_EXT(2, auxpcm_rate_text),
+		SOC_ENUM_SINGLE_EXT(2, auxpcm_mode_text),
+		SOC_ENUM_SINGLE_EXT(2, auxpcm_sync_text),
+		SOC_ENUM_SINGLE_EXT(6, auxpcm_quant_text),
+		SOC_ENUM_SINGLE_EXT(6, auxpcm_frame_text),
+};
+
+static const struct snd_kcontrol_new auxpcm_snd_controls[] = {
+	SOC_ENUM_EXT("AUX PCM Sample", mdm_auxpcm_enum[0],
+		mdm_auxpcm_rate_get, mdm_auxpcm_rate_put),
+	SOC_ENUM_EXT("AUX PCM Mode", mdm_auxpcm_enum[1],
+		mdm_auxpcm_mode_get, mdm_auxpcm_mode_put),
+	SOC_ENUM_EXT("AUX PCM Sync", mdm_auxpcm_enum[2],
+		mdm_auxpcm_sync_get, mdm_auxpcm_sync_put),
+	SOC_ENUM_EXT("AUX PCM Quant", mdm_auxpcm_enum[3],
+		mdm_auxpcm_quant_get, mdm_auxpcm_quant_put),
+	SOC_ENUM_EXT("AUX PCM Frame", mdm_auxpcm_enum[4],
+		mdm_auxpcm_frame_get, mdm_auxpcm_frame_put),
+	SOC_ENUM_EXT("SEC AUX PCM Sample", mdm_auxpcm_enum[0],
+		mdm_sec_auxpcm_rate_get, mdm_sec_auxpcm_rate_put),
+	SOC_ENUM_EXT("SEC AUX PCM Mode", mdm_auxpcm_enum[1],
+		mdm_sec_auxpcm_mode_get, mdm_auxpcm_mode_put),
+	SOC_ENUM_EXT("SEC AUX PCM Sync", mdm_auxpcm_enum[2],
+		mdm_sec_auxpcm_sync_get, mdm_sec_auxpcm_sync_put),
+	SOC_ENUM_EXT("SEC AUX PCM Quant", mdm_auxpcm_enum[3],
+		mdm_sec_auxpcm_quant_get, mdm_sec_auxpcm_quant_put),
+	SOC_ENUM_EXT("SEC AUX PCM Frame", mdm_auxpcm_enum[4],
+		mdm_sec_auxpcm_frame_get, mdm_sec_auxpcm_frame_put),
+	SOC_ENUM_EXT("SEC AUX PCM SampleRate", mdm_enum[3],
+		mdm_sec_auxpcm_rate_get, mdm_sec_auxpcm_rate_put),
+};
+
+static int mdm_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
+{
+  int err = 0;
+  struct snd_soc_platform *platform = rtd->platform;
+
+  err = snd_soc_add_platform_controls(platform,
+      auxpcm_snd_controls,
+      ARRAY_SIZE(auxpcm_snd_controls));
+  if (err < 0)
+  {
+    pr_err("%d\n", err);
+    return err;
+  }
+
+  return 0;
+}
+#endif
+/* SWISTOP */
+
 static int msm_snd_get_ext_clk_cnt(void)
 {
 	return clk_users;
@@ -1382,6 +1919,7 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * After DAPM Enable pins always
 	 * DAPM SYNC needs to be called.
 	 */
+
 	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
@@ -1391,7 +1929,11 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "Lineout_3 amp");
 	snd_soc_dapm_ignore_suspend(dapm, "Lineout_2 amp");
 	snd_soc_dapm_ignore_suspend(dapm, "Lineout_4 amp");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "ultrasound amp");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "Handset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "Headset Mic");
 	snd_soc_dapm_ignore_suspend(dapm, "ANCRight Headset Mic");
@@ -1400,16 +1942,23 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic2");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic3");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
-
 	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
@@ -1418,13 +1967,21 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC5");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC6");
+#endif
+/* SWISTOP */
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC2");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
+#endif
+/* SWISTOP */
 
 	snd_soc_dapm_sync(dapm);
 
@@ -2068,7 +2625,14 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.no_pcm = 1,
 		.dpcm_playback = 1,
 		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_RX,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.init = &mdm_auxpcm_init,
+		.be_hw_params_fixup = mdm_sec_auxpcm_be_params_fixup,
+#else
 		.be_hw_params_fixup = mdm_auxpcm_be_params_fixup,
+#endif
+/* SWISTOP */
 		.ops = &mdm_sec_auxpcm_be_ops,
 		.ignore_pmdown_time = 1,
 		.ignore_suspend = 1,
@@ -2083,7 +2647,13 @@ static struct snd_soc_dai_link mdm_dai[] = {
 		.no_pcm = 1,
 		.dpcm_capture = 1,
 		.be_id = MSM_BACKEND_DAI_SEC_AUXPCM_TX,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.be_hw_params_fixup = mdm_sec_auxpcm_be_params_fixup,
+#else
 		.be_hw_params_fixup = mdm_auxpcm_be_params_fixup,
+#endif
+/* SWISTOP */
 		.ops = &mdm_sec_auxpcm_be_ops,
 		.ignore_suspend = 1,
 	},
@@ -2179,13 +2749,67 @@ static struct snd_soc_card snd_soc_card_mdm_9306 = {
 	.num_links = ARRAY_SIZE(mdm_tapan_dai_links),
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct snd_soc_card snd_soc_card_mdm = {
+	.name = "qcom,mdm9607-audio-dummy",
+	.dai_link = mdm_dai,
+	.num_links = ARRAY_SIZE(mdm_dai),
+};
+#endif
+/* SWISTOP */
+
 static const struct of_device_id mdm_asoc_machine_of_match[]  = {
 	{ .compatible = "qcom,mdm9607-audio-tomtom",
 	  .data = "tomtom_codec"},
 	{ .compatible = "qcom,mdm9607-audio-tapan",
 	  .data = "tapan_codec"},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{ .compatible = "qcom,mdm9607-audio-dummy",
+	  .data = "dummy"},
+#endif
+/* SWISTOP */
 	{},
 };
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static void mdm_fill_dummy_codec(const void * codec)
+{
+	char *codec_name = "snd-soc-dummy";
+	char *codec_dai_name = "snd-soc-dummy-dai";
+	int i, arrlen_9330, arrlen_9306;
+
+	pr_info("%s, %d\n", __func__, __LINE__);
+	if (!strcmp(codec, "tomtom_codec"))
+	{
+		arrlen_9330 = ARRAY_SIZE(mdm_9330_dai);
+		for(i = 0; i < arrlen_9330; i++)
+		{
+			mdm_9330_dai[i].codec_name = codec_name;
+			mdm_9330_dai[i].codec_dai_name = codec_dai_name;
+			mdm_9330_dai[i].init = NULL;
+		}
+	}
+	else if (!strcmp(codec, "tapan_codec"))
+	{
+		arrlen_9306 = ARRAY_SIZE(mdm_9306_dai);
+		for(i = 0; i < arrlen_9306; i++)
+		{
+			mdm_9306_dai[i].codec_name = codec_name;
+			mdm_9306_dai[i].codec_dai_name = codec_dai_name;
+			mdm_9306_dai[i].init = NULL;
+		}
+	}
+	else
+	{
+		pr_info("%s, can't identify codec type\n", __func__);
+	}
+}
+#endif /* SIERRA */
+/* SWISTOP */
+
 
 static int mdm_populate_dai_link_component_of_node(
 					struct snd_soc_card *card)
@@ -2287,6 +2911,14 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		return NULL;
 	}
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* if there is no internal codec connect to board, fill a dummy codec*/
+	if (bs_support_get(BSFEATURE_INTERNALCODEC) == false)
+		mdm_fill_dummy_codec(match->data);
+#endif
+/* SWISTOP */
+
 	if (!strcmp(match->data, "tomtom_codec")) {
 		card = &snd_soc_card_mdm_9330;
 		len_1 = ARRAY_SIZE(mdm_dai);
@@ -2309,6 +2941,15 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			   sizeof(mdm_9306_dai));
 		dailink = mdm_tapan_dai_links;
 	}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	else if (!strcmp(match->data, "dummy")) {
+		card = &snd_soc_card_mdm;
+		len_2 = ARRAY_SIZE(mdm_dai);
+		dailink = mdm_dai;
+	}
+#endif
+/* SWISTOP */
 
 	if (card) {
 		card->dai_link = dailink;
@@ -2407,9 +3048,22 @@ static int mdm_asoc_machine_probe(struct platform_device *pdev)
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret)
 		goto err;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* if there is internal codec connect to board, add the audio routing */
+	if (bs_support_get(BSFEATURE_INTERNALCODEC) == true)
+	{
+		ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
+		if (ret)
+			goto err;
+	}
+#else
 	ret = snd_soc_of_parse_audio_routing(card, "qcom,audio-routing");
 	if (ret)
 		goto err;
+#endif
+/* SWISTOP */
+
 	ret = mdm_populate_dai_link_component_of_node(card);
 	if (ret) {
 		ret = -EPROBE_DEFER;

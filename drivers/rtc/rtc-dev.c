@@ -350,11 +350,24 @@ static long rtc_dev_ioctl(struct file *file,
 		return rtc_set_time(rtc, &tm);
 
 	case RTC_PIE_ON:
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_RTC
+		err = rtc_irq_set_state(rtc, rtc->irq_task, 1);
+#else
 		err = rtc_irq_set_state(rtc, NULL, 1);
+#endif
+/*SWISTOP*/
 		break;
 
 	case RTC_PIE_OFF:
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_RTC
+
+		err = rtc_irq_set_state(rtc, rtc->irq_task, 0);
+#else
 		err = rtc_irq_set_state(rtc, NULL, 0);
+#endif
+/*SWISTOP*/
 		break;
 
 	case RTC_AIE_ON:
@@ -374,7 +387,13 @@ static long rtc_dev_ioctl(struct file *file,
 		return rtc_update_irq_enable(rtc, 0);
 
 	case RTC_IRQP_SET:
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_RTC
+		err = rtc_irq_set_freq(rtc, rtc->irq_task, arg);
+#else
 		err = rtc_irq_set_freq(rtc, NULL, arg);
+#endif
+/*SWISTOP*/
 		break;
 
 	case RTC_IRQP_READ:

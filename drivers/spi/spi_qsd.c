@@ -89,6 +89,11 @@ static inline void msm_spi_register_init(struct msm_spi *dd)
 	writel_relaxed(0x00000000, dd->base + SPI_OPERATIONAL);
 	writel_relaxed(0x00000000, dd->base + SPI_CONFIG);
 	writel_relaxed(0x00000000, dd->base + SPI_IO_MODES);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	writel_relaxed(dd->deassert_wait, dd->base + SPI_DEASSERT_WAIT);
+#endif
+/* SWISTOP */
 	if (dd->qup_ver)
 		writel_relaxed(0x00000000, dd->base + QUP_OPERATIONAL_MASK);
 }
@@ -2235,6 +2240,12 @@ struct msm_spi_platform_data *msm_spi_dt_to_pdata(
 			&pdata->rt_priority,		 DT_OPT,  DT_BOOL,  0},
 		{"qcom,shared",
 			&pdata->is_shared,		 DT_OPT,  DT_BOOL,  0},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		{"sierra,deassert-time",
+			&dd->deassert_wait, DT_OPT,  DT_U32,   0},
+#endif
+/* SWISTOP */
 		{NULL,  NULL,                            0,       0,        0},
 		};
 
@@ -2741,6 +2752,11 @@ static struct of_device_id msm_spi_dt_match[] = {
 	{
 		.compatible = "qcom,spi-qup-v2",
 	},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	{   .compatible = "sierra,spidev" },
+#endif
+/* SWISTOP */
 	{}
 };
 

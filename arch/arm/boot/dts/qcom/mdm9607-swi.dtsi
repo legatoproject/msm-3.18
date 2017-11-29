@@ -1,0 +1,195 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include "mdm9607.dtsi"
+
+/ {
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		sierra_smem: sierra_region@0x8ff00000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x8ff00000 0x100000>;
+		};
+	};
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges;
+
+	blsp1_uart1: serial@78af000 { /* BLSP1 UART1 */
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x78af000 0x200>;
+		interrupts = <0 107 0>;
+
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+		status = "disabled";
+	};
+
+	blsp1_uart2: uart@78b0000 {
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78b0000 0x200>,
+			<0x7884000 0x2b000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart2>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 108 0
+				1 &intc 0 238 0
+				2 &tlmm_pinmux 5 0>;
+
+		qcom,inject-rx-on-wakeup;
+		qcom,rx-char-to-inject = <0xFD>;
+		qcom,bam-tx-ep-pipe-index = <2>;
+		qcom,bam-rx-ep-pipe-index = <3>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp1_uart2_sleep>;
+		pinctrl-1 = <&blsp1_uart2_active>;
+		qcom,msm-bus,name = "blsp1_uart2";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					<86 512 0 0>,
+					<86 512 500 800>;
+		status = "disabled";
+	};
+
+	sound-9330 {
+		status = "disabled";
+		};
+	sound-9306 {
+		status = "ok";
+	};
+
+	qcom,msm-dai-mi2s {
+		mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <1>;
+			qcom,msm-mi2s-rx-lines = <2>;
+			qcom,msm-mi2s-tx-lines = <1>;
+
+		};
+	};
+
+	spi_2: spi@78b9000 { /* BLSP1 QUP4 */
+		compatible = "qcom,spi-qup-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x78b9000 0x600>,
+		      <0x7884000 0x23000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 99 0>, <0 238 0>;
+		spi-max-frequency = <50000000>;
+		pinctrl-names = "spi_default", "spi_sleep";
+		pinctrl-0 = <&spi2_default &spi2_cs0_active>;
+		pinctrl-1 = <&spi2_sleep &spi2_cs0_sleep>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <20>;
+		qcom,bam-producer-pipe-index = <21>;
+		qcom,master-id = <86>;
+		sierra,deassert-time = <20>;
+		spidev2@0 {
+			compatible = "sierra,spidev";
+			spi-max-frequency = <50000000>;
+			reg = <0>;
+		};
+	};
+};
+
+&i2c_4 { /* BLSP1 QUP4 */
+        wcd9xxx_tomtom_codec@0d{
+			status = "disabled";
+			};
+	wcd9xxx_tapan_codec@0d{
+		status = "ok";
+		qcom,cdc-reset-gpio = <&tlmm_pinmux 45 0>;
+	};
+};
+
+&spi_1 { /* BLSP1 QUP2 */
+	compatible = "qcom,spi-qup-v2";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reg-names = "spi_physical", "spi_bam_physical";
+/* Update DMA size to 0x26000 from 0x23000 to fix kernel crash when high-speed
+ * UART is disabled. This fix is confirmed by Qualcomm FAE in the case number
+ * 02754294.
+ */
+	reg = <0x78b7000 0x600>,
+		  <0x7884000 0x2b000>;
+	interrupt-names = "spi_irq", "spi_bam_irq";
+	interrupts = <0 97 0>, <0 238 0>;
+	spi-max-frequency = <50000000>;
+	pinctrl-names = "spi_default", "spi_sleep";
+	pinctrl-0 = <&spi1_default &spi1_cs0_active>;
+	pinctrl-1 = <&spi1_sleep &spi1_cs0_sleep>;
+	clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		 <&clock_gcc clk_gcc_blsp1_qup3_spi_apps_clk>;
+	clock-names = "iface_clk", "core_clk";
+	qcom,infinite-mode = <0>;
+	qcom,use-bam;
+	qcom,use-pinctrl;
+	qcom,ver-reg-exists;
+	qcom,bam-consumer-pipe-index = <16>;
+	qcom,bam-producer-pipe-index = <17>;
+	qcom,master-id = <86>;
+	sierra,deassert-time = <20>;
+	spidev1@0 {
+		compatible = "sierra,spidev";
+		spi-max-frequency = <50000000>;
+		reg = <0>;
+	};
+};
+
+&usb_otg {
+	interrupts = <0 134 0>, <0 140 0>, <0 136 0>;
+	interrupt-names = "core_irq", "async_irq", "phy_irq";
+	qcom,hsusb-otg-phy-init-seq =
+		<0x44 0x80 0x30 0x81 0x24 0x82 0x13 0x83 0xffffffff>;
+
+	qcom,hsusb-otg-mode = <3>; /* OTG mode */
+	qcom,usbid-gpio;
+	sierra,vbus-en-gpio = <&tlmm_pinmux 24 0>;
+	vbus_otg-supply;
+};
+
+&hsic_host {
+	status = "ok";
+};
+
+&emac0 {
+	/* sierra hardware(RXD0 is 0, RXD1 is 0, LED_ACT is 1): so the address should be 4*/
+	phy0: ethernet-phy@0 {
+		reg = <4>;
+	};
+};

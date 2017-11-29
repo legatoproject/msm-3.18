@@ -34,6 +34,13 @@ config USB_COMMON
 	default y
 	depends on USB || USB_GADGET
 
+# SWISTART
+config SIERRA_USB_COMP
+	tristate "SIERRA USB composition selection"
+	default n
+	depends on USB || USB_GADGET
+# SWISTOP
+
 config USB_ARCH_HAS_HCD
 	def_bool y
 

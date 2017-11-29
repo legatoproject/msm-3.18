@@ -43,6 +43,8 @@ void notrace restore_processor_state(void)
 	local_fiq_enable();
 }
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 /*
  * Snapshot kernel memory and reset the system.
  *
@@ -65,6 +67,8 @@ static int notrace arch_save_image(unsigned long unused)
 		_soft_restart(virt_to_phys(cpu_resume), false);
 	return ret;
 }
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 /*
  * Save the current CPU state before suspend / poweroff.

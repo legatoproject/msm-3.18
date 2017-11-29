@@ -464,6 +464,13 @@ static int alarmtimer_resume(struct device *dev)
 		return 0;
 	rtc_timer_cancel(rtc, &rtctimer);
 
+/* SWISTART */
+/* Qualcomm SR: 02594358, to run alarmtimer */
+#ifdef CONFIG_SIERRA
+	set_power_on_alarm();
+#endif
+/* SWISTOP */
+
 	return 0;
 }
 

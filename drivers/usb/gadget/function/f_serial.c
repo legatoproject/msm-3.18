@@ -1137,6 +1137,14 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	gser->port.func.disable = gser_disable;
 	gser->port.func.free_func = gser_free;
 	gser->transport		= gserial_ports[opts->port_num].transport;
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+	/* Here, it supports only two ports for now */
+	if (gser->transport == USB_GADGET_XPORT_SMD)
+		gser->port.func.name = "modem";
+	else
+		gser->port.func.name = "nmea";
+#else
 	/* We support only three ports for now */
 	if (opts->port_num == 0)
 		gser->port.func.name = "modem";
@@ -1144,6 +1152,8 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 		gser->port.func.name = "nmea";
 	else
 		gser->port.func.name = "modem2";
+#endif
+/* SWISTOP */
 	gser->port.func.setup = gser_setup;
 	gser->port.func.suspend = gser_suspend;
 	gser->port.func.resume = gser_resume;

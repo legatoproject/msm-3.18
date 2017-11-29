@@ -1,0 +1,121 @@
+/*
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "mdm9607-swi-ar-nc.dtsi"
+
+/ {
+	bluetooth: bt_qca6174 {
+
+	};
+
+	aliases {
+
+	};
+};
+
+&soc {
+
+};
+
+&blsp1_uart5 {
+
+};
+
+&i2c_4 {
+
+};
+
+&spi_1 {
+
+};
+
+&spi_2 {
+
+};
+
+&blsp1_uart2 {
+
+};
+
+&blsp1_uart2_ls {
+
+};
+
+&qnand_1 {
+
+};
+
+&emac0 {
+
+};
+
+&pm8019_gpios {
+	gpio@c100 { /* VBUS detect */
+
+	};
+
+	gpio@c200 { /* GPIO 3 */
+
+	};
+
+	gpio@c300 { /* GPIO 4 */
+
+	};
+
+	gpio@c400 { /* GPIO 5 */
+
+	};
+
+	gpio@c500 { /* GPIO 6 */
+
+	};
+
+};
+
+&sdhc_1 {
+
+};
+
+&sdhc_2 {
+
+};
+
+/* AR758x ADC configuration */
+&pm8019_vadc {
+
+};
+
+&pm8019_mpps {
+	/* MPP1 */
+	mpp@a000 {
+
+	};
+
+	/* MPP2 */
+	mpp@a100 {
+
+	};
+
+	/* MPP4 */
+	mpp@a300 {
+
+	};
+
+	/* MPP6 */
+	mpp@a500 {
+
+	};
+};
+
+
+

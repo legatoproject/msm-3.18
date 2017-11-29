@@ -39,6 +39,12 @@
 #include "diag_usb.h"
 #include "diag_mux.h"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
 #define STM_CMD_VERSION_OFFSET	4
 #define STM_CMD_MASK_OFFSET	5
 #define STM_CMD_DATA_OFFSET	6
@@ -983,6 +989,14 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 		msleep(5000);
 		/* call download API */
 		msm_set_restart_mode(RESTART_DLOAD);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* Force Sierra boot & hold flag. RESTART_DLOAD will only go to download
+		 * mode if download_mode is set
+		 */
+		sierra_smem_boothold_mode_set();
+#endif /* SIERRA */
+/* SWISTOP */
 		printk(KERN_CRIT "diag: download mode set, Rebooting SoC..\n");
 		kernel_restart(NULL);
 		/* Not required, represents that command isnt sent to modem */

@@ -16,6 +16,12 @@
 #include <linux/syscalls.h>
 #include <linux/syscore_ops.h>
 #include <linux/uaccess.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#include <mach/sierra_smem.h>
+#endif
+/* SWISTOP */
 
 /*
  * this indicates whether you can reboot with ctrl-alt-del: the default is yes
@@ -44,6 +50,12 @@ int reboot_cpu;
 enum reboot_type reboot_type = BOOT_ACPI;
 int reboot_force;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+extern int emergency_restart_flag;
+#endif
+/* SWISTOP */
+
 /*
  * If set, this is used for preparing the system to power off.
  */
@@ -60,6 +72,12 @@ void (*pm_power_off_prepare)(void);
  */
 void emergency_restart(void)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	emergency_restart_flag = 1;
+	dump_stack();
+#endif
+/* SWISTOP */
 	kmsg_dump(KMSG_DUMP_EMERG);
 	machine_emergency_restart();
 }

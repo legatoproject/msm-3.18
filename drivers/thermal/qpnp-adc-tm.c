@@ -32,6 +32,11 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/thermal.h>
 #include <linux/platform_device.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 /* QPNP VADC TM register definition */
 #define QPNP_REVISION3					0x2
@@ -170,6 +175,12 @@
 #define QPNP_MIN_TIME			2000
 #define QPNP_MAX_TIME			2100
 #define QPNP_RETRY			1000
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define PA2_FULL_NAME_STRING "/soc/qcom,spmi@200f000/qcom,pm8019@0/vadc@3400/chan@34"
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 struct qpnp_adc_thr_info {
 	u8		status_low;
@@ -2503,6 +2514,15 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 			chip->adc->adc_channels[sen_idx].channel_num);
 		thermal_node = of_property_read_bool(child,
 					"qcom,thermal-node");
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* Disable thermal_zone registeration of PA2 for AR8582 */
+		if (!strcmp(child->full_name, PA2_FULL_NAME_STRING) && bs_product_is_ar8582()) {
+			thermal_node = false;
+			pr_debug("%s : disable thermal_zone of PA2 on AR8582\n", __func__);
+		}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 		if (thermal_node) {
 			/* Register with the thermal zone */
 			pr_debug("thermal node%x\n", btm_channel_num);

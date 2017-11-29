@@ -215,13 +215,15 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define RPM_QPIC_CLK_TYPE			0x63697071
 
 #define XO_ID					0x0
-#define QDSS_ID				0x1
+#define QDSS_ID					0x1
 #define PCNOC_ID				0x0
-#define BIMC_ID				0x0
-#define QPIC_ID				0x0
+#define BIMC_ID					0x0
+#define QPIC_ID					0x0
 
 /* XO clock */
 #define BB_CLK1_ID				1
 #define RF_CLK2_ID				5
-
+/* SWISTART */
+#define RF_CLK1_ID          			0xb
+/* SWISTOP */
 #endif

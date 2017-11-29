@@ -76,6 +76,14 @@ struct gpio_desc {
 #define FLAG_OPEN_DRAIN	7	/* Gpio is open drain type */
 #define FLAG_OPEN_SOURCE 8	/* Gpio is open source type */
 #define FLAG_USED_AS_IRQ 9	/* GPIO is connected to an IRQ */
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define FLAG_PULL_FUNC_SEL1 10	/* GPIO pull FUNC_SEL */
+#define FLAG_PULL_FUNC_SEL2 11	/* GPIO pull FUNC_SEL */
+
+#define GPIO_PULL_MASK	(BIT(FLAG_PULL_FUNC_SEL1) | BIT(FLAG_PULL_FUNC_SEL2))
+#endif
+/* SWISTOP*/
 
 #define ID_SHIFT	16	/* add new flags before this one */
 

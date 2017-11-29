@@ -55,6 +55,12 @@
 
 #include "hbm.c"
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif
+/* SWISTOP */
+
 #define MSM_USB_BASE (hcd->regs)
 #define USB_REG_START_OFFSET 0x90
 #define USB_REG_END_OFFSET 0x250
@@ -892,7 +898,13 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 		pm_qos_update_request(&mehci->pm_qos_req_dma,
 			PM_QOS_DEFAULT_VALUE);
 
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_unlock(&mehci->wlock);
+#endif
+/* SWISTOP */
 
 	dev_info(mehci->dev, "HSIC-USB in low power mode\n");
 
@@ -938,7 +950,13 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 		spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
 	}
 
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_lock(&mehci->wlock);
+#endif
+/* SWISTOP */
 
 	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
 		mehci->bus_vote = true;
@@ -1701,7 +1719,15 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt %d cnt: %u, %u\n",
 		    __func__, irq, mehci->wakeup_int_cnt, mehci->async_int_cnt);
 
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_lock(&mehci->wlock);
+#else
+	pm_wakeup_event(mehci->dev, 200);
+#endif
+/* SWISTOP */
 
 	if (mehci->wakeup_irq) {
 		spin_lock(&mehci->wakeup_lock);
@@ -2028,7 +2054,14 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 		goto put_parent;
 	}
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	hcd_to_bus(hcd)->skip_resume = true;
+#else
+	/* Use kernel general PM suspend flow in sierra as LAN9730 not support remote wakeup properly*/
+	hcd_to_bus(hcd)->skip_resume = false;
+#endif
+/* SWISTOP */
 
 	hcd->irq = platform_get_irq(pdev, 0);
 	if (hcd->irq < 0) {
@@ -2185,8 +2218,14 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
+/* SWISTART */
+/* Remove wakeup lock in sierra code
+ */
+#ifndef CONFIG_SIERRA
 	wake_lock_init(&mehci->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
 	wake_lock(&mehci->wlock);
+#endif
+/* SWISTOP */
 
 	if (mehci->peripheral_status_irq) {
 		ret = request_threaded_irq(mehci->peripheral_status_irq,
@@ -2276,6 +2315,33 @@ static int ehci_hsic_msm_probe(struct platform_device *pdev)
 
 	if (pdata && pdata->consider_ipa_handshake)
 		msm_bam_set_hsic_host_dev(&pdev->dev);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgethsicflag()){
+		/* enable reset GPIO if specified.
+		 * This function might not belong here. It should tie to
+		 * HSIC peripherial driver instead of host
+		 */
+		int swi_reset_gpio, swi_rc;
+		if (pdev->dev.of_node) {
+			swi_reset_gpio = of_get_named_gpio(pdev->dev.of_node, "hsic,swi_reset_gpio", 0);
+			if (swi_reset_gpio >= 0) {
+				swi_rc = gpio_request(swi_reset_gpio, "SMSC9730_RESETPIN");
+				if (swi_rc) {
+					dev_err(&pdev->dev, "%s: SWI invalid reset gpio %d\n",
+						__func__, swi_reset_gpio);
+				}
+				else {
+					gpio_direction_output(swi_reset_gpio, 1);
+					dev_info(&pdev->dev, "%s: SWI set reset GPIO %d to high\n",
+						__func__, swi_reset_gpio);
+				}
+			}
+		}
+	}
+#endif
+
 
 	return 0;
 
@@ -2382,6 +2448,16 @@ static int msm_hsic_pm_suspend(struct device *dev)
 	dev_dbg(dev, "ehci-msm-hsic PM suspend\n");
 
 	dbg_log_event(NULL, "PM Suspend", 0);
+
+/* SWISTART */
+/* As HSIC child device LAN9730 don't support remote wakeup properly HSIC runtime suspend would
+ * not work well so we just involke this function there to do the suspend work by PM suspend
+ * instead using HSIC runtime suspend flow in sierra code
+ */
+#ifdef CONFIG_SIERRA
+	msm_hsic_suspend(mehci);
+#endif
+/* SWISTOP */
 
 	if (!atomic_read(&mehci->in_lpm)) {
 		dev_info(dev, "abort suspend\n");

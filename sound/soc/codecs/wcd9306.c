@@ -186,6 +186,7 @@ static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 static struct snd_soc_dai_driver tapan_dai[];
 static const DECLARE_TLV_DB_SCALE(aux_pga_gain, 0, 2, 0);
+static const struct soc_enum iir1_inp1_mux_enum;
 
 /* Codec supports 2 IIR filters */
 enum {
@@ -1211,7 +1212,6 @@ static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 		0, -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("RX3 Digital Volume", TAPAN_A_CDC_RX3_VOL_CTL_B2_CTL,
 		0, -84, 40, digital_gain),
-
 	SOC_SINGLE_SX_TLV("DEC1 Volume", TAPAN_A_CDC_TX1_VOL_CTL_GAIN,
 		0, -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("DEC2 Volume", TAPAN_A_CDC_TX2_VOL_CTL_GAIN,
@@ -1247,6 +1247,23 @@ static const struct snd_kcontrol_new tapan_common_snd_controls[] = {
 	SOC_SINGLE("RX1 HPF Switch", TAPAN_A_CDC_RX1_B5_CTL, 2, 1, 0),
 	SOC_SINGLE("RX2 HPF Switch", TAPAN_A_CDC_RX2_B5_CTL, 2, 1, 0),
 	SOC_SINGLE("RX3 HPF Switch", TAPAN_A_CDC_RX3_B5_CTL, 2, 1, 0),
+
+#ifdef CONFIG_SIERRA_AUDIO_CONFIG
+        SOC_SINGLE("LINEOUT1 GAIN_SRC_SEL", TAPAN_A_RX_LINE_1_GAIN, 5, 1, 0),
+        SOC_SINGLE("LINEOUT2 GAIN_SRC_SEL", TAPAN_A_RX_LINE_2_GAIN, 5, 1, 0),
+        SOC_SINGLE("RX3 MUTE_EN", TAPAN_A_CDC_RX3_B6_CTL, 0, 1, 0),
+        SOC_SINGLE("ADC1_EN", TAPAN_A_TX_1_EN, 7, 1, 0),
+        SOC_SINGLE("TX1_VOL MUTE_EN", TAPAN_A_CDC_TX1_VOL_CTL_CFG, 0, 1, 0),
+        SOC_SINGLE("IIR1_CLK_EN", TAPAN_A_CDC_CLK_SD_CTL, 0, 1, 0),
+        SOC_SINGLE("IIR2_CLK_EN", TAPAN_A_CDC_CLK_SD_CTL, 1, 1, 0),
+        SOC_SINGLE("SRC1_CLK_EN", TAPAN_A_CDC_CLK_SD_CTL, 2, 1, 0),
+        SOC_SINGLE("SRC2_CLK_EN", TAPAN_A_CDC_CLK_SD_CTL, 3, 1, 0),
+        SOC_SINGLE("IIR1_RESET", TAPAN_A_CDC_CLK_SD_CTL, 4, 1, 0),
+        SOC_SINGLE("IIR2_RESET", TAPAN_A_CDC_CLK_SD_CTL, 5, 1, 0),
+        SOC_SINGLE("SRC1_RESET", TAPAN_A_CDC_CLK_SD_CTL, 6, 1, 0),
+        SOC_SINGLE("SRC2_RESET", TAPAN_A_CDC_CLK_SD_CTL, 7, 1, 0),
+        SOC_ENUM("IIR1_INP1_MUX_ENUM", iir1_inp1_mux_enum),
+#endif
 
 	SOC_ENUM("RX1 HPF cut off", cf_rxmix1_enum),
 	SOC_ENUM("RX2 HPF cut off", cf_rxmix2_enum),
@@ -4690,8 +4707,12 @@ static const struct snd_soc_dapm_widget tapan_9306_dapm_widgets[] = {
 		&rx4_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX4 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx4_mix1_inp2_mux),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MUX("RX4 MIX1 INP3", SND_SOC_NOPM, 0, 0,
 		&rx4_mix1_inp3_mux),
+#endif
+/* SWISTOP */
 
 	/* RX4 MIX2 mux inputs */
 	SND_SOC_DAPM_MUX("RX4 MIX2 INP1", SND_SOC_NOPM, 0, 0,
@@ -4813,16 +4834,24 @@ static const struct snd_soc_dapm_widget tapan_common_dapm_widgets[] = {
 		&rx2_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX2 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx2_mix1_inp2_mux),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MUX("RX2 MIX1 INP3", SND_SOC_NOPM, 0, 0,
 		&rx2_mix1_inp2_mux),
+#endif
+/* SWISTOP */
 
 	/* RX3 MIX1 mux inputs */
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP1", SND_SOC_NOPM, 0, 0,
 		&rx3_mix1_inp1_mux),
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP2", SND_SOC_NOPM, 0, 0,
 		&rx3_mix1_inp2_mux),
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	SND_SOC_DAPM_MUX("RX3 MIX1 INP3", SND_SOC_NOPM, 0, 0,
 		&rx3_mix1_inp3_mux),
+#endif
+/* SWISTOP */
 
 	/* RX1 MIX2 mux inputs */
 	SND_SOC_DAPM_MUX("RX1 MIX2 INP1", SND_SOC_NOPM, 0, 0,

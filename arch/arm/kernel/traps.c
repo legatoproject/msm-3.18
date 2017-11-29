@@ -42,6 +42,12 @@
 
 #include <trace/events/exception.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
 static const char *handler[]= {
 	"prefetch abort",
 	"data abort",
@@ -250,6 +256,16 @@ static int __die(const char *str, int err, struct pt_regs *regs)
 	ret = notify_die(DIE_OOPS, str, regs, err, tsk->thread.trap_no, SIGSEGV);
 	if (ret == NOTIFY_STOP)
 		return 1;
+
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	if (die_counter == 1) {
+		/* clear smem er buffer,get ready to save error info*/
+		sierra_smem_errdump_save_start();
+		sierra_smem_errdump_save_regs(regs, tsk);
+	}
+#endif /* SIERRA */
+/*SWISTOP*/
 
 	print_modules();
 	__show_regs(regs);

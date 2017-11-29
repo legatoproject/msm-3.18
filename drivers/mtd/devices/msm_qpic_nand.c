@@ -14,6 +14,12 @@
  */
 
 #include "msm_qpic_nand.h"
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#include <linux/reboot.h>
+#endif
+/* SWISTOP */
 
 #define QPIC_BAM_DEFAULT_IPC_LOGLVL 2
 
@@ -2174,6 +2180,15 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 	} *dma_buffer;
 	struct msm_nand_rw_cmd_desc *cmd_list = NULL;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		panic("power fault panic!");
+	}
+#endif
+/* SWISTOP */
+
 	memset(&rw_params, 0, sizeof(struct msm_nand_rw_params));
 	err = msm_nand_validate_mtd_params(mtd, false, to, ops, &rw_params);
 	if (err)
@@ -2457,6 +2472,15 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 		struct msm_nand_sps_cmd cmd[total_cnt];
 		uint32_t flash_status;
 	} *dma_buffer;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		panic("power fault panic!");
+	}
+#endif
+/* SWISTOP */
 
 	if (mtd->writesize == PAGE_SIZE_2K)
 		page = instr->addr >> 11;
@@ -3366,6 +3390,87 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 out:
 	return -EINVAL;
 }
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int sierra_inquire_smem_ptable_name(char *partition_name, int index, int length)
+{
+	uint32_t  i, j;
+	uint32_t len = FLASH_PTABLE_HDR_LEN;
+	struct flash_partition_entry *pentry;
+	char *delimiter = ":";
+	void *temp_ptable = NULL;
+	uint32_t mtd_num;
+	struct flash_partition_table partition_table;
+
+	pr_info("sierra_inquire_smem_ptable_name from SMEM\n");
+	/*
+	 * Now that the partition table header has been parsed, verified
+	 * and the length of the partition table calculated, read the
+	 * complete partition table.
+	 */
+	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
+					SMEM_ANY_HOST_FLAG);
+	if (!temp_ptable) {
+		pr_err("Error reading partition table\n");
+		goto out;
+	}
+
+	/* Read only the header portion of ptable */
+	partition_table = *(struct flash_partition_table *)temp_ptable;
+
+	for (i = 0; i < partition_table.numparts; i++) {
+		pentry = &partition_table.part_entry[i];
+		if (pentry->name == '\0')
+			continue;
+		/* Convert name to lower case and discard the initial chars */
+		mtd_part[i].name        = pentry->name;
+		for (j = 0; j < strlen(mtd_part[i].name); j++)
+			*(mtd_part[i].name + j) =
+				tolower(*(mtd_part[i].name + j));
+		strsep(&(mtd_part[i].name), delimiter);
+		mtd_part[i].offset      = pentry->offset;
+		mtd_part[i].mask_flags  = pentry->attr;
+		mtd_part[i].size        = pentry->length;
+		pr_debug("%d: %s offs=0x%08x size=0x%08x attr:0x%08x\n",
+			i, pentry->name, pentry->offset, pentry->length,
+			pentry->attr);
+	}
+
+	mtd_num = partition_table.numparts;
+	for (i = 0; i < partition_table.numparts; i++) {
+		if (!strcmp("mibib", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+		if (!strcmp("efs2", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+	}
+
+	for(i = 0; i < mtd_num; i++)
+	{
+		if((index == i) && (length >= FLASH_PTABLE_HDR_LEN))
+		{
+			memcpy(partition_name,mtd_part[i].name, FLASH_PTABLE_HDR_LEN);
+		}
+	}
+
+	pr_info("SMEM partition table found: ver: %d len: %d\n",
+		partition_table.version, partition_table.numparts);
+	return 0;
+out:
+	return -EINVAL;
+}
+
+EXPORT_SYMBOL(sierra_inquire_smem_ptable_name);
+/* SWISTOP */
+#endif
 #else
 static int msm_nand_parse_smem_ptable(int *nr_parts)
 {

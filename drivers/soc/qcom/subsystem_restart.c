@@ -38,6 +38,11 @@
 #include <soc/qcom/sysmon.h>
 
 #include <asm/current.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif
+/* SWISTOP */
 
 #include "peripheral-loader.h"
 

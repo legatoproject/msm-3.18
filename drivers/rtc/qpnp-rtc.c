@@ -63,8 +63,45 @@ struct qpnp_rtc {
 	struct device *rtc_dev;
 	struct rtc_device *rtc;
 	struct spmi_device *spmi;
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	struct work_struct sierra_rtc_work;
+#endif
+/*SWISTOP*/
 	spinlock_t alarm_ctrl_lock;
 };
+
+
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+static struct wakeup_source * ws;
+
+static void sierra_rtc_wake(struct work_struct *work)
+{
+	struct qpnp_rtc * rtc_d;
+	char event[16], *envp[2];
+
+	pr_info("%s",__func__);
+
+	rtc_d = container_of(work, struct qpnp_rtc, sierra_rtc_work);
+
+	sprintf(event, "sierra_rtc_wake");
+	pr_info("%s: %s \n", __func__, event);
+
+	envp[0] = event;
+	envp[1] = NULL;
+
+	kobject_get(&rtc_d->spmi->dev.kobj);
+	if (kobject_uevent_env(&rtc_d->spmi->dev.kobj, KOBJ_CHANGE, envp))
+		pr_debug("%s: error in signaling uevent\n", __func__);
+	kobject_put(&rtc_d->spmi->dev.kobj);
+
+	__pm_relax(ws);
+
+}
+#endif
+/*SWISTOP*/
+
 
 static int qpnp_read_wrapper(struct qpnp_rtc *rtc_dd, u8 *rtc_val,
 			u16 base, int count)
@@ -441,7 +478,12 @@ static irqreturn_t qpnp_alarm_trigger(int irq, void *dev_id)
 	unsigned long irq_flags;
 
 	rtc_update_irq(rtc_dd->rtc, 1, RTC_IRQF | RTC_AF);
-
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	__pm_stay_awake(ws);
+	schedule_work(&rtc_dd->sierra_rtc_work);
+#endif
+/*SWISTOP*/
 	spin_lock_irqsave(&rtc_dd->alarm_ctrl_lock, irq_flags);
 
 	/* Clear the alarm enable bit */
@@ -593,6 +635,11 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 		qpnp_rtc_ops.set_time = qpnp_rtc_set_time;
 
 	dev_set_drvdata(&spmi->dev, rtc_dd);
+/*SWISTRAT*/
+#ifdef CONFIG_SIERRA
+	device_init_wakeup(&spmi->dev, 1);
+#endif
+/*SWISTOP*/
 
 	/* Register the RTC device */
 	rtc_dd->rtc = rtc_device_register("qpnp_rtc", &spmi->dev,
@@ -612,9 +659,25 @@ static int qpnp_rtc_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "Request IRQ failed (%d)\n", rc);
 		goto fail_req_irq;
 	}
-
+/*SWISTART*/
+#ifndef CONFIG_SIERRA
 	device_init_wakeup(&spmi->dev, 1);
+#endif
+/*SWISTOP*/
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
+
+/*SWISTRAT*/
+#ifdef CONFIG_SIERRA
+	INIT_WORK(&rtc_dd->sierra_rtc_work, sierra_rtc_wake);
+	ws = wakeup_source_register( "qpnp_rtc_alarm" );
+	if( !ws )
+	{
+		pr_err("Failed to create wakeup source\n" );
+		return -ENOMEM;
+	}
+
+#endif
+/*SWISTOP*/
 
 	dev_dbg(&spmi->dev, "Probe success !!\n");
 

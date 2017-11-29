@@ -264,16 +264,12 @@ dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-cdp.dtb \
 	sdm450-mtp.dtb
 
-dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
-	mdm9607-cdp.dtb \
-	mdm9607-mtp.dtb \
-	mdm9607-rcm.dtb \
-	mdm9607-mtp-sdcard.dtb \
-	mdm9607-ttp.dtb \
-	mdm9206-mtp.dtb \
-	mdm9206-cdp.dtb \
-	mdm9206-mtp-sdcard.dtb \
-	mdm9206-rcm.dtb
+dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-mtp.dtb \
+	mdm9607-swi-ar.dtb \
+	mdm9607-swi-wp.dtb \
+	mdm9607-swi-ar-mft.dtb \
+	mdm9607-swi-ar-nc.dtb \
+	mdm9607-swi-ar-mft-nc.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \

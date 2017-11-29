@@ -48,6 +48,11 @@
 #if defined(CONFIG_PPC_PS3)
 #include <asm/firmware.h>
 #endif
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif
+/* SWISTOP */
 
 /*-------------------------------------------------------------------------*/
 
@@ -1349,9 +1354,22 @@ static int __init ehci_hcd_init(void)
 #endif
 
 #ifdef PLATFORM_DRIVER
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	retval = platform_driver_register(&PLATFORM_DRIVER);
 	if (retval < 0)
-		goto clean0;
+	    goto clean0;
+#else
+	if(1 == bsgethsicflag()){
+		retval = platform_driver_register(&PLATFORM_DRIVER);
+		if (retval < 0)
+			goto clean0;
+	}
+	else {
+		pr_info("%s: SWI hsic host disabled\n", __func__);
+	}
+#endif
+/* SWISTOP */
 #endif
 
 #ifdef PS3_SYSTEM_BUS_DRIVER
@@ -1386,7 +1404,15 @@ clean3:
 clean2:
 #endif
 #ifdef PLATFORM_DRIVER
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	platform_driver_unregister(&PLATFORM_DRIVER);
+#else
+	if(1 == bsgethsicflag()){
+		platform_driver_unregister(&PLATFORM_DRIVER);
+	}
+#endif
+/* SWISTOP */
 clean0:
 #endif
 #ifdef CONFIG_DYNAMIC_DEBUG

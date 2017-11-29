@@ -56,7 +56,11 @@ DEFINE_CLK_RPM_SMD(qpic_clk, qpic_a_clk, RPM_QPIC_CLK_TYPE, QPIC_ID, NULL);
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+DEFINE_CLK_RPM_SMD_XO_BUFFER_EXTERN(rf_clk2, rf_clk2_a, RF_CLK2_ID);
+#endif
+/* SWISTOP */
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
 
 static DEFINE_CLK_VOTER(bimc_msmbus_clk, &bimc_clk.c, LONG_MAX);
@@ -288,6 +292,12 @@ static struct clk_freq_tbl ftbl_blsp1_qup1_spi_apps_clk_src[] = {
 	F(    960000,             xo,   10,    1,     2),
 	F(   4800000,             xo,    4,    0,     0),
 	F(   9600000,             xo,    2,    0,     0),
+/* SWISTART */
+/* Add this clk to support 12.8MHZ which customer need */
+#ifdef CONFIG_SIERRA
+	F(  12500000,          gpll0,   16,    1,     4),
+#endif
+/* SWISTOP */
 	F(  16000000,          gpll0,   10,    1,     5),
 	F(  19200000,             xo,    1,    0,     0),
 	F(  25000000,          gpll0,   16,    1,     2),
@@ -327,6 +337,12 @@ static struct clk_freq_tbl ftbl_blsp1_qup2_spi_apps_clk_src[] = {
 	F(    960000,             xo,   10,    1,     2),
 	F(   4800000,             xo,    4,    0,     0),
 	F(   9600000,             xo,    2,    0,     0),
+/* SWISTART */
+/* Add this clk to support 12.8MHZ which customer need */
+#ifdef CONFIG_SIERRA
+	F(  12500000,          gpll0,   16,    1,     4),
+#endif
+/* SWISTOP */
 	F(  16000000,          gpll0,   10,    1,     5),
 	F(  19200000,             xo,    1,    0,     0),
 	F(  25000000,          gpll0,   16,    1,     2),
@@ -366,6 +382,12 @@ static struct clk_freq_tbl ftbl_blsp1_qup3_spi_apps_clk_src[] = {
 	F(    960000,             xo,   10,    1,     2),
 	F(   4800000,             xo,    4,    0,     0),
 	F(   9600000,             xo,    2,    0,     0),
+/* SWISTART */
+/* Add this clk to support 12.8MHZ which customer need */
+#ifdef CONFIG_SIERRA
+	F(  12500000,          gpll0,   16,    1,     4),
+#endif
+/* SWISTOP */
 	F(  16000000,          gpll0,   10,    1,     5),
 	F(  18180000,          gpll0,    1,    1,    44),
 	F(  19200000,             xo,    1,    0,     0),
@@ -406,6 +428,12 @@ static struct clk_freq_tbl ftbl_blsp1_qup4_spi_apps_clk_src[] = {
 	F(    960000,             xo,   10,    1,     2),
 	F(   4800000,             xo,    4,    0,     0),
 	F(   9600000,             xo,    2,    0,     0),
+/* SWISTART */
+/* Add this clk to support 12.8MHZ which customer need */
+#ifdef CONFIG_SIERRA
+	F(  12500000,          gpll0,   16,    1,     4),
+#endif
+/* SWISTOP */
 	F(  16000000,          gpll0,   10,    1,     5),
 	F(  19200000,             xo,    1,    0,     0),
 	F(  25000000,          gpll0,   16,    1,     2),
@@ -445,6 +473,12 @@ static struct clk_freq_tbl ftbl_blsp1_qup5_spi_apps_clk_src[] = {
 	F(    960000,             xo,   10,    1,     2),
 	F(   4800000,             xo,    4,    0,     0),
 	F(   9600000,             xo,    2,    0,     0),
+/* SWISTART */
+/* Add this clk to support 12.8MHZ which customer need */
+#ifdef CONFIG_SIERRA
+	F(  12500000,          gpll0,   16,    1,     4),
+#endif
+/* SWISTOP */
 	F(  16000000,          gpll0,   10,    1,     5),
 	F(  19200000,             xo,    1,    0,     0),
 	F(  25000000,          gpll0,   16,    1,     2),
@@ -484,6 +518,12 @@ static struct clk_freq_tbl ftbl_blsp1_qup6_spi_apps_clk_src[] = {
 	F(    960000,             xo,   10,    1,     2),
 	F(   4800000,             xo,    4,    0,     0),
 	F(   9600000,             xo,    2,    0,     0),
+/* SWISTART */
+/* Add this clk to support 12.8MHZ which customer need */
+#ifdef CONFIG_SIERRA
+	F(  12500000,          gpll0,   16,    1,     4),
+#endif
+/* SWISTOP */
 	F(  16000000,          gpll0,   10,    1,     5),
 	F(  19200000,             xo,    1,    0,     0),
 	F(  25000000,          gpll0,   16,    1,     2),
@@ -521,6 +561,12 @@ static struct clk_freq_tbl ftbl_blsp_uart_apps_clk_src[] = {
 	F(  56000000,          gpll0,    1,    7,   100),
 	F(  58982400,          gpll0,    1, 1152, 15625),
 	F(  60000000,          gpll0,    1,    3,    40),
+/* SWISTART */
+/* Add this clk to support 4M baudrate */
+#ifdef CONFIG_SIERRA
+	F(  63160000,          gpll0,    1, 1579, 20000),
+#endif
+/* SWISTOP */
 	F_END
 };
 
@@ -1653,7 +1699,10 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gpll2_clk_src),
 	 CLK_LIST(gpll1_clk_src),
 	 CLK_LIST(a7sspll),
-
+/* SWISTART */
+	CLK_LIST(rf_clk2),
+	CLK_LIST(rf_clk2_a),
+/* SWISTOP */
 	 CLK_LIST(pcnoc_clk),
 	 CLK_LIST(pcnoc_a_clk),
 	 CLK_LIST(pcnoc_msmbus_clk),

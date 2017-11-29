@@ -626,6 +626,11 @@ config SND_SOC_WCD9306
 config SND_SOC_WCD9320
         tristate
 
+# SWISTART
+config SND_SOC_WCD9306
+        tristate
+# SWISTOP
+
 config SND_SOC_WCD9330
         tristate
 	depends on WCD9330_CODEC

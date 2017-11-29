@@ -36,7 +36,6 @@ extern struct regmap_config wcd9306_regmap_config;
 static inline struct regmap_config *wcd9xxx_get_regmap_config(int type)
 {
 	struct regmap_config *regmap_config;
-
 	switch (type) {
 #ifdef CONFIG_WCD9335_CODEC
 	case WCD9335:
@@ -54,7 +53,14 @@ static inline struct regmap_config *wcd9xxx_get_regmap_config(int type)
 		break;
 #endif
 	default:
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		regmap_config = &wcd9306_regmap_config;
+#else
 		regmap_config = NULL;
+#endif /* CONFIG_SIERRA*/
+/* SWISTOP */
+
 		break;
 	};
 
