@@ -441,6 +441,10 @@ static int swimcu_process_events(struct swimcu *swimcu)
 				swimcu_log(EVENT, "%s: MCU watchdog timeout, reset delay %d\n", __func__, events[i].data.watchdog.delay);
 				swimcu_watchdog_event_handle(swimcu, events[i].data.watchdog.delay);
 			}
+			else if (events[i].type == MCI_PROTOCOL_EVENT_TYPE_CALIBRATE) {
+				swimcu_log(EVENT, "%s: MCU calibrate timeout, reset delay %d\n", __func__, events[i].data.calibrate.time);
+				swimcu_calibrate_event_handle(swimcu, events[i].data.calibrate.time);
+			}
 			else {
 				pr_warn("%s: Unknown event[%d] type %d\n", __func__, i, events[i].type);
 			}
@@ -703,12 +707,6 @@ int swimcu_device_init(struct swimcu *swimcu)
 		swimcu_vbus_detect_disable(swimcu);
 	}
 
-	if (0 != swimcu_pm_sysfs_opt_update(swimcu))
-	{
-		dev_err(swimcu->dev, "Cannot update optional sysfs\n");
-		goto exit;
-	}
-
 	if (!(swimcu->driver_init_mask & SWIMCU_DRIVER_INIT_FW)) {
 		if(pdata->func_flags & SWIMCU_FUNC_FLAG_FWUPD) {
 			ret = swimcu_pm_sysfs_init(swimcu, SWIMCU_FUNC_FLAG_FWUPD);
@@ -761,6 +759,12 @@ int swimcu_device_init(struct swimcu *swimcu)
 			dev_err(swimcu->dev, "process events failed: %d\n", ret);
 			goto exit;
 		}
+	}
+
+	if (0 != swimcu_pm_sysfs_opt_update(swimcu))
+	{
+		dev_err(swimcu->dev, "Cannot update optional sysfs\n");
+		goto exit;
 	}
 
 	swimcu_log(INIT, "%s: success\n", __func__);
