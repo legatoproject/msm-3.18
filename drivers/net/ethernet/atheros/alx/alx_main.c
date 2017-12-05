@@ -5401,7 +5401,11 @@ static void __devexit alx_remove(struct pci_dev *pdev)
 				     pci_select_bars(pdev, IORESOURCE_MEM));
 
 	netif_dbg(adpt, probe, adpt->netdev, "complete\n");
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	free_netdev(netdev);
+#endif
+/* SWISTOP */
 
 #ifdef MDM_PLATFORM
 	if (CHK_ADPT_FLAG(2, ODU_CONNECT)) {
@@ -5454,6 +5458,19 @@ static void __devexit alx_remove(struct pci_dev *pdev)
 		 pr_err("Couldnt Suspend PCIe MSM Link %d \n",
 				retval);
 #endif
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/*
+	 * when free the netdev its private data(alx_adapter struct) also freed,
+	 * as they are alloced as one memory block:
+	 *   netdev = kzalloc( sizeof(net_device) + sizeof(alx_adapter) )
+	 * so it should freed in the last to avoid some memory access after free.
+	*/
+	free_netdev(netdev);
+#endif
+/* SWISTOP */
+
 }
 
 
