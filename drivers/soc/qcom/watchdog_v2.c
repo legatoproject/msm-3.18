@@ -521,7 +521,6 @@ static ssize_t wdog_kick(struct device *dev,
 {
 	const char *p;
 	int original_count = count;
-	__raw_writel(1, wdog_data->base + WDT0_RST);
 
 	p = memchr(buf, '\n', count);
 	if (p)
