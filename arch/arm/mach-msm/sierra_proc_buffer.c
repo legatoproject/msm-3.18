@@ -28,9 +28,10 @@ static int sierra_proc_buffer_open(struct inode *inode, struct file *file)
 	return single_open(file, sierra_proc_buf_show, NULL);
 }
 
-int proc_write_buf(struct file *file, const char __user *buffer, unsigned long count,
-				void *data) {
-	int len;
+ssize_t proc_write_buf(struct file *file, const char __user *buffer, size_t count,
+				loff_t *data) {
+	ssize_t len;
+	unsigned long ret = 0;
 
 	if (count >= SIERRA_PROC_STRING_MAX_LEN)
 		len = SIERRA_PROC_STRING_MAX_LEN - 1;
@@ -40,8 +41,12 @@ int proc_write_buf(struct file *file, const char __user *buffer, unsigned long c
 	/*
 	* copy_from_user copy user space to kernel space
 	* save user write data in global_buffer
+	* copy_from_user returns number of bytes that could not be copied, and
+	* we would need to substract that number from the "desired" length
 	*/
-	copy_from_user(global_buffer, buffer, len);
+	ret = copy_from_user(global_buffer, buffer, len);
+	len -= (ssize_t)ret;
+
 	global_buffer[len] = '\0';
 	return len;
 }

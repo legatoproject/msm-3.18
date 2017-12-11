@@ -285,7 +285,6 @@ void ubi_check_bad_image_and_swap(char *ubi_name)
 	uint64_t bad_image_mask = DS_IMAGE_FLAG_NOT_SET;
 	uint8_t linux_index = 0;
 	uint8_t modem_index = 0;
-	int ret = 0;
 
 	if (0 == sierra_smem_ds_get_ssid(&modem_index, NULL, &linux_index)) {
 			if (0 == strcmp(ubi_name, "rootfs")) {

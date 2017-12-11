@@ -6,3 +6,7 @@ ubi-$(CONFIG_MTD_UBI_FASTMAP) += fastmap.o
 ubi-$(CONFIG_MTD_UBI_BLOCK) += block.o
 
 obj-$(CONFIG_MTD_UBI_GLUEBI) += gluebi.o
+
+CFLAGS_kapi.o := -I$(src)
+CFLAGS_io.o := -I$(src)
+CFLAGS_wl.o := -I$(src)

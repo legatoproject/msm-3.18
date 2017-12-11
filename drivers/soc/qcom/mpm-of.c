@@ -680,7 +680,6 @@ EXPORT_SYMBOL(msm_mpm_suspend_wake);
 static void msm_mpm_work_fn(struct work_struct *work)
 {
 	unsigned long flags;
-	int ret;
 
 	while (1) {
 		bool allow;

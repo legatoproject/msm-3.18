@@ -181,7 +181,7 @@ static ssize_t msm_softdog_write(struct file *file, const char __user *data,
 	return 1;
 }
 
-static int  msm_softdog_ioctl( struct file *file, unsigned int command, unsigned long arg)
+static long msm_softdog_ioctl( struct file *file, unsigned int command, unsigned long arg)
 {
 	struct msm_softdog_data *softdogdd = file->private_data;
 	if(softdogdd == NULL)
@@ -193,12 +193,12 @@ static int  msm_softdog_ioctl( struct file *file, unsigned int command, unsigned
 		soft_margin = arg;
 		if(softdogdd->softdog_en == 1){
 			mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
-			printk(KERN_INFO"Set msm_softdog%d margin to %d \n", softdogdd->dev_id, arg);
+			printk(KERN_INFO "Set msm_softdog%d margin to %lu \n", softdogdd->dev_id, arg);
 		}
 		break;
 	case GET_MSM_SOFTDOG_MARGIN :
 		arg = (softdogdd->softdog_timer.expires - jiffies)/HZ;
-		printk(KERN_INFO"Get msm_softdog%d, it is %d \n", softdogdd->dev_id, arg);
+		printk(KERN_INFO "Get msm_softdog%d, it is %lu \n", softdogdd->dev_id, arg);
 		break;
 	case STOP_KICK_MSM_SOFTDOG :
 		if(softdogdd->softdog_en == 1){
@@ -457,15 +457,14 @@ static DEVICE_ATTR(disable, S_IWUSR | S_IRUSR, wdog_disable_get,
 
 #ifdef CONFIG_SIERRA
 static ssize_t wdog_barktime_get(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count)
+				struct device_attribute *attr, char *buf)
 {
 	long barktime;
 	static long WDTHZ = 32765;
 	int ret;
 
 	barktime = __raw_readl(wdog_data->base + WDT0_BARK_TIME)/WDTHZ;
-	ret = snprintf(buf, PAGE_SIZE, "%d\n",barktime);
+	ret = snprintf((char *)buf, PAGE_SIZE, "%ld\n",barktime);
 	return ret;
 }
 
@@ -473,12 +472,12 @@ static ssize_t wdog_barktime_set(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	const char *p;
+	char *p;
 	long barktime;
 	static long WDTHZ = 32765;
 
 	p = memchr(buf, '\n', count);
-	barktime = simple_strtol(buf, p, 10);
+	barktime = simple_strtol(buf, &p, (unsigned int)10);
 
 	__raw_writel((barktime * WDTHZ), wdog_data->base + WDT0_BARK_TIME);
 	mb();

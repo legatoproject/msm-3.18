@@ -113,3 +113,6 @@ obj-$(CONFIG_MSM_SMP2P_TEST)    += gpio-msm-smp2p-test.o
 #SIERRA
 obj-$(CONFIG_SIERRA_GPIO_WAKEN) += sierra_gpio_wake_n.o
 #SIERRA
+
+CFLAGS_gpiolib.o := -I$(src)
+CFLAGS_gpiolib-sysfs.o := -I$(src)

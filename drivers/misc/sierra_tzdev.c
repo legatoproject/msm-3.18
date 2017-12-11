@@ -203,7 +203,7 @@ static int tzdev_seal_data_using_aesccm(uint8_t *plain_data, uint32_t plain_data
   seal_data_reqp->plain_data = (void *)SCM_BUFFER_PHYS(plain_data);
   seal_data_reqp->plain_data_len = plain_data_len;
   // Output buffer
-  seal_data_reqp->output_buffer = (volatile void *)SCM_BUFFER_PHYS(sealed_buffer);
+  seal_data_reqp->output_buffer = (uint8 *)SCM_BUFFER_PHYS(sealed_buffer);
   seal_data_reqp->output_len = sealed_len;
 
   // Flush memory
@@ -658,8 +658,6 @@ static int tzdev_RSA_export_keys(crypto_rsa_key_blob_type* key_blob_ptr,
   struct crypto_asym_rsa_export_key_resp *rsa_export_key_test_resp = NULL;
   int rc = -1;
   struct scm_cmd_buf_s scm_cmd_buf;
-  uint32_t rsa_key_blob_len = sizeof(crypto_rsa_key_type);
-  uint32_t counter = 0;
 
   rsa_export_key_test_req = kmalloc(sizeof(struct crypto_asym_rsa_export_key_cmd),GFP_KERNEL);
   rsa_export_key_test_resp = kmalloc(sizeof(struct crypto_asym_rsa_export_key_resp),GFP_KERNEL);

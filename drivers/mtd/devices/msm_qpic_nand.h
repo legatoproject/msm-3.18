@@ -16,7 +16,10 @@
 #ifndef __QPIC_NAND_H
 #define __QPIC_NAND_H
 
+/* Usually defined in printk.h, but you never know... */
+#ifndef pr_fmt
 #define pr_fmt(fmt) "%s: " fmt, __func__
+#endif
 
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
@@ -391,15 +394,9 @@ struct flash_partition_table {
 	struct flash_partition_entry part_entry[FLASH_PTABLE_MAX_PARTS_V4];
 };
 
-#ifdef CONFIG_MSM_SMD
-static struct flash_partition_table ptable;
-#endif
-
 #ifdef CONFIG_SIERRA
 int sierra_inquire_smem_ptable_name(char *partition_name, int index, int length);
 #endif
-
-static struct mtd_partition mtd_part[FLASH_PTABLE_MAX_PARTS_V4];
 
 static inline bool is_buffer_in_page(const void *buf, size_t len)
 {
