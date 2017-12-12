@@ -1901,6 +1901,13 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	msg.msg_name = addr ? (struct sockaddr *)&address : NULL;
 	/* We assume all kernel code knows the size of sockaddr_storage */
 	msg.msg_namelen = 0;
+
+	/* check for valid flags */
+	err = -EINVAL;
+	if (flags & ~(MSG_CMSG_CLOEXEC|MSG_PEEK|MSG_OOB|MSG_WAITALL|
+			MSG_DONTWAIT|MSG_TRUNC|MSG_CMSG_COMPAT|MSG_ERRQUEUE))
+		goto out;
+
 	if (sock->file->f_flags & O_NONBLOCK)
 		flags |= MSG_DONTWAIT;
 	err = sock_recvmsg(sock, &msg, size, flags);
@@ -2363,7 +2370,8 @@ out:
 SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
 		unsigned int, flags)
 {
-	if (flags & MSG_CMSG_COMPAT)
+	if (flags & ~(MSG_CMSG_CLOEXEC|MSG_PEEK|MSG_OOB|MSG_WAITALL|
+			MSG_DONTWAIT|MSG_TRUNC|MSG_ERRQUEUE))
 		return -EINVAL;
 	return __sys_recvmsg(fd, msg, flags);
 }
