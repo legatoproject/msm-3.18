@@ -46,6 +46,12 @@
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/wakelock.h>
+#endif
+/* SWISTOP */
+
 #ifdef CONFIG_ARCH_MDMCALIFORNIUM
 #define PCIE_VENDOR_ID_RCP		0x17cb
 #define PCIE_DEVICE_ID_RCP		0x0302
@@ -658,6 +664,11 @@ struct msm_pcie_dev_t {
 	struct pinctrl_state		*pins_default;
 	struct pinctrl_state		*pins_sleep;
 	struct msm_pcie_device_info   pcidev_table[MAX_DEVICE_NUM];
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	struct wake_lock irq_wol_wlock;
+#endif
+/* SWISTOP */
 };
 
 
@@ -4215,6 +4226,12 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	else
 		dev->wake_n = 0;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	wake_lock_init(&dev->irq_wol_wlock, WAKE_LOCK_SUSPEND, "pci_msm_wake_lock");
+#endif
+/* SWISTOP */
+
 	dev->parf = dev->res[MSM_PCIE_RES_PARF].base;
 	dev->phy = dev->res[MSM_PCIE_RES_PHY].base;
 	dev->elbi = dev->res[MSM_PCIE_RES_ELBI].base;
@@ -5212,6 +5229,12 @@ static irqreturn_t handle_wake_irq(int irq, void *data)
 
 	spin_unlock_irqrestore(&dev->wakeup_lock, irqsave_flags);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	wake_lock_timeout(&dev->irq_wol_wlock, msecs_to_jiffies(30000));
+#endif
+/* SWISTOP */
+
 	return IRQ_HANDLED;
 }
 
@@ -5780,6 +5803,13 @@ void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 
 	if (dev->wake_n)
 		disable_irq(dev->wake_n);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	wake_lock_destroy(&dev->irq_wol_wlock);
+#endif
+/* SWISTOP */
+
 }
 
 

@@ -668,8 +668,7 @@ int dquot_quota_sync(struct super_block *sb, int type)
 	/* This is not very clever (and fast) but currently I don't know about
 	 * any other simple way of getting quota data to disk and we must get
 	 * them there for userspace to be visible... */
-	if (sb->s_op->sync_fs)
-		sb->s_op->sync_fs(sb, 1);
+	sync_filesystem(sb);
 	sync_blockdev(sb->s_bdev);
 
 	/*
@@ -1987,6 +1986,33 @@ int dquot_file_open(struct inode *inode, struct file *file)
 }
 EXPORT_SYMBOL(dquot_file_open);
 
+static int generic_restore_iflags(struct super_block *sb, struct inode **toputinode,
+					unsigned int *old_flags)
+{
+	int cnt = 0;
+	struct quota_info *dqopt = sb_dqopt(sb);
+
+	for (cnt = 0; cnt < MAXQUOTAS; cnt++)
+		if (toputinode[cnt]) {
+			mutex_lock(&dqopt->dqonoff_mutex);
+			/* If quota was reenabled in the meantime, we have
+			 * nothing to do */
+			if (!sb_has_quota_loaded(sb, cnt)) {
+				mutex_lock(&toputinode[cnt]->i_mutex);
+				toputinode[cnt]->i_flags &= ~(S_IMMUTABLE |
+				  S_NOATIME | S_NOQUOTA);
+				toputinode[cnt]->i_flags |= old_flags[cnt];
+				truncate_inode_pages(&toputinode[cnt]->i_data,
+						     0);
+				mutex_unlock(&toputinode[cnt]->i_mutex);
+				mark_inode_dirty_sync(toputinode[cnt]);
+			}
+			mutex_unlock(&dqopt->dqonoff_mutex);
+		}
+
+	return 0;
+}
+
 /*
  * Turn quota off on a device. type == -1 ==> quotaoff for all types (umount)
  */
@@ -1995,6 +2021,7 @@ int dquot_disable(struct super_block *sb, int type, unsigned int flags)
 	int cnt, ret = 0;
 	struct quota_info *dqopt = sb_dqopt(sb);
 	struct inode *toputinode[MAXQUOTAS];
+	unsigned int *old_flags = dqopt->old_flags;
 
 	/* Cannot turn off usage accounting without turning off limits, or
 	 * suspend quotas and simultaneously turn quotas off. */
@@ -2009,7 +2036,7 @@ int dquot_disable(struct super_block *sb, int type, unsigned int flags)
 	/*
 	 * Skip everything if there's nothing to do. We have to do this because
 	 * sometimes we are called when fill_super() failed and calling
-	 * sync_fs() in such cases does no good.
+	 * sync_filesystem() in such cases does no good.
 	 */
 	if (!sb_any_quota_loaded(sb)) {
 		mutex_unlock(&dqopt->dqonoff_mutex);
@@ -2076,30 +2103,19 @@ int dquot_disable(struct super_block *sb, int type, unsigned int flags)
 
 	/* Sync the superblock so that buffers with quota data are written to
 	 * disk (and so userspace sees correct data afterwards). */
-	if (sb->s_op->sync_fs)
-		sb->s_op->sync_fs(sb, 1);
+	sync_filesystem(sb);
 	sync_blockdev(sb->s_bdev);
+
 	/* Now the quota files are just ordinary files and we can set the
 	 * inode flags back. Moreover we discard the pagecache so that
 	 * userspace sees the writes we did bypassing the pagecache. We
 	 * must also discard the blockdev buffers so that we see the
 	 * changes done by userspace on the next quotaon() */
-	for (cnt = 0; cnt < MAXQUOTAS; cnt++)
-		if (toputinode[cnt]) {
-			mutex_lock(&dqopt->dqonoff_mutex);
-			/* If quota was reenabled in the meantime, we have
-			 * nothing to do */
-			if (!sb_has_quota_loaded(sb, cnt)) {
-				mutex_lock(&toputinode[cnt]->i_mutex);
-				toputinode[cnt]->i_flags &= ~(S_IMMUTABLE |
-				  S_NOATIME | S_NOQUOTA);
-				truncate_inode_pages(&toputinode[cnt]->i_data,
-						     0);
-				mutex_unlock(&toputinode[cnt]->i_mutex);
-				mark_inode_dirty_sync(toputinode[cnt]);
-			}
-			mutex_unlock(&dqopt->dqonoff_mutex);
-		}
+	if (sb->s_qcop->restore_iflags)
+		ret = sb->s_qcop->restore_iflags(sb, toputinode, old_flags);
+	else
+		ret = generic_restore_iflags(sb, toputinode, old_flags);
+
 	if (sb->s_bdev)
 		invalidate_bdev(sb->s_bdev);
 put_inodes:
@@ -2173,7 +2189,8 @@ static int vfs_load_quota_inode(struct inode *inode, int type, int format_id,
 		 * of the cache could fail because of other unrelated dirty
 		 * data */
 		sync_filesystem(sb);
-		invalidate_bdev(sb->s_bdev);
+		if (sb->s_bdev)
+			invalidate_bdev(sb->s_bdev);
 	}
 	mutex_lock(&dqopt->dqonoff_mutex);
 	if (sb_has_quota_loaded(sb, type)) {
@@ -2189,6 +2206,7 @@ static int vfs_load_quota_inode(struct inode *inode, int type, int format_id,
 		oldflags = inode->i_flags & (S_NOATIME | S_IMMUTABLE |
 					     S_NOQUOTA);
 		inode->i_flags |= S_NOQUOTA | S_NOATIME | S_IMMUTABLE;
+		dqopt->old_flags[type] = oldflags;
 		mutex_unlock(&inode->i_mutex);
 		/*
 		 * When S_NOQUOTA is set, remove dquot references as no more

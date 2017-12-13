@@ -66,6 +66,12 @@
 #include <linux/platform_data/msm_serial_hs.h>
 #include <linux/msm-bus.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsudefs.h>
+#endif /*CONFIG_SIERRA*/
+/* SWISTOP */
+
 #include "msm_serial_hs_hwreg.h"
 #define UART_SPS_CONS_PERIPHERAL 0
 #define UART_SPS_PROD_PERIPHERAL 1
@@ -680,6 +686,84 @@ static int msm_serial_loopback_enable_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(loopback_enable_fops, msm_serial_loopback_enable_get,
 			msm_serial_loopback_enable_set, "%llu\n");
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+const static char at_func_string[] = "AT\n";
+const static char dm_func_string[] = "DM\n";
+const static char nmea_func_string[] = "NMEA\n";
+const static char cons_func_string[] = "CONSOLE\n";
+const static char app_func_string[] = "APP\n";
+const static char inv_func_string[] = "UNAVAILABLE\n";
+const static char dis_func_string[] = "DISABLED\n";
+static int8_t uart_func[UARTDM_NR];
+static char* uart_func_str_pt[UARTDM_NR] = {0};
+const static char* uart_hs_sym_dir_str_pt[UARTDM_NR] = { "msm_serial_hs.0", "msm_serial_hs.1" };
+
+static ssize_t show_uart_hs_config(struct device *dev,
+				struct device_attribute *attr,
+				char *buf)
+{
+	int line;
+	struct msm_serial_hs_platform_data *pdata;
+
+	struct platform_device *pdev = to_platform_device(dev);
+
+	/* Use line (ttyHSx) number from pdata or device tree if specified */
+	pdata = pdev->dev.platform_data;
+	if (pdata)
+		line = pdata->userid;
+	else
+		line = pdev->id;
+
+	if(line >= UARTDM_NR) {
+		pr_err("invalid line number %d", line);
+		sprintf(buf, "%s", (char *)inv_func_string);
+		return strlen(inv_func_string) + 1;
+	}
+
+	if(uart_func_str_pt[line]) {
+		sprintf(buf, "%s", uart_func_str_pt[line]);
+		return strlen((const char*)uart_func_str_pt[line]) + 1;
+	} else {
+		sprintf(buf, "%s", (char *)inv_func_string);
+		return strlen(inv_func_string) + 1;
+	}
+}
+
+static DEVICE_ATTR(config, S_IRUSR| S_IRGRP| S_IROTH, show_uart_hs_config, NULL);
+
+/****
+* Now, with DTS implementation, hsl uart's information is only
+* shown on /sys/devices. In order to be back-compatible with script,
+* create a symlink under /sys/devices/platform
+****/
+static void uart_hs_sysfs_symlink_set(struct device * dev)
+{
+	int ret = 0;
+	u32 line;
+	struct kobject *platform_kobj;
+	struct msm_serial_hs_platform_data *pdata;
+
+	struct platform_device *pdev = to_platform_device(dev);
+
+	pdata = pdev->dev.platform_data;
+	if (pdata)
+		line = pdata->userid;
+	else
+		line = pdev->id;
+
+	platform_kobj = kset_find_obj(pdev->dev.kobj.kset, "platform");
+
+	if ( (line < UARTDM_NR) && (platform_kobj != NULL ))
+	{
+		ret = sysfs_create_link(platform_kobj, &pdev->dev.kobj, uart_hs_sym_dir_str_pt[line]);
+		pr_info ("symlink dir is %s, ret is %d\n", uart_hs_sym_dir_str_pt[line], ret);
+	}
+}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
+#ifdef CONFIG_DEBUG_FS
 /*
  * msm_serial_hs debugfs node: <debugfs_root>/msm_serial_hs/loopback.<id>
  * writing 1 turns on internal loopback mode in HW. Useful for automation
@@ -701,6 +785,12 @@ static void msm_serial_debugfs_init(struct msm_hs_port *msm_uport,
 		MSM_HS_ERR("%s(): Cannot create loopback.%d debug entry",
 							__func__, id);
 }
+#else
+static void msm_serial_debugfs_init(struct msm_hs_port *msm_uport,
+					   int id)
+{
+}
+#endif
 
 static int msm_hs_remove(struct platform_device *pdev)
 {
@@ -3278,7 +3368,13 @@ static void  msm_serial_hs_rt_init(struct uart_port *uport)
 
 	MSM_HS_INFO("%s(): Enabling runtime pm", __func__);
 	pm_runtime_set_suspended(uport->dev);
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	pm_runtime_set_autosuspend_delay(uport->dev, 100);
+#else
+	pm_runtime_set_autosuspend_delay(uport->dev, 5000);
+#endif /* CONFIG_SIERRA */
+	/* SWISTOP */
 	pm_runtime_use_autosuspend(uport->dev);
 	mutex_lock(&msm_uport->mtx);
 	msm_uport->pm_state = MSM_HS_PM_SUSPENDED;
@@ -3315,6 +3411,12 @@ static int msm_hs_probe(struct platform_device *pdev)
 	unsigned long data;
 	char name[30];
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	u32 line;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
 		pdata = msm_hs_dt_to_pdata(pdev);
@@ -3337,6 +3439,12 @@ static int msm_hs_probe(struct platform_device *pdev)
 			}
 		}
 		pdev->dev.platform_data = pdata;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		line = pdev->id;
+		pdata->userid = line;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	}
 
 	if (pdev->id < 0 || pdev->id >= UARTDM_NR) {
@@ -3358,6 +3466,48 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		msm_uport->uart_type = BLSP_HSUART;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/*line<=1 allows UART1&UART2 run these codes that can configure UART to other function*/
+	if(line <= 1)
+	{
+		/* create config file for APP usage */
+		ret = device_create_file(&pdev->dev, &dev_attr_config);
+		if (unlikely(ret))
+			pr_err("%s():Can't create config attribute\n", __func__);
+
+		uart_hs_sysfs_symlink_set(&pdev->dev);
+
+		uart_func[line] = bs_uart_fun_get(line);
+
+		if (uart_func[line] == -1) {
+			uart_func[line] = BSUARTFUNC_DISABLED;
+		}
+
+		switch (uart_func[line]) {
+		case BSUARTFUNC_AT:
+			pr_info("ttyHS%d is reserved for AT service.\n", line);
+			uart_func_str_pt[line] = (char *)at_func_string;
+			break;
+		case BSUARTFUNC_NMEA:
+			pr_info("ttyHS%d is reserved for NMEA service.\n", line);
+			uart_func_str_pt[line] = (char *)nmea_func_string;
+			break;
+		case BSUARTFUNC_APP:
+			pr_info("ttyHS%d could be used as generic serial port.\n", line);
+			uart_func_str_pt[line] = (char *)app_func_string;
+			break;
+		default:
+			pr_info("ttyHS%d, function %d is not valid on application processor.\n",
+				line, uart_func[line]);
+			uart_func_str_pt[line] = (char *)inv_func_string;
+			pdev->dev.platform_data = NULL;
+			return -EPERM;
+		}
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	msm_hs_get_pinctrl_configs(uport);
 	/* Get required resources for BAM HSUART */

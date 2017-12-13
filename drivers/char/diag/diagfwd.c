@@ -1196,7 +1196,15 @@ static int diagfwd_mux_open(int id, int mode)
 
 	switch (mode) {
 	case DIAG_USB_MODE:
+/* SWISTART */
+#if CONFIG_SIERRA
+#ifdef CONFIG_DIAG_OVER_USB
 		driver->usb_connected = 1;
+#endif
+#else
+		driver->usb_connected = 1;
+#endif
+/* SWISTOP */
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		break;
@@ -1229,7 +1237,15 @@ static int diagfwd_mux_close(int id, int mode)
 
 	switch (mode) {
 	case DIAG_USB_MODE:
+/* SWISTART */
+#if CONFIG_SIERRA
+#ifdef CONFIG_DIAG_OVER_USB
 		driver->usb_connected = 0;
+#endif
+#else
+		driver->usb_connected = 0;
+#endif
+/* SWISTOP */
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		break;

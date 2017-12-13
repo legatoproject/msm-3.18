@@ -65,6 +65,12 @@ struct gserial {
 	void (*notify_modem)(void *gser, u8 portno, int ctrl_bits);
 };
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+extern bool nmea_port_exist(void);
+#endif
+/* SWISTOP */
+
 /* utilities to allocate/free request and buffer */
 struct usb_request *gs_alloc_req(struct usb_ep *ep, unsigned len,
 		size_t extra_bu_alloc, gfp_t flags);

@@ -3665,8 +3665,17 @@ static void pil_vote_load_worker(struct work_struct *work)
 	if (strlen(default_peripheral)) {
 		vote_info->pil_handle = subsystem_get(default_peripheral);
 		if (IS_ERR(vote_info->pil_handle)) {
+
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 			IPC_RTR_ERR("%s: Failed to load %s\n",
 				    __func__, default_peripheral);
+#else
+			pr_debug("%s: Failed to load %s\n",
+				__func__, default_peripheral);
+#endif
+/* SWISTOP */
+
 			vote_info->pil_handle = NULL;
 		}
 	} else {

@@ -187,6 +187,11 @@ config USB_F_UAC1
 config USB_F_UAC2
 	tristate
 
+#SWISTART
+config SIERRA_UAC2
+	tristate
+#SWISTOP
+
 config USB_F_UVC
 	tristate
 
@@ -421,7 +426,9 @@ config USB_G_ANDROID
 	select USB_F_ECM
 	select USB_F_NCM
 	select USB_F_MASS_STORAGE
-	select USB_F_UAC1 if SND_PCM
+#SWISTART
+	select SIERRA_UAC2 if SND_PCM
+#SWISTOP
 	help
 	  The Android Composite Gadget supports multiple USB
 	  functions: adb, acm, mass storage, mtp, accessory

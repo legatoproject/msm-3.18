@@ -668,6 +668,7 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	/* Make metadata physically contiguous and 4K aligned. */
 	mdata_virt = dma_alloc_attrs(dma_dev, size, &mdata_phys, GFP_KERNEL,
 				     &attrs);
+
 	if (!mdata_virt) {
 		dev_err(pil->dev, "%s MBA metadata buffer allocation %zx bytes failed\n",
 			 __func__, size);

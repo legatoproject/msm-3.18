@@ -5,7 +5,7 @@
 config NET_VENDOR_TOSHIBA
 	bool "Toshiba devices"
 	default y
-	depends on PCI && (PPC_IBM_CELL_BLADE || PPC_CELLEB || MIPS) || PPC_PS3
+	depends on PCI
 	---help---
 	  If you have a network (Ethernet) card belonging to this class, say Y
 	  and read the Ethernet-HOWTO, available from
@@ -53,5 +53,36 @@ config TC35815
 	tristate "TOSHIBA TC35815 Ethernet support"
 	depends on PCI && MIPS
 	select PHYLIB
+
+config NEUTRINO_NET
+	bool "TOSHIBA PCIe EMAC support"
+	depends on PCI
+	select NEUTRINO_PTPSUPPORT_OBJ
+	select NEUTRINO_IPA_OFFLOAD
+	default n
+	---help---
+	  TOSHIBA PCIe EMAC support, for Neutrino project
+
+config NTN_PHY_RMII
+	bool "TOSHIBA PCIe EMAC support RMII"
+	depends on NEUTRINO_NET
+	default n
+	---help---
+	  TOSHIBA PCIe EMAC support RMII phy
+
+config NEUTRINO_PTPSUPPORT_OBJ
+	bool "PTP support for TOSHIBA PCIe driver"
+	depends on NEUTRINO_NET
+	default n
+	---help---
+	  PTP support TOSHIBA PCIe driver, for Neutrino project
+
+config NEUTRINO_IPA_OFFLOAD
+	bool "IPA support for TOSHIBA PCIe driver"
+	depends on NEUTRINO_NET
+	default n
+	---help---
+	  IPA support TOSHIBA PCIe driver, for Neutrino project
+
 
 endif # NET_VENDOR_TOSHIBA

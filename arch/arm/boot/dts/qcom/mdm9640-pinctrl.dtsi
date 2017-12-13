@@ -20,42 +20,6 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 
-		uart2_console_active: uart2_console_active {
-			mux {
-				pins = "gpio4", "gpio5", "gpio6", "gpio7";
-				function = "blsp_uart2";
-			};
-			config {
-				pins = "gpio4", "gpio5", "gpio6", "gpio7";
-				drive-strength = <16>;
-				bias-disable;
-			};
-		};
-
-		uart2_console_sleep: uart3_console_sleep {
-			mux {
-				pins = "gpio4", "gpio5", "gpio6", "gpio7";
-				function = "gpio";
-			};
-			config {
-				pins = "gpio4", "gpio5", "gpio6", "gpio7";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-
-		uart3_console_active: uart3_console_active {
-			mux {
-				pins = "gpio8", "gpio9";
-				function = "blsp_uart3";
-			};
-			config {
-				pins = "gpio8", "gpio9";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-
 		pinctrl_pps: ppsgrp {
 			mux {
 				pins = "gpio38";
@@ -1536,9 +1500,14 @@
 
 				config {
 					pins = "gpio95";
+					function = "gpio";
+/* SWISTART */
+/*
 					drive-strength = <16>;
 					output-high;
 					bias-pull-up;
+*/
+/* SWISTOP */
 				};
 			};
 			cnss_wlan_en_sleep: cnss_wlan_en_sleep {

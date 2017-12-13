@@ -257,4 +257,13 @@ config ARCH_MSM8909
 	select ARCH_WANT_KMAP_ATOMIC_FLUSH
 
 endmenu
+
+# SWISTART
+config SIERRA
+	bool "Activates/Deactivates Sierra Wireless changes"
+	help
+	  All Sierra Wireless changes are controlled by this define
+	default y
+#SWISTOP
+
 endif

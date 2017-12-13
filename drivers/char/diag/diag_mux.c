@@ -91,6 +91,9 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 		return 0;
 
 	/* Register with USB logger */
+/* SWISTART */
+#if CONFIG_SIERRA
+#ifdef CONFIG_DIAG_OVER_USB
 	usb_logger.ops[proc] = ops;
 	err = diag_usb_register(proc, ctx, ops);
 	if (err) {
@@ -98,6 +101,17 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 		       proc, err);
 		return err;
 	}
+#endif
+#else
+	usb_logger.ops[proc] = ops;
+	err = diag_usb_register(proc, ctx, ops);
+	if (err) {
+		pr_err("diag: MUX: unable to register usb operations for proc: %d, err: %d\n",
+		       proc, err);
+		return err;
+	}
+#endif
+/* SWISTOP */
 
 	md_logger.ops[proc] = ops;
 	err = diag_md_register(proc, ctx, ops);

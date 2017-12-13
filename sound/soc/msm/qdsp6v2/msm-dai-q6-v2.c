@@ -3667,6 +3667,8 @@ static int msm_dai_q6_dev_probe(struct platform_device *pdev)
 		 dev_name(&pdev->dev), pdev->id);
 
 	switch (id) {
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	case SLIMBUS_0_RX:
 		strlcpy(stream_name, "Slimbus Playback", 80);
 		goto register_slim_playback;
@@ -3763,6 +3765,8 @@ register_slim_capture:
 		rc = snd_soc_register_component(&pdev->dev, &msm_dai_q6_component,
 										&msm_dai_q6_fm_tx_dai, 1);
 		break;
+#endif
+/* SWISTOP */
 	case RT_PROXY_DAI_001_RX:
 		strlcpy(stream_name, "AFE Playback", 80);
 		goto register_afe_playback;
@@ -7030,6 +7034,8 @@ static int __init msm_dai_q6_init(void)
 		goto dai_spdif_q6_fail;
 	}
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 	rc = platform_driver_register(&msm_dai_q6_tdm_driver);
 	if (rc) {
 		pr_err("%s: fail to register dai TDM dev drv\n", __func__);
@@ -7041,10 +7047,17 @@ static int __init msm_dai_q6_init(void)
 		pr_err("%s: fail to register dai TDM\n", __func__);
 		goto dai_tdm_q6_fail;
 	}
+#endif
+/* SWISTOP */
+
 	return rc;
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 dai_tdm_q6_fail:
 	platform_driver_unregister(&msm_dai_q6_tdm_driver);
+#endif
+/* SWISTOP */
 dai_q6_tdm_drv_fail:
 	platform_driver_unregister(&msm_dai_q6_spdif_driver);
 dai_spdif_q6_fail:

@@ -85,6 +85,16 @@ struct gpio_chip {
 						unsigned offset);
 	int			(*direction_output)(struct gpio_chip *chip,
 						unsigned offset, int value);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	int			(*pull_up)(struct gpio_chip *chip,
+						unsigned offset);
+	int			(*pull_down)(struct gpio_chip *chip,
+						unsigned offset);
+	int			(*set_pull)(struct gpio_chip *chip,
+						unsigned offset, int pull_type);
+#endif
+/* SWISTOP */
 	int			(*get)(struct gpio_chip *chip,
 						unsigned offset);
 	void			(*set)(struct gpio_chip *chip,
@@ -137,6 +147,11 @@ struct gpio_chip {
 	 */
 	struct list_head pin_ranges;
 #endif
+/*SWISTART*/
+#ifdef CONFIG_SIERRA
+	u64 mask[2];
+#endif
+/*SWISTOP*/
 };
 
 extern const char *gpiochip_is_requested(struct gpio_chip *chip,

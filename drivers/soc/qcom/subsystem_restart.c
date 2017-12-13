@@ -40,6 +40,14 @@
 #include <asm/current.h>
 
 #include "peripheral-loader.h"
+#include <linux/reboot.h>
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsuproto.h>
+#include <mach/sierra_smem.h>
+#endif
+/* SWISTOP */
 
 #define DISABLE_SSR 0x9889deed
 /* If set to 0x9889deed, call to subsystem_restart_dev() returns immediately */
@@ -303,6 +311,30 @@ static ssize_t system_debug_store(struct device *dev,
 	return orig_count;
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t firmware_load(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	struct subsys_device *subsys = to_subsys(dev);
+	const char *p;
+	int orig_count = count;
+	int ret;
+
+	p = memchr(buf, '\n', count);
+	if (p)
+		count = p - buf;
+
+	if (!strncasecmp(buf, "1", count) &&
+		(subsystem_get(to_subsys(dev)->desc->fw_name) != NULL))
+		return orig_count;
+
+	return -EPERM;
+}
+#endif
+/* SWISTOP */
+
 int subsys_get_restart_level(struct subsys_device *dev)
 {
 	return dev->restart_level;
@@ -345,6 +377,11 @@ static struct device_attribute subsys_attrs[] = {
 	__ATTR(restart_level, 0644, restart_level_show, restart_level_store),
 	__ATTR(firmware_name, 0644, firmware_name_show, firmware_name_store),
 	__ATTR(system_debug, 0644, system_debug_show, system_debug_store),
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	__ATTR(firmware_load, 0200, NULL, firmware_load),
+#endif
+/* SWISTOP */
 	__ATTR_NULL,
 };
 
@@ -999,7 +1036,17 @@ static void device_restart_work_hdlr(struct work_struct *work)
 	 * Temporary workaround until ramdump userspace application calls
 	 * sync() and fclose() on attempting the dump.
 	 */
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(!bsgetpowerfaultflag())
+	{
+		msleep(100);
+	}
+#else
 	msleep(100);
+#endif
+/* SWISTOP */
 	panic("subsys-restart: Resetting the SoC - %s crashed.",
 							dev->desc->name);
 }
@@ -1045,7 +1092,14 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		break;
 	case RESET_SOC:
 		__pm_stay_awake(&dev->ssr_wlock);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* device_restart_work is urgent, put it in a clean worker pool.  */
+		queue_work(system_highpri_wq, &dev->device_restart_work);
+#else
 		schedule_work(&dev->device_restart_work);
+#endif
+/* SWISTOP */
 		return 0;
 	default:
 		panic("subsys-restart: Unknown restart level!\n");

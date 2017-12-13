@@ -496,6 +496,12 @@ static int alarmtimer_resume(struct device *dev)
 		return 0;
 	rtc_timer_cancel(rtc, &rtctimer);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	set_power_on_alarm();
+#endif
+/* SWISTOP */
+
 	queue_delayed_work(power_off_alarm_workqueue, &work, 0);
 	return 0;
 }

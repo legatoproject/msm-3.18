@@ -29,6 +29,11 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/watchdog.h>
+#ifdef CONFIG_SIERRA
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/cdev.h>
+#endif /*CONFIG_SIERRA*/
 
 #define MODULE_NAME "msm_watchdog"
 #define WDT0_ACCSCSSNBARK_INT 0
@@ -104,6 +109,197 @@ module_param(WDT_HZ, long, 0);
 static int ipi_opt_en;
 module_param(ipi_opt_en, int, 0);
 
+#ifdef CONFIG_SIERRA
+#define MSM_SOFTDOG_MAGIC 'W'
+#define GET_MSM_SOFTDOG_MARGIN _IOR(MSM_SOFTDOG_MAGIC, 1, int)
+#define SET_MSM_SOFTDOG_MARGIN _IOW(MSM_SOFTDOG_MAGIC, 2, int)
+#define STOP_KICK_MSM_SOFTDOG _IO(MSM_SOFTDOG_MAGIC, 3)
+#define START_KICK_MSM_SOFTDOG _IO(MSM_SOFTDOG_MAGIC, 4)
+/*
+ * By default stop to kick the msm_watchdog.
+ * When the system starts ok, will start to
+ * kick the msm_watchdog
+ */
+static int stop_kick_watchdog = 1;
+#define MAX_MSM_DOGS	6	/* Maximum number of msm_watchdog devices */
+#define msm_softdog_num  3
+static unsigned int soft_margin = 60;	/* Default is 60 seconds */
+static struct class *msm_softdog_class;
+static dev_t msm_softdog_devt;
+struct msm_softdog_data{
+	struct timer_list softdog_timer;
+	struct cdev softdog_cdev;
+	int dev_id;
+	bool softdog_en;
+};
+static struct msm_softdog_data msm_softdog[msm_softdog_num];
+
+static void msm_softdogfire(unsigned long data)
+{
+	struct msm_softdog_data *softdogdd =
+		(struct msm_softdog_data *)data;
+	if(softdogdd == NULL)
+		return;
+	softdogdd->softdog_en = 0;
+	pr_err("msm_watchdog%d is timeout, now system will reboot!\n", softdogdd->dev_id);
+	msm_trigger_wdog_bite();
+	preempt_disable();
+}
+
+static int msm_softdog_open(struct inode *inode, struct file *file)
+{
+	struct msm_softdog_data *softdogdd;
+
+	/* Get the corresponding watchdog device */
+	softdogdd = container_of(inode->i_cdev, struct msm_softdog_data, softdog_cdev);
+	if(softdogdd == NULL)
+		return 1;
+	if(softdogdd->softdog_en == 1){
+		printk(KERN_INFO"msm_softdog%d was reopened! \n", softdogdd->dev_id);
+		mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
+		file->private_data = softdogdd;
+		return 0;
+	}
+	init_timer(&softdogdd->softdog_timer);
+	softdogdd->softdog_timer.data = (unsigned long)softdogdd;
+	softdogdd->softdog_timer.function = msm_softdogfire;
+	softdogdd->softdog_timer.expires = jiffies + soft_margin*HZ;
+	add_timer(&softdogdd->softdog_timer);
+	softdogdd->softdog_en = 1;
+	file->private_data = softdogdd;
+	printk(KERN_INFO"msm_softdog%d was opened! \n", softdogdd->dev_id);
+	return 0;
+}
+
+static ssize_t msm_softdog_write(struct file *file, const char __user *data,
+						size_t len, loff_t *ppos)
+{
+    struct msm_softdog_data *softdogdd = file->private_data;
+    if(softdogdd == NULL)
+		return 0;
+	mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
+	return 1;
+}
+
+static int  msm_softdog_ioctl( struct file *file, unsigned int command, unsigned long arg)
+{
+	struct msm_softdog_data *softdogdd = file->private_data;
+	if(softdogdd == NULL)
+		return 1;
+
+	switch(command)
+	{
+	case SET_MSM_SOFTDOG_MARGIN :
+		soft_margin = arg;
+		if(softdogdd->softdog_en == 1){
+			mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
+			printk(KERN_INFO"Set msm_softdog%d margin to %d \n", softdogdd->dev_id, arg);
+		}
+		break;
+	case GET_MSM_SOFTDOG_MARGIN :
+		arg = (softdogdd->softdog_timer.expires - jiffies)/HZ;
+		printk(KERN_INFO"Get msm_softdog%d, it is %d \n", softdogdd->dev_id, arg);
+		break;
+	case STOP_KICK_MSM_SOFTDOG :
+		if(softdogdd->softdog_en == 1){
+			del_timer_sync(&softdogdd->softdog_timer);
+			softdogdd->softdog_en = 0;
+			printk(KERN_INFO"msm_softdog%d was stoped! \n", softdogdd->dev_id);
+		}
+		break;
+	case START_KICK_MSM_SOFTDOG :
+		if(softdogdd->softdog_en == 1){
+			printk(KERN_INFO"msm_softdog%d was restarted! \n", softdogdd->dev_id);
+			mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
+			file->private_data = softdogdd;
+			return 0;
+		}
+		init_timer(&softdogdd->softdog_timer);
+		softdogdd->softdog_timer.data = (unsigned long)softdogdd;
+		softdogdd->softdog_timer.function = msm_softdogfire;
+		softdogdd->softdog_timer.expires = jiffies + soft_margin*HZ;
+		add_timer(&softdogdd->softdog_timer);
+		softdogdd->softdog_en = 1;
+		file->private_data = softdogdd;
+		printk(KERN_INFO"msm_softdog%d was started!\n", softdogdd->dev_id);
+		break;
+	default :
+		break ;
+	}
+
+	return 0;
+}
+
+static const struct file_operations msm_softdog_fops = {
+	.owner		= THIS_MODULE,
+	.write		= msm_softdog_write,
+	.open		= msm_softdog_open,
+	.unlocked_ioctl		= msm_softdog_ioctl,
+};
+
+static void msm_watchdog_dev_unregister(struct msm_softdog_data *softdog_dd)
+{
+	cdev_del(&softdog_dd->softdog_cdev);
+	device_destroy(msm_softdog_class, MKDEV(MAJOR(msm_softdog_devt), softdog_dd->dev_id));
+	return;
+}
+
+static int msm_watchdog_dev_register(struct msm_softdog_data *softdog_dd)
+{
+	int err, devno;
+	struct device *msm_softdog_device;
+
+	/* Fill in the data structures */
+	devno = MKDEV(MAJOR(msm_softdog_devt), softdog_dd->dev_id);
+	cdev_init(&softdog_dd->softdog_cdev, &msm_softdog_fops);
+	softdog_dd->softdog_cdev.owner = THIS_MODULE;
+	/* Add the device */
+	err = cdev_add(&softdog_dd->softdog_cdev, devno, 1);
+	if (err) {
+		pr_err("msm_watchdog%d unable to add device %d:1\n",softdog_dd->dev_id,MAJOR(msm_softdog_devt));
+		return err;
+	}
+
+	msm_softdog_device = device_create(msm_softdog_class, NULL, softdog_dd->softdog_cdev.dev,
+					NULL, "msm_watchdog%d", softdog_dd->dev_id);
+	if (IS_ERR(msm_softdog_device)) {
+		msm_watchdog_dev_unregister(softdog_dd);
+		err = PTR_ERR(msm_softdog_device);
+		return err;
+	}
+	return 0;
+}
+
+static void msm_watchdog_dev_exit(void)
+{
+	unregister_chrdev_region(msm_softdog_devt, MAX_MSM_DOGS);
+	class_destroy(msm_softdog_class);
+	return;
+}
+
+static int msm_watchdog_dev_init(void)
+{
+	int err,i;
+	msm_softdog_class = class_create(THIS_MODULE, "msm_watchdog");
+	if (IS_ERR(msm_softdog_class)) {
+		pr_err("couldn't create class\n");
+		return PTR_ERR(msm_softdog_class);
+	}
+
+	err = alloc_chrdev_region(&msm_softdog_devt, 1, MAX_MSM_DOGS, "msm_watchdog");
+	if (err < 0){
+		class_destroy(msm_softdog_class);
+		pr_err("watchdog: unable to allocate char dev region\n");
+		return err;
+	}
+	for(i = 0;i < msm_softdog_num;i++){
+		msm_softdog[i].dev_id = i;
+		msm_softdog[i].softdog_en = 0;
+	}
+	return 0;
+}
+#endif /*CONFIG_SIERRA*/
+
 static void dump_cpu_alive_mask(struct msm_watchdog_data *wdog_dd)
 {
 	static char alive_mask_buf[MASK_SIZE];
@@ -168,6 +364,11 @@ static int panic_wdog_handler(struct notifier_block *this,
 				wdog_dd->base + WDT0_BITE_TIME);
 		__raw_writel(1, wdog_dd->base + WDT0_RST);
 	}
+
+#ifdef CONFIG_SIERRA
+	stop_kick_watchdog = 1;
+#endif /*CONFIG_SIERRA*/
+
 	return NOTIFY_DONE;
 }
 
@@ -254,12 +455,99 @@ static ssize_t wdog_disable_set(struct device *dev,
 static DEVICE_ATTR(disable, S_IWUSR | S_IRUSR, wdog_disable_get,
 							wdog_disable_set);
 
+#ifdef CONFIG_SIERRA
+static ssize_t wdog_barktime_get(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	long barktime;
+	static long WDTHZ = 32765;
+	int ret;
+
+	barktime = __raw_readl(wdog_data->base + WDT0_BARK_TIME)/WDTHZ;
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",barktime);
+	return ret;
+}
+
+static ssize_t wdog_barktime_set(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	const char *p;
+	long barktime;
+	static long WDTHZ = 32765;
+
+	p = memchr(buf, '\n', count);
+	barktime = simple_strtol(buf, p, 10);
+
+	__raw_writel((barktime * WDTHZ), wdog_data->base + WDT0_BARK_TIME);
+	mb();
+	__raw_writel(((barktime+3) * WDTHZ ), wdog_data->base + WDT0_BITE_TIME);
+	mb();
+	return count;
+}
+
+static DEVICE_ATTR(barktime, S_IWUSR | S_IRUSR, wdog_barktime_get, wdog_barktime_set);
+
+static ssize_t wdog_stopautokick_set(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	const char *p;
+	int original_count = count;
+
+	p = memchr(buf, '\n', count);
+
+	if (p)
+		count = p - buf;
+
+	if (!strncasecmp(buf, "1", count)){
+		stop_kick_watchdog = 1;
+	}
+	else if (!strncasecmp(buf, "0", count)){
+		stop_kick_watchdog = 0;
+	}
+
+	__raw_writel(1, wdog_data->base + WDT0_RST);
+
+	return original_count;
+}
+
+static DEVICE_ATTR(stopautokick, S_IWUSR, NULL, wdog_stopautokick_set);
+
+static ssize_t wdog_kick(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	const char *p;
+	int original_count = count;
+
+	p = memchr(buf, '\n', count);
+	if (p)
+		count = p - buf;
+	if (!strncasecmp(buf, "1", count)){
+		__raw_writel(1, wdog_data->base + WDT0_RST);
+	}
+
+	return original_count;
+}
+
+static DEVICE_ATTR(kick, S_IWUSR, NULL, wdog_kick);
+#endif  /*CONFIG_SIERRA*/
+
 static void pet_watchdog(struct msm_watchdog_data *wdog_dd)
 {
 	int slack, i, count, prev_count = 0;
 	unsigned long long time_ns;
 	unsigned long long slack_ns;
 	unsigned long long bark_time_ns = wdog_dd->bark_time * 1000000ULL;
+
+#ifdef CONFIG_SIERRA
+	if(stop_kick_watchdog == 1){
+		pr_info("Stop pet MSM watchdog.\n");
+		return;
+	}
+#endif  /*CONFIG_SIERRA*/
 
 	for (i = 0; i < 2; i++) {
 		count = (__raw_readl(wdog_dd->base + WDT0_STS) >> 1) & 0xFFFFF;
@@ -364,6 +652,9 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 {
 	struct msm_watchdog_data *wdog_dd =
 			(struct msm_watchdog_data *)platform_get_drvdata(pdev);
+#ifdef CONFIG_SIERRA
+	int i;
+#endif /*CONFIG_SIERRA*/
 
 	if (ipi_opt_en)
 		cpu_pm_unregister_notifier(&wdog_cpu_pm_nb);
@@ -380,6 +671,15 @@ static int msm_watchdog_remove(struct platform_device *pdev)
 	del_timer_sync(&wdog_dd->pet_timer);
 	kthread_stop(wdog_dd->watchdog_task);
 	kfree(wdog_dd);
+#ifdef CONFIG_SIERRA
+	for(i = 0;i < msm_softdog_num;i++){
+		if(msm_softdog[i].softdog_en == 1){
+			del_timer_sync(&msm_softdog[i].softdog_timer);
+		}
+		msm_watchdog_dev_unregister(&msm_softdog[i]);
+	}
+	msm_watchdog_dev_exit();
+#endif /*CONFIG_SIERRA*/
 	return 0;
 }
 
@@ -526,7 +826,9 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	int error;
 	u64 timeout;
 	int ret;
-
+#ifdef CONFIG_SIERRA
+	int i;
+#endif /*CONFIG_SIERRA*/
 	/*
 	 * Disable the watchdog for cluster 1 so that cluster 0 watchdog will
 	 * be mapped to the entire sub-system.
@@ -593,6 +895,31 @@ static void init_watchdog_data(struct msm_watchdog_data *wdog_dd)
 	if (ipi_opt_en)
 		cpu_pm_register_notifier(&wdog_cpu_pm_nb);
 	dev_info(wdog_dd->dev, "MSM Watchdog Initialized\n");
+#ifdef CONFIG_SIERRA
+	error = device_create_file(wdog_dd->dev, &dev_attr_stopautokick);
+	if (error)
+		printk( "cannot create sysfs attribute stopautokick\n");
+
+	error = device_create_file(wdog_dd->dev, &dev_attr_barktime);
+	if (error)
+		printk( "cannot create sysfs attribute barktime\n");
+
+	error = device_create_file(wdog_dd->dev, &dev_attr_kick);
+	if (error)
+		printk( "cannot create sysfs attribute kick\n");
+
+	error = msm_watchdog_dev_init();
+	if(error){
+		pr_err("msm_watchdog init failed\n");
+		return;
+	}
+	for(i = 0;i < msm_softdog_num;i++){
+		error = msm_watchdog_dev_register(&msm_softdog[i]);
+		if(error){
+			pr_err("msm_watchdog%d unable to register\n",i);
+		}
+	}
+#endif /*CONFIG_SIERRA*/
 	return;
 }
 

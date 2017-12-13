@@ -122,7 +122,24 @@ module_param_named(
 	print_parsed_dt, print_parsed_dt, bool, S_IRUGO | S_IWUSR | S_IWGRP
 );
 
+#ifdef CONFIG_SIERRA
+static bool sleep_disabled = 1;
+struct notifier_block lpm_panic_blk;
+
+static int panic_lpm_handler(struct notifier_block *this,
+			      unsigned long event, void *ptr)
+{
+	/* When the kernel panic, will disable LPM sleep mode
+	 * to make MSM_WATCHDOG can bark and make sure system
+	 * restart successfully.
+	 */
+	sleep_disabled = 1;
+	return NOTIFY_DONE;
+}
+#else
 static bool sleep_disabled;
+#endif /*CONFIG_SIERRA*/
+
 module_param_named(sleep_disabled,
 	sleep_disabled, bool, S_IRUGO | S_IWUSR | S_IWGRP);
 
@@ -735,7 +752,9 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	if (cluster_configure(cluster, i, from_idle))
 		goto failed;
 
+#ifdef CONFIG_MSM_IDLE_STATS
 	cluster->stats->sleep_time = start_time;
+#endif
 	cluster_prepare(cluster->parent, &cluster->num_children_in_sync, i,
 			from_idle, start_time);
 
@@ -743,7 +762,10 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	return;
 failed:
 	spin_unlock(&cluster->sync_lock);
+
+#ifdef CONFIG_MSM_IDLE_STATS
 	cluster->stats->sleep_time = 0;
+#endif
 	return;
 }
 
@@ -779,9 +801,12 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	if (!first_cpu || cluster->last_level == cluster->default_level)
 		goto unlock_return;
 
+#ifdef CONFIG_MSM_IDLE_STATS
 	if (cluster->stats->sleep_time)
 		cluster->stats->sleep_time = end_time -
 			cluster->stats->sleep_time;
+#endif
+
 	lpm_stats_cluster_exit(cluster->stats, cluster->last_level, true);
 
 	level = &cluster->levels[cluster->last_level];
@@ -1042,8 +1067,17 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		if (idx > 0)
 			update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, true);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if (!sleep_disabled) {
+			success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
+					true);
+		}
+#else
 		success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
-				true);
+			true);
+#endif
+/* SWISTOP */
 
 		if (idx > 0)
 			update_debug_pc_event(CPU_EXIT, idx, success,
@@ -1361,6 +1395,17 @@ static int lpm_probe(struct platform_device *pdev)
 		cluster_dt_walkthrough(lpm_root_node);
 
 	/*
+	 * Register panic notifier. When the kernel panic, will disable LPM
+	 * sleep mode to make MSM_WATCHDOG can bark and make sure system
+	 * restart successfully.
+	 */
+#ifdef CONFIG_SIERRA
+	lpm_panic_blk.notifier_call = panic_lpm_handler;
+	atomic_notifier_chain_register(&panic_notifier_list,
+				       &lpm_panic_blk);
+#endif /*CONFIG_SIERRA*/
+
+	/*
 	 * Register hotplug notifier before broadcast time to ensure there
 	 * to prevent race where a broadcast timer might not be setup on for a
 	 * core.  BUG in existing code but no known issues possibly because of
@@ -1381,9 +1426,12 @@ static int lpm_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+#ifdef CONFIG_DEBUG_FS
 	size = num_dbg_elements * sizeof(struct lpm_debug);
 	lpm_debug = dma_alloc_coherent(&pdev->dev, size,
 			&lpm_debug_phys, GFP_KERNEL);
+#endif
+
 	register_cluster_lpm_stats(lpm_root_node, NULL);
 
 	ret = cluster_cpuidle_register(lpm_root_node);

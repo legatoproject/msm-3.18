@@ -44,6 +44,11 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/msm-bus.h>
 #include <linux/irq.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <../../pinctrl/qcom/pinctrl-msm.h>
+#endif
+/* SWISTOP */
 
 #include "power.h"
 #include "core.h"
@@ -238,6 +243,13 @@ struct dwc3_msm {
 	atomic_t                in_p3;
 	unsigned int		lpm_to_suspend_delay;
 	bool			init;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	int  otg_id_pin;
+	int  vbus_en_pin;
+	struct wake_lock wlock;
+#endif
+/* SWISTOP */
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -2448,6 +2460,13 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			dbg_event(0xFF, "Q RW (vbus)", val->intval);
 			queue_delayed_work(mdwc->dwc3_wq,
 					&mdwc->resume_work, 12);
+#ifdef CONFIG_SIERRA
+			if(mdwc->vbus_active == 1 && mdwc->otg_state == OTG_STATE_B_IDLE )
+			{
+				/*if usb plug in(vbus high), wake lock enough time(5s) for the device resume*/
+				wake_lock_timeout(&mdwc->wlock, msecs_to_jiffies(5000));
+			}
+#endif
 		}
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -2553,7 +2572,11 @@ static irqreturn_t dwc3_pmic_id_irq(int irq, void *data)
 	enum dwc3_id_state id;
 
 	/* If we can't read ID line state for some reason, treat it as float */
+#ifndef CONFIG_SIERRA
 	id = !!irq_read_line(irq);
+#else
+	id = !!gpio_get_value(mdwc->otg_id_pin);
+#endif
 	if (mdwc->id_state != id) {
 		mdwc->id_state = id;
 		schedule_work(&mdwc->resume_work.work);
@@ -2683,6 +2706,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	int ret = 0;
 	int ext_hub_reset_gpio;
 	u32 val;
+#ifdef CONFIG_SIERRA
+	bool otg_id_pin_request = false;
+	bool usb_vbus_en_request = false;
+	bool otg_id_irq_done = false;
+	int otg_id_irq;
+#endif
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
@@ -2797,6 +2826,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+#ifndef CONFIG_SIERRA
 	mdwc->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (mdwc->pmic_id_irq > 0) {
 		irq_set_status_flags(mdwc->pmic_id_irq, IRQ_NOAUTOEN);
@@ -2812,6 +2842,81 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			goto err;
 		}
 	}
+#else
+	ret = of_property_read_u32(node, "sierra,vbus-en-pin", &mdwc->vbus_en_pin);
+	if (ret) {
+		dev_err(&pdev->dev, "get vbus-en-pin failed\n");
+		goto err;
+	}
+
+	if (gpio_is_valid(mdwc->vbus_en_pin)) {
+		/* usb vbus-en-pin request */
+		ret = gpio_request(mdwc->vbus_en_pin, "USB_VBUS_EN_PIN");
+		if (ret) {
+			dev_err(&pdev->dev, "request usb vbus-en-pin failed\n");
+			goto err;
+		}
+	} else {
+		dev_err(&pdev->dev, "vbus-en-pin %d is invalid\n", mdwc->vbus_en_pin);
+		goto err;
+	}
+
+	usb_vbus_en_request = true;
+	if (gpio_direction_output(mdwc->vbus_en_pin, 0)) {
+		dev_err(&pdev->dev, "usb vbus-en-pin output 0 failed\n");
+		goto err;
+	}
+	if(gpio_set_pull(gpio_to_desc(mdwc->vbus_en_pin), MSM_GPIO_NO_PULL)){
+		dev_err(&pdev->dev, "failed to set vbus-en-pin to no-pull\n");
+		goto err;
+	}
+
+	ret = of_property_read_u32(node, "sierra,otg-id-pin", &mdwc->otg_id_pin);
+	if (ret) {
+		dev_err(&pdev->dev, "get otg-id-pin failed\n");
+		goto err;
+	}
+
+	if (gpio_is_valid(mdwc->otg_id_pin)) {
+		/* usb otg_id_pin request */
+		ret = gpio_request(mdwc->otg_id_pin, "USB_OTG_ID_PIN");
+		if (ret) {
+			dev_err(&pdev->dev, "usb otg_id_pin request failed\n");
+			goto err;
+		}
+	} else {
+		dev_err(&pdev->dev, "otg_id_pin %d is invalid\n", mdwc->otg_id_pin);
+		goto err;
+	}
+
+	otg_id_pin_request = true;
+	if (gpio_direction_input(mdwc->otg_id_pin)) {
+		dev_err(&pdev->dev, "failed to set otg_id_pin to input\n");
+		goto err;
+	}
+
+	if (gpio_pull_up(gpio_to_desc(mdwc->otg_id_pin))) {
+		dev_err(&pdev->dev, "failed to set otg_id_pin to pull-up\n");
+		goto err;
+	}
+
+	mdwc->pmic_id_irq = otg_id_irq = gpio_to_irq(mdwc->otg_id_pin);
+	if (mdwc->pmic_id_irq > 0) {
+		irq_set_status_flags(mdwc->pmic_id_irq, IRQ_NOAUTOEN);
+		ret = devm_request_irq(&pdev->dev,
+				       mdwc->pmic_id_irq,
+				       dwc3_pmic_id_irq,
+				       IRQF_TRIGGER_RISING |
+				       IRQF_TRIGGER_FALLING,
+				       "dwc3_msm_pmic_id",
+				       mdwc);
+		if (ret) {
+			dev_err(&pdev->dev, "irqreq IDINT failed\n");
+			goto err;
+		}
+		otg_id_irq_done = true;
+	}
+#endif
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcsr_base");
 	if (!res) {
@@ -3024,10 +3129,18 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		pm_runtime_get_noresume(mdwc->dev);
 
 	/* Update initial ID state */
+#ifndef CONFIG_SIERRA
 	if (mdwc->pmic_id_irq) {
+#else
+	if (mdwc->pmic_id_irq > 0) {
+#endif
 		enable_irq(mdwc->pmic_id_irq);
 		local_irq_save(flags);
+#ifndef CONFIG_SIERRA
 		mdwc->id_state = !!irq_read_line(mdwc->pmic_id_irq);
+#else
+		mdwc->id_state = !!gpio_get_value(mdwc->otg_id_pin);
+#endif
 		if (mdwc->id_state == DWC3_ID_GROUND)
 			dwc3_ext_event_notify(mdwc);
 		local_irq_restore(flags);
@@ -3040,6 +3153,10 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dwc3_ext_event_notify(mdwc);
 	}
 
+#ifdef CONFIG_SIERRA
+	wake_lock_init(&mdwc->wlock, WAKE_LOCK_SUSPEND, "dwc3-msm_wakelock");
+#endif
+
 	return 0;
 
 put_dwc3:
@@ -3050,6 +3167,14 @@ put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
 err:
+#ifdef CONFIG_SIERRA
+	if (usb_vbus_en_request)
+		gpio_free(mdwc->vbus_en_pin);
+	if (otg_id_pin_request)
+		gpio_free(mdwc->otg_id_pin);
+	if (otg_id_irq_done)
+		devm_free_irq(&pdev->dev, otg_id_irq, mdwc);
+#endif
 	return ret;
 }
 
@@ -3105,10 +3230,12 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
-
+#ifndef CONFIG_SIERRA
 	if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
 		regulator_disable(mdwc->vbus_reg);
-
+#else
+	gpio_direction_output(mdwc->vbus_en_pin, 0);
+#endif
 	disable_irq(mdwc->hs_phy_irq);
 	if (mdwc->ss_phy_irq)
 		disable_irq(mdwc->ss_phy_irq);
@@ -3144,7 +3271,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 	if (!dwc->xhci)
 		return -EINVAL;
-
+#ifndef CONFIG_SIERRA
 	/*
 	 * The vbus_reg pointer could have multiple values
 	 * NULL: regulator_get() hasn't been called, or was previously deferred
@@ -3161,7 +3288,7 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			return -EPROBE_DEFER;
 		}
 	}
-
+#endif
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
 
@@ -3171,8 +3298,12 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
 		mdwc->ss_phy->flags |= PHY_HOST_MODE;
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
+#ifndef CONFIG_SIERRA
 		if (!IS_ERR(mdwc->vbus_reg))
 			ret = regulator_enable(mdwc->vbus_reg);
+#else
+		ret = gpio_direction_output(mdwc->vbus_en_pin, 1);
+#endif
 		if (ret) {
 			dev_err(mdwc->dev, "unable to enable vbus_reg\n");
 			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
@@ -3198,8 +3329,12 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			dev_err(mdwc->dev,
 				"%s: failed to add XHCI pdev ret=%d\n",
 				__func__, ret);
+#ifndef CONFIG_SIERRA
 			if (!IS_ERR(mdwc->vbus_reg))
 				regulator_disable(mdwc->vbus_reg);
+#else
+			gpio_direction_output(mdwc->vbus_en_pin, 0);
+#endif
 			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
 			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 			pm_runtime_put_sync(mdwc->dev);
@@ -3226,14 +3361,20 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		pm_runtime_put_sync_autosuspend(mdwc->dev);
 	} else {
 		dev_dbg(mdwc->dev, "%s: turn off host\n", __func__);
-
+#ifndef CONFIG_SIERRA
 		if (!IS_ERR(mdwc->vbus_reg))
 			ret = regulator_disable(mdwc->vbus_reg);
 		if (ret) {
 			dev_err(mdwc->dev, "unable to disable vbus_reg\n");
 			return ret;
 		}
-
+#else
+		ret = gpio_direction_output(mdwc->vbus_en_pin, 0);
+		if (ret) {
+			dev_err(mdwc->dev, "unable to disable vbus_en\n");
+			return ret;
+		}
+#endif
 		pm_runtime_get_sync(mdwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&mdwc->dev->power.usage_count));
@@ -3623,7 +3764,18 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			pm_runtime_put_sync(mdwc->dev);
 			dbg_event(0xFF, "BPER psync",
 				atomic_read(&mdwc->dev->power.usage_count));
+
+#ifdef CONFIG_SIERRA
+			/*
+			 * avoid modify chg_type when vbus irq trigger again
+			 */
+			if(mdwc->vbus_active != 1 )
+			{
+				mdwc->chg_type = DWC3_INVALID_CHARGER;
+			}
+#else
 			mdwc->chg_type = DWC3_INVALID_CHARGER;
+#endif
 			work = 1;
 		} else if (test_bit(B_SUSPEND, &mdwc->inputs) &&
 			test_bit(B_SESS_VLD, &mdwc->inputs)) {

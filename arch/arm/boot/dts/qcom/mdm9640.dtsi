@@ -225,43 +225,6 @@
 		status = "disabled";
 	};
 
-	blsp1_uart2: uart@0x78b0000 { /* BLSP1 UART2 */
-		compatible = "qcom,msm-hsuart-v14";
-		reg = <0x78b0000 0x200>,
-		      <0x7884000 0x23000>;
-		reg-names = "core_mem", "bam_mem";
-		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
-		#address-cells = <0>;
-		interrupt-parent = <&blsp1_uart2>;
-		interrupts = <0 1 2>;
-		#interrupt-cells = <1>;
-		interrupt-map-mask = <0xffffffff>;
-		interrupt-map = <0 &intc 0 108 0
-				1 &intc 0 238 0
-				2 &tlmm_pinmux 5 0>;
-
-		qcom,inject-rx-on-wakeup;
-		qcom,rx-char-to-inject = <0xFD>;
-
-		qcom,bam-tx-ep-pipe-index = <2>;
-		qcom,bam-rx-ep-pipe-index = <3>;
-		qcom,master-id = <86>;
-		clock-names = "core_clk", "iface_clk";
-		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
-			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
-		pinctrl-names = "sleep", "default";
-		pinctrl-0 = <&uart2_console_sleep>;
-		pinctrl-1 = <&uart2_console_active>;
-
-		qcom,msm-bus,name = "buart2";
-		qcom,msm-bus,num-cases = <2>;
-		qcom,msm-bus,num-paths = <1>;
-		qcom,msm-bus,vectors-KBps =
-				<86 512 0 0>,
-				<86 512 500 800>;
-		status = "disabled";
-	};
-
 	bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pmd9635_gpios 6 0>; /* BT_EN */
@@ -579,8 +542,6 @@
 		qcom,l1ss-supported;
 		qcom,aux-clk-sync;
 
-		qcom,ep-wakeirq;
-
 		linux,pci-domain = <0>;
 
 		qcom,pcie-phy-ver = <0x90>;
@@ -739,6 +700,11 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
+/* SWISTART */
+		/* qcom,not-wakeup; */ /* Needed until MPM is fully configured. */
+/* Recover to LE-2.0 setting, otherwise it will cause the USB wake up failed ,we are discussing with 
+   Qualcomm about this, after get Qualcomm double confirm, we need to re-visit this code */
+/* SWISTOP */
 	};
 
 	qcom,ipc-spinlock@1905000 {
@@ -858,6 +824,9 @@
 
 	qcom,cnss {
 		compatible = "qcom,cnss";
+/* SWISTART */
+		/*wlan-en-gpio = <&tlmm_pinmux 95 0>;*/
+/* SWISTOP */
 		vdd-wlan-supply = <&wlan_vreg>;
 		vdd-wlan-io-supply = <&pmd9635_l6>;
 		vdd-wlan-sp2t-supply = <&pmd9635_l12>;
@@ -949,7 +918,7 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <1 3 0>, <1 2 0>;
-		qcom,bark-time = <11000>;
+		qcom,bark-time = <25000>;
 		qcom,pet-time = <10000>;
 	};
 
@@ -1673,14 +1642,28 @@
 #include "mdm9640-regulator.dtsi"
 
 &pmd9635_pon {
-	interrupts = <0x0 0x8 0x2>;
-	interrupt-names = "cblpwr";
+	interrupts = <0x0 0x8 0x1>,
+	<0x0 0x8 0x2>,
+	<0x0 0x8 0x4>;
+	interrupt-names = "resin", "cblpwr", "resin-bark";
+	qcom,pon-dbc-delay = <31250>;
 	qcom,system-reset;
 
 	qcom,pon_1 {
 		qcom,pon-type = <2>;
 		qcom,pull-up = <1>;
 		linux,code = <116>;
+	};
+
+	qcom,pon_2 {
+		qcom,pon-type = <1>; /* resin */
+		qcom,support-reset = <1>;
+		qcom,pull-up = <1>;
+		qcom,s1-timer = <0>; /* s1 default bark irq time, it can be reconfigured by NV */
+		qcom,s2-timer = <0>; /* s2 default delay time, it can be reconfigured by NV */
+		qcom,s2-type = <7>; /* HARD RESET*/
+		linux,code = <114>; /* No reset key value, so use KEY_VOLUMEDOWN like other device */
+		qcom,use-bark; /* handle bark irq */
 	};
 };
 

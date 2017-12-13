@@ -32,6 +32,10 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/android.h>
 
+#ifdef CONFIG_SIERRA_USB_COMP
+#include <linux/usb/sierra_ududefs.h>
+#endif
+
 #include <linux/qcom/diag_dload.h>
 
 #include "gadget_chips.h"

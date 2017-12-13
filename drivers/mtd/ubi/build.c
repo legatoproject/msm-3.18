@@ -84,6 +84,14 @@ static bool fm_autoconvert;
 static bool fm_debug;
 #endif
 
+#ifdef CONFIG_SIERRA
+/* Now, UBI warnning MSG for max reserve PEBs is for entire MTD flash
+ * But in fact we need this MSG for current UBI partition only. Then
+ * it will not scare users with a warning every time.
+ */
+int max_beb_per1024_warn = CONFIG_MTD_UBI_BEB_LIMIT;
+#endif
+
 /* Slab cache for wear-leveling entries */
 struct kmem_cache *ubi_wl_entry_slab;
 
@@ -922,6 +930,9 @@ int ubi_attach_mtd_dev(struct mtd_info *mtd, int ubi_num,
 	if (!max_beb_per1024)
 		max_beb_per1024 = CONFIG_MTD_UBI_BEB_LIMIT;
 
+#ifdef CONFIG_SIERRA
+	max_beb_per1024_warn = max_beb_per1024;
+#endif
 	/*
 	 * Check if we already have the same MTD device attached.
 	 *
@@ -1133,6 +1144,15 @@ out_free:
 int ubi_detach_mtd_dev(int ubi_num, int anyway)
 {
 	struct ubi_device *ubi;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if ((NULL != current) && (NULL != current->parent))
+		pr_info("func %s, pid %d, name %s\n", __func__, current->pid, current->parent->comm);
+	else
+		pr_info("func %s, current is error\n", __func__);
+#endif
+/* SWISTOP */
 
 	if (ubi_num < 0 || ubi_num >= UBI_MAX_DEVICES)
 		return -EINVAL;

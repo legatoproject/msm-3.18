@@ -245,6 +245,10 @@ struct ubi_volume_desc *ubi_open_volume_path(const char *pathname, int mode);
 int ubi_register_volume_notifier(struct notifier_block *nb,
 				 int ignore_existing);
 int ubi_unregister_volume_notifier(struct notifier_block *nb);
+/* SWISTART */
+int get_ubi_name(int ubi_num,char *ubi_name);
+int get_mtd_partition_name(int ubi_num, char *partition_name, int len);
+/* SWISTOP */
 
 void ubi_close_volume(struct ubi_volume_desc *desc);
 int ubi_leb_read(struct ubi_volume_desc *desc, int lnum, char *buf, int offset,
@@ -261,6 +265,7 @@ int ubi_leb_map(struct ubi_volume_desc *desc, int lnum);
 int ubi_is_mapped(struct ubi_volume_desc *desc, int lnum);
 int ubi_sync(int ubi_num);
 int ubi_flush(int ubi_num, int vol_id, int lnum);
+struct cdev *ubi_get_volume_cdev(struct ubi_volume_desc *desc);
 
 /*
  * This function is the same as the 'ubi_leb_read()' function, but it does not

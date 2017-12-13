@@ -27,6 +27,9 @@
 #include <linux/fs.h>
 #include <asm/div64.h>
 #include "ubi.h"
+/* SWISTART */
+#include <../devices/msm_qpic_nand.h>
+/* SWISTOP */
 
 /**
  * ubi_do_get_device_info - get information about UBI device.
@@ -130,6 +133,11 @@ struct ubi_volume_desc *ubi_open_volume(int ubi_num, int vol_id, int mode)
 	struct ubi_volume_desc *desc;
 	struct ubi_device *ubi;
 	struct ubi_volume *vol;
+#ifdef CONFIG_SIERRA
+	int  str_len, vol_len;
+	char vol_str[MAX_INPUT_STR_LEN]={0};
+	char *pos_start;
+#endif
 
 	dbg_gen("open device %d, volume %d, mode %d", ubi_num, vol_id, mode);
 
@@ -202,6 +210,39 @@ struct ubi_volume_desc *ubi_open_volume(int ubi_num, int vol_id, int mode)
 	desc->mode = mode;
 
 	mutex_lock(&ubi->ckvol_mutex);
+
+#ifdef CONFIG_SIERRA
+	/*
+	 * To make sure the data is not corrupted, UBI driver will check crc for all the data
+	 * in the static UBI volumes at the first time open, but it will make boot up time
+	 * longer.
+	 *
+	 * For some special purpose we don't want to check the data crc for the UBI volumes.
+	 * E.g Some of the UBI volumes are protecting by Dm-verity and it is faster then UBI.
+	 *     for saving the boot up time disable the UBI crc checking is required.
+	 *
+	 * If the UBI volumes that don't want to be checked data crc, then add it to the
+	 * list "CONFIG_UBI_VOLS_NOT_CHK_CRC". Here will skip checking crc for it.
+	 *
+	 */
+	if (!vol->checked && vol->vol_type == UBI_STATIC_VOLUME) {
+		str_len = strlen(CONFIG_UBI_VOLS_NOT_CHK_CRC);
+		if(str_len > MAX_INPUT_STR_LEN){
+			ubi_warn(ubi, "Strings on CONFIG_UBI_VOLS_NOT_CHK_CRC is too long.");
+		}
+		else if( str_len > 0 ){
+			sprintf(vol_str,"%s",CONFIG_UBI_VOLS_NOT_CHK_CRC);
+			vol_len = strlen(vol->name);
+			pos_start = strstr(vol_str,vol->name);
+			if((pos_start)&&( *(pos_start + vol_len) == ' '
+							|| *(pos_start + vol_len) == '\0'
+							|| *(pos_start + vol_len) == ','
+							|| *(pos_start + vol_len) == ';')){
+				vol->checked = 1;
+			}
+		}
+	}
+#endif
 	if (!vol->checked) {
 		/* This is the first open - check the volume */
 		err = ubi_check_volume(ubi, vol_id);
@@ -862,3 +903,65 @@ int ubi_unregister_volume_notifier(struct notifier_block *nb)
 	return blocking_notifier_chain_unregister(&ubi_notifiers, nb);
 }
 EXPORT_SYMBOL_GPL(ubi_unregister_volume_notifier);
+
+inline struct cdev *ubi_get_volume_cdev(struct ubi_volume_desc *desc)
+{
+	return &(desc->vol->cdev);
+}
+EXPORT_SYMBOL_GPL(ubi_get_volume_cdev);
+
+/* SWISTART */
+/**
+ * get_ubi_name - Get UBI name in first volume.
+ * @ubi_num: UBI device
+ * @ubi_name: volume name in the first UBI volume
+ *
+ * This function use the known ubi_num to get the
+ * corresponding volume name in the first volume
+ */
+int get_ubi_name(int ubi_num,char *ubi_name)
+{
+	struct ubi_device *ubi = NULL;
+
+	ubi = ubi_get_device(ubi_num);
+	if (NULL != ubi) {
+		memcpy(ubi_name,ubi->vtbl->name,__be16_to_cpu(ubi->vtbl->name_len));
+		return 0;
+	}
+	return -1;
+}
+EXPORT_SYMBOL_GPL(get_ubi_name);
+
+/**
+ * get_mtd_partition_name - Get mtd name.
+ * @ubi_num: UBI device
+ * @partition_name: mtd volume name
+ *
+ * This function use the known ubi_num to get the
+ * corresponding volume name in the first volume
+ */
+int get_mtd_partition_name(int ubi_num, char *partition_name, int len)
+{
+	struct ubi_device *ubi = NULL;
+	char mtd_name[UBI_MAX_VOLUME_NAME+1]={0};
+
+	ubi = ubi_get_device(ubi_num);
+	if (NULL != ubi) {
+		sierra_inquire_smem_ptable_name(mtd_name, ubi->mtd->index, UBI_MAX_VOLUME_NAME);
+		ubi_warn(ubi, "get_mtd_partition_name mtd_name %s", mtd_name);
+		if (len >= UBI_MAX_VOLUME_NAME) {
+			memcpy(partition_name, mtd_name, UBI_MAX_VOLUME_NAME);
+		}
+		else
+		{
+			ubi_err(ubi, "get_mtd_partition_name the len can't match");
+		}
+		ubi_warn(ubi, "get_mtd_partition_name partition_name %s", partition_name);
+		return 0;
+	}
+
+	return -1;
+}
+EXPORT_SYMBOL_GPL(get_mtd_partition_name);
+/* SWISTOP */
+
