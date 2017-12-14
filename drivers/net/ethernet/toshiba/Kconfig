@@ -55,11 +55,11 @@ config TC35815
 	select PHYLIB
 
 config NEUTRINO_NET
-	bool "TOSHIBA PCIe EMAC support"
+	tristate "TOSHIBA PCIe EMAC support"
 	depends on PCI
 	select NEUTRINO_PTPSUPPORT_OBJ
 	select NEUTRINO_IPA_OFFLOAD
-	default n
+	default m
 	---help---
 	  TOSHIBA PCIe EMAC support, for Neutrino project
 
