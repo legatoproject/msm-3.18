@@ -1694,6 +1694,13 @@ static void DWC_ETH_QOS_init_common(struct net_device *dev)
 	struct hw_if_struct *hw_if = &pdata->hw_if;
 	struct desc_if_struct *desc_if = &(pdata->desc_if);
 
+/* SWISTART*/
+#ifdef CONFIG_SIERRA
+	int phydata;
+	int phyreg;
+#endif /* SIERRA */
+/* SWISTOP */
+
 	DBGPR("-->DWC_ETH_QOS_init_common\n");
 
 	/* default configuration */
@@ -1716,6 +1723,30 @@ static void DWC_ETH_QOS_init_common(struct net_device *dev)
 
 	/* initializes MAC and DMA */
 	hw_if->init(pdata);
+
+/* SWISTART*/
+#ifdef CONFIG_SIERRA
+	/*
+	* Rx/Tx clock internal delay needs to be set for interfacing PHY in RGMII mode.
+	* As per PHY spec, RX has the delay by default ,
+	* while we need to enable this delay for TX (see 80-y0618-2 5.3.2).
+	* Neutrino does not support internal delay for RGMII Rx/Tx clock lines,
+	* these delays need to be enabled on PHY or implemented on the board.
+	* For AR8033, debug registers defined by Qualcomm Atheros:
+	* Write the offset address of debug register to 0x1D.
+	* Read/write the data from/to 0x1E.
+	*/
+	phyreg = MII_LPA;
+	DWC_ETH_QOS_mdio_write_direct(pdata, pdata->phyaddr, 0x1D, phyreg);
+
+	DWC_ETH_QOS_mdio_read_direct(pdata, pdata->phyaddr, 0x1E,&phydata);
+	printk(KERN_DEBUG"AR8033 before phydata= %#x\n", phydata);
+	phydata |= 0x1<<8;
+	DWC_ETH_QOS_mdio_write_direct(pdata, pdata->phyaddr, 0x1E, phydata);
+	DWC_ETH_QOS_mdio_read_direct(pdata, pdata->phyaddr, 0x1E,&phydata);
+	printk(KERN_ERR"AR8033 after phydata= %#x\n", phydata);
+#endif /* SIERRA */
+/* SWISTOP */
 
 	DWC_ETH_QOS_config_phy_aneg(pdata, 1, 0);
 
