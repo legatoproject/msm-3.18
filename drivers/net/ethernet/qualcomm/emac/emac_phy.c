@@ -225,6 +225,12 @@ int emac_phy_config_external(struct platform_device *pdev,
 	struct device_node *np = pdev->dev.of_node;
 	struct mii_bus *mii_bus;
 	int ret;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	u16 value_MMD7_CLK_25M;
+	int retval;
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/* Create the mii_bus object for talking to the MDIO bus */
 	mii_bus = devm_mdiobus_alloc(&pdev->dev);
@@ -289,6 +295,28 @@ int emac_phy_config_external(struct platform_device *pdev,
 		emac_dbg(adpt, probe, "(mii_bus:phy_addr=%s, irq=%d)\n",
 			 dev_name(&adpt->phydev->dev), adpt->phydev->irq);
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* from AR8033 document, if will pull up LED_1000 in the hardware,
+	 * we have to set MMD7 register 0x8016 bit 12 to 1
+	 */
+	retval = phy_write(adpt->phydev, MII_MMD_CTRL, 0x7);
+	if (retval)
+		return retval;
+	retval = phy_write(adpt->phydev, MII_MMD_DATA, 0x8016);
+	if (retval)
+		return retval;
+	retval = phy_write(adpt->phydev, MII_MMD_CTRL, 0x4007);
+	if (retval)
+		return retval;
+	value_MMD7_CLK_25M = phy_read(adpt->phydev, MII_MMD_DATA);
+
+	retval = phy_write(adpt->phydev, MII_MMD_DATA, value_MMD7_CLK_25M | (1 << 12));
+	if (retval)
+		return retval;
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/* Set initial link status to false */
 	adpt->phydev->link = 0;
