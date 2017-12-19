@@ -998,8 +998,13 @@ static int check_alu_op(struct reg_state *regs, struct bpf_insn *insn)
 			/* case: R = imm
 			 * remember the value we stored into this reg
 			 */
-			regs[insn->dst_reg].type = CONST_IMM;
-			regs[insn->dst_reg].imm = insn->imm;
+			u64 imm;
+			if (BPF_CLASS(insn->code) == BPF_ALU64)
+				imm = insn->imm;
+			else
+				imm = (u32)insn->imm;
+ 			regs[insn->dst_reg].type = CONST_IMM;
+			regs[insn->dst_reg].imm = imm;
 		}
 
 	} else if (opcode > BPF_END) {
