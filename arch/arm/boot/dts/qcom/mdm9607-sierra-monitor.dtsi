@@ -24,8 +24,13 @@
 
 		/* check if mpss is loaded */
 		sierra,monitor_resource@2 {
-			sierra,path = "/sys/bus/msm_subsys/devices/subsys1/state";
+			sierra,path = "/sys/bus/msm_subsys/devices/subsys0/state";
 			sierra,value = "ONLINE";
+			sierra,force-dload = <1>;
+		};
+		sierra,monitor_resource@3 {
+			sierra,path = "/sys/bus/msm_subsys/devices/subsys0/name";
+			sierra,value = "modem";
 			sierra,force-dload = <1>;
 		};
 
