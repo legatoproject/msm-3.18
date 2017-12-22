@@ -44,7 +44,18 @@
 #define GSERIAL_SET_XPORT_TYPE_SMD 1
 
 #define GSERIAL_BUF_LEN  256
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+/* Sierra extends the number of ports to support the following serial
+ * interfaces: NMEA, Modem, OSA, and Raw Data.
+ * Product support of these interfaces may vary, but the driver is extended
+ * to support the superset.
+ */
+#define GSERIAL_NO_PORTS 4
+#else /* !SIERRA */
 #define GSERIAL_NO_PORTS 3
+#endif
+/* SWISTOP */
 
 struct ioctl_smd_write_arg_type {
 	char		*buf;
@@ -337,12 +348,31 @@ int gport_setup(struct usb_configuration *c)
 		__func__, no_tty_ports, no_smd_ports, no_hsic_sports, nr_ports);
 
 	if (no_tty_ports) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* scan all nr_ports, as these tty ports may be not continuous,
+		 * they may be scattered in gserial_ports[0 ... nr_ports -1 ]
+		 */
+		for (i = 0; i < nr_ports; i++) {
+			if (gserial_ports[i].transport != USB_GADGET_XPORT_TTY &&
+				gserial_ports[i].transport != USB_GADGET_XPORT_OSA &&
+				gserial_ports[i].transport != USB_GADGET_XPORT_RAWDAT) {
+				continue;
+			}
+			ret = gserial_alloc_line(
+					&gserial_ports[i].client_port_num);
+			if (ret)
+				return ret;
+		}
+#else
 		for (i = 0; i < no_tty_ports; i++) {
 			ret = gserial_alloc_line(
 					&gserial_ports[i].client_port_num);
 			if (ret)
 				return ret;
 		}
+#endif/* SIERRA */
+/* SWISTOP */
 	}
 
 	if (no_char_bridge_ports)
@@ -391,8 +421,25 @@ void gport_cleanup(void)
 {
 	int i;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* scan all nr_ports, as these tty ports may be not continuous,
+	 * they may be scattered in gserial_ports[0 ... nr_ports -1 ]
+	 */
+	for (i = 0; i < nr_ports; i++) {
+		if (gserial_ports[i].transport != USB_GADGET_XPORT_TTY &&
+			gserial_ports[i].transport != USB_GADGET_XPORT_OSA &&
+			gserial_ports[i].transport != USB_GADGET_XPORT_RAWDAT) {
+			continue;
+		}
+		gserial_free_line(gserial_ports[i].client_port_num);
+	}
+#else  /* !SIERRA */
 	for (i = 0; i < no_tty_ports; i++)
 		gserial_free_line(gserial_ports[i].client_port_num);
+#endif
+/* SWISTOP */
+
 }
 
 static int gport_connect(struct f_gser *gser)
@@ -407,6 +454,12 @@ static int gport_connect(struct f_gser *gser)
 	port_num = gserial_ports[gser->port_num].client_port_num;
 
 	switch (gser->transport) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_OSA:
+	case USB_GADGET_XPORT_RAWDAT:
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_TTY:
 		gserial_connect(&gser->port, port_num);
 		break;
@@ -456,6 +509,12 @@ static int gport_disconnect(struct f_gser *gser)
 			gser, &gser->port, gser->port_num);
 
 	switch (gser->transport) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_OSA:
+	case USB_GADGET_XPORT_RAWDAT:
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_TTY:
 		gserial_disconnect(&gser->port);
 		break;
@@ -670,6 +729,14 @@ static void gser_suspend(struct usb_function *f)
 /* SWISTOP */
 		gsmd_suspend(&gser->port, port_num);
 		break;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_OSA:
+	case USB_GADGET_XPORT_RAWDAT:
+		/* No action taken TTY ports, but avoid error below */
+		break;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
 			xport_to_str(gser->transport));
@@ -704,6 +771,14 @@ static void gser_resume(struct usb_function *f)
 /* SWISTOP */
 		gsmd_resume(&gser->port, port_num);
 		break;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_OSA:
+	case USB_GADGET_XPORT_RAWDAT:
+		/* No action taken TTY ports, but avoid error below */
+		break;
+#endif /* CONFIG_SIERRA */
+    /* SWISTOP */
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
 			xport_to_str(gser->transport));
@@ -1178,6 +1253,10 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	/* For Compositions that have NMEA but not MODEM using port_num breaks the NMEA interface */
 	if (gser->transport == USB_GADGET_XPORT_SMD)
 		gser->port.func.name = "modem";
+	else if (gser->transport == USB_GADGET_XPORT_OSA)
+		gser->port.func.name = "osa";
+	else if (gser->transport ==  USB_GADGET_XPORT_RAWDAT)
+		gser->port.func.name = "raw_data";
 	else if(gser->transport == USB_GADGET_XPORT_SMDNMEA)
 		gser->port.func.name = "nmea";
 	else
@@ -1253,6 +1332,10 @@ int gserial_init_port(int port_num, const char *name,
 			nmea_first = true;
 		}
 		no_smd_ports++;
+		break;
+	case USB_GADGET_XPORT_OSA:
+	case USB_GADGET_XPORT_RAWDAT:
+		no_tty_ports++;
 		break;
 #endif /* CONFIG_SIERRA */
 /* SWISTART */

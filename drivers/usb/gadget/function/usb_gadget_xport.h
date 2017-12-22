@@ -18,14 +18,6 @@ enum transport_type {
 	USB_GADGET_XPORT_UNDEF,
 	USB_GADGET_XPORT_TTY,
 	USB_GADGET_XPORT_SMD,
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-/* new XPORT type to differentiate from DS
- * which is also SMD
- */
-	USB_GADGET_XPORT_SMDNMEA,
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	USB_GADGET_XPORT_QTI,
 	USB_GADGET_XPORT_BAM2BAM,
 	USB_GADGET_XPORT_BAM2BAM_IPA,
@@ -34,6 +26,16 @@ enum transport_type {
 	USB_GADGET_XPORT_ETHER,
 	USB_GADGET_XPORT_CHAR_BRIDGE,
 	USB_GADGET_XPORT_BAM_DMUX,
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* SMD bridge to Modem for NMEA */
+	USB_GADGET_XPORT_SMDNMEA,
+	/* TTY Open SIM Access interface */
+	USB_GADGET_XPORT_OSA,
+	/* TTY Raw Data interface for custom application */
+	USB_GADGET_XPORT_RAWDAT,
+#endif
+/* SWISTOP */
 	USB_GADGET_XPORT_NONE,
 };
 
@@ -46,12 +48,6 @@ static char *xport_to_str(enum transport_type t)
 		return "TTY";
 	case USB_GADGET_XPORT_SMD:
 		return "SMD";
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	case USB_GADGET_XPORT_SMDNMEA:
-		return "SMDNMEA";
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	case USB_GADGET_XPORT_QTI:
 		return "QTI";
 	case USB_GADGET_XPORT_BAM2BAM:
@@ -70,6 +66,16 @@ static char *xport_to_str(enum transport_type t)
 		return "BAM_DMUX";
 	case USB_GADGET_XPORT_NONE:
 		return "NONE";
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+		return "SMDNMEA";
+	case USB_GADGET_XPORT_OSA:
+		return "OSA";
+	case USB_GADGET_XPORT_RAWDAT:
+		return "RAWDAT";
+#endif
+/* SWISTOP */
 	default:
 		return "UNDEFINED";
 	}
@@ -84,12 +90,6 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_TTY;
 	if (!strncasecmp("SMD", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMD;
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	if (!strncasecmp("SMDNMEA", name, XPORT_STR_LEN))
-		return USB_GADGET_XPORT_SMDNMEA;
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	if (!strncasecmp("QTI", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_QTI;
 	if (!strncasecmp("BAM", name, XPORT_STR_LEN) ||
@@ -109,6 +109,16 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_BAM_DMUX;
 	if (!strncasecmp("", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_NONE;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (!strncasecmp("SMDNMEA", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_SMDNMEA;
+	if (!strncasecmp("OSA", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_OSA;
+	if (!strncasecmp("RAWDAT", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_RAWDAT;
+#endif
+/* SWISTOP */
 
 	return USB_GADGET_XPORT_UNDEF;
 }
