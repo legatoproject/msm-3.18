@@ -331,7 +331,21 @@ int gport_setup(struct usb_configuration *c)
 		__func__, no_tty_ports, no_smd_ports, no_hsic_sports, nr_ports);
 
 	if (no_tty_ports) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* scan all nr_ports, as these tty ports may be not continuous,
+		 * they may be scattered in gserial_ports[0 ... nr_ports -1 ]
+		*/
+		for (i = 0; i < nr_ports; i++) {
+			if (gserial_ports[i].transport != USB_GADGET_XPORT_TTY &&
+				gserial_ports[i].transport != USB_GADGET_XPORT_OSA){
+				continue;
+			}
+#else /* !SIERRA */
+
 		for (i = 0; i < no_tty_ports; i++) {
+#endif
+/* SWISTOP */
 			ret = gserial_alloc_line(
 					&gserial_ports[i].client_port_num);
 			if (ret)
@@ -370,8 +384,22 @@ void gport_cleanup(void)
 {
 	int i;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	for (i = 0; i < nr_ports; i++) {
+		if (gserial_ports[i].transport != USB_GADGET_XPORT_TTY &&
+			gserial_ports[i].transport != USB_GADGET_XPORT_OSA){
+			continue;
+		}
+		gserial_free_line(gserial_ports[i].client_port_num);
+	}
+#else  /* !SIERRA */
+
 	for (i = 0; i < no_tty_ports; i++)
 		gserial_free_line(gserial_ports[i].client_port_num);
+#endif
+/* SWISTOP */
+
 }
 
 static int gport_connect(struct f_gser *gser)
