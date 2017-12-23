@@ -582,7 +582,7 @@ static void alx_receive_skb(struct alx_adapter *adpt,
 		u16 vlan;
 		ALX_TAG_TO_VLAN(vlan_tag, vlan);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0))
-                __vlan_hwaccel_put_tag(skb, skb->vlan_proto, vlan);
+                __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan);
 #else
                 __vlan_hwaccel_put_tag(skb, vlan);
 #endif
@@ -611,7 +611,7 @@ static void alx_receive_skb_ipa(struct alx_adapter *adpt,
 		u16 vlan;
 		ALX_TAG_TO_VLAN(vlan_tag, vlan);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0))
-                __vlan_hwaccel_put_tag(skb, skb->vlan_proto, vlan);
+                __vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan);
 #else
 		__vlan_hwaccel_put_tag(skb, vlan);
 #endif
