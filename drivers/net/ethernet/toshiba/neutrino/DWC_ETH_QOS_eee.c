@@ -424,6 +424,15 @@ bool DWC_ETH_QOS_eee_init(struct DWC_ETH_QOS_prv_data *pdata)
 	struct hw_if_struct *hw_if = &(pdata->hw_if);
 	bool ret = false;
 
+/* SWISTART*/
+#ifdef CONFIG_SIERRA
+	/* EEE(Energy Efficient Ethernet) will cause packet loss in 1000M,
+	 * we need disable it.
+	 * */
+	return ret;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	DBGPR_EEE("-->DWC_ETH_QOS_eee_init\n");
 
 	/* HW supports the EEE feature */
