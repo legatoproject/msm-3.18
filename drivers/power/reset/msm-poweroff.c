@@ -613,11 +613,6 @@ static int msm_restart_probe(struct platform_device *pdev)
 		pr_err("%s:Error in creation sysfs_create_group\n", __func__);
 		kobject_del(&dload_kobj);
 	}
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	download_mode = sierra_smem_get_download_mode();
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 
 skip_sysfs_create:
 #endif
@@ -652,6 +647,12 @@ skip_sysfs_create:
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	download_mode = sierra_smem_get_download_mode();
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	set_dload_mode(download_mode);
 	if (!download_mode)
