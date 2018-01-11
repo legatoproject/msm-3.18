@@ -33,6 +33,7 @@
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/cdev.h>
+#include <asm/uaccess.h>
 #endif /*CONFIG_SIERRA*/
 
 #define MODULE_NAME "msm_watchdog"
@@ -131,6 +132,7 @@ struct msm_softdog_data{
 	struct cdev softdog_cdev;
 	int dev_id;
 	bool softdog_en;
+	unsigned int margin;
 };
 static struct msm_softdog_data msm_softdog[msm_softdog_num];
 
@@ -156,14 +158,14 @@ static int msm_softdog_open(struct inode *inode, struct file *file)
 		return 1;
 	if(softdogdd->softdog_en == 1){
 		pr_info("msm_softdog%d was reopened! \n", softdogdd->dev_id);
-		mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
+		mod_timer(&softdogdd->softdog_timer,jiffies + softdogdd->margin * HZ);
 		file->private_data = softdogdd;
 		return 0;
 	}
 	init_timer(&softdogdd->softdog_timer);
 	softdogdd->softdog_timer.data = (unsigned long)softdogdd;
 	softdogdd->softdog_timer.function = msm_softdogfire;
-	softdogdd->softdog_timer.expires = jiffies + soft_margin*HZ;
+	softdogdd->softdog_timer.expires = jiffies + softdogdd->margin * HZ;
 	add_timer(&softdogdd->softdog_timer);
 	softdogdd->softdog_en = 1;
 	file->private_data = softdogdd;
@@ -177,7 +179,7 @@ static ssize_t msm_softdog_write(struct file *file, const char __user *data,
     struct msm_softdog_data *softdogdd = file->private_data;
     if(softdogdd == NULL)
 		return 0;
-	mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
+	mod_timer(&softdogdd->softdog_timer, jiffies+(softdogdd->margin * HZ));
 	return 1;
 }
 
@@ -190,16 +192,19 @@ static long  msm_softdog_ioctl( struct file *file, unsigned int command, unsigne
 	switch(command)
 	{
 	case SET_MSM_SOFTDOG_MARGIN :
-		soft_margin = arg;
+		if (get_user(softdogdd->margin, (int __user *) arg)){
+			pr_err("Set msm_softdog%d margin: get margin value form user failed! \n", softdogdd->dev_id);
+			return -EFAULT;
+		}
+
 		if(softdogdd->softdog_en == 1){
-			mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
- 			pr_info("Set msm_softdog%d margin to %lu \n", softdogdd->dev_id, arg);
+			mod_timer(&softdogdd->softdog_timer, jiffies+(softdogdd->margin * HZ));
+			pr_info("Set msm_softdog%d margin to %d \n", softdogdd->dev_id, softdogdd->margin);
 		}
 		break;
 	case GET_MSM_SOFTDOG_MARGIN :
-		arg = (softdogdd->softdog_timer.expires - jiffies)/HZ;
- 		pr_info("Get msm_softdog%d, it is %lu \n", softdogdd->dev_id, arg);
-		break;
+		pr_info("Get msm_softdog%d margin to %d \n", softdogdd->dev_id, softdogdd->margin);
+		return put_user(softdogdd->margin, (int __user *) arg);;
 	case STOP_KICK_MSM_SOFTDOG :
 		if(softdogdd->softdog_en == 1){
 			del_timer_sync(&softdogdd->softdog_timer);
@@ -210,14 +215,14 @@ static long  msm_softdog_ioctl( struct file *file, unsigned int command, unsigne
 	case START_KICK_MSM_SOFTDOG :
 		if(softdogdd->softdog_en == 1){
 			pr_info("msm_softdog%d was restarted! \n", softdogdd->dev_id);
-			mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
+			mod_timer(&softdogdd->softdog_timer,jiffies + softdogdd->margin * HZ);
 			file->private_data = softdogdd;
 			return 0;
 		}
 		init_timer(&softdogdd->softdog_timer);
 		softdogdd->softdog_timer.data = (unsigned long)softdogdd;
 		softdogdd->softdog_timer.function = msm_softdogfire;
-		softdogdd->softdog_timer.expires = jiffies + soft_margin*HZ;
+		softdogdd->softdog_timer.expires = jiffies + softdogdd->margin * HZ;
 		add_timer(&softdogdd->softdog_timer);
 		softdogdd->softdog_en = 1;
 		file->private_data = softdogdd;
@@ -295,6 +300,7 @@ static int msm_watchdog_dev_init(void)
 	for(i = 0;i < msm_softdog_num;i++){
 		msm_softdog[i].dev_id = i;
 		msm_softdog[i].softdog_en = 0;
+		msm_softdog[i].margin = soft_margin;
 	}
 	return 0;
 }
