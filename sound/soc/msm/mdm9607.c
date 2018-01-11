@@ -166,13 +166,13 @@ static int mdm_sec_auxpcm_mode = I2S_PCM_MASTER_MODE;
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-//static int mdm_auxpcm_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+static int mdm_aux_mode = AFE_PORT_PCM_AUX_MODE_PCM;
 static int mdm_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL ;
 static int mdm_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING ;
 static int mdm_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
 
 static int mdm_sec_auxpcm_rate = SAMPLE_RATE_8KHZ;
-//static int mdm_sec_auxpcm_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+static int mdm_sec_aux_mode = AFE_PORT_PCM_AUX_MODE_PCM;
 static int mdm_sec_auxpcm_sync = AFE_PORT_PCM_SYNC_SRC_INTERNAL;
 static int mdm_sec_auxpcm_quant = AFE_PORT_PCM_LINEAR_NOPADDING;
 static int mdm_sec_auxpcm_frame = AFE_PORT_PCM_BITS_PER_FRAME_256;
@@ -1382,6 +1382,34 @@ static int mdm_sec_auxpcm_rate_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mdm_aux_mode_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_aux_mode;
+	return 0;
+}
+
+static int mdm_aux_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_aux_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+		break;
+	case 1:
+		mdm_aux_mode = AFE_PORT_PCM_AUX_MODE_AUX;
+		break;
+	default:
+		mdm_aux_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+		break;
+	}
+	pr_debug("%s: mdm_aux_mode = %d, ucontrol->value.integer.value[0] = %d\n",
+		__func__,
+		mdm_aux_mode,
+		(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
 static int mdm_auxpcm_sync_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
@@ -1487,6 +1515,34 @@ static int mdm_auxpcm_frame_put(struct snd_kcontrol *kcontrol,
 		__func__,
 		mdm_auxpcm_frame,
 		(int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mdm_sec_aux_mode_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = mdm_sec_aux_mode;
+	return 0;
+}
+
+static int mdm_sec_aux_mode_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm_sec_aux_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+		break;
+	case 1:
+		mdm_sec_aux_mode = AFE_PORT_PCM_AUX_MODE_AUX;
+		break;
+	default:
+		mdm_sec_aux_mode = AFE_PORT_PCM_AUX_MODE_PCM;
+		break;
+	}
+	pr_debug("%s: mdm_sec_aux_mode = %d, ucontrol->value.integer.value[0] = %d\n",
+			__func__,
+			mdm_sec_aux_mode,
+			(int)ucontrol->value.integer.value[0]);
 	return 0;
 }
 
@@ -1627,11 +1683,11 @@ static int mdm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	auxpcm_pdata->mode_16k.sync  = mdm_auxpcm_sync;
 
 	if (mdm_auxpcm_sync == AFE_PORT_PCM_SYNC_SRC_INTERNAL) {
-		auxpcm_pdata->mode_8k.mode  = mdm_auxpcm_mode;
-		auxpcm_pdata->mode_16k.mode = mdm_auxpcm_mode;
+		auxpcm_pdata->mode_8k.mode  = mdm_aux_mode;
+		auxpcm_pdata->mode_16k.mode = mdm_aux_mode;
 
 		/* Pleae note that the less PCM clk supported is 512kHz, clk_tbl_pcm[] */
-		if (mdm_auxpcm_mode == AFE_PORT_PCM_AUX_MODE_PCM) {
+		if (mdm_aux_mode == AFE_PORT_PCM_AUX_MODE_PCM) {
 			auxpcm_pdata->mode_8k.pcm_clk_rate =
 				(int)(SAMPLE_RATE_8KHZ * 8 * (0x0001 << mdm_auxpcm_frame));
 			auxpcm_pdata->mode_16k.pcm_clk_rate =
@@ -1696,11 +1752,11 @@ static int mdm_sec_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	sec_auxpcm_pdata->mode_16k.sync  = mdm_sec_auxpcm_sync;
 
 	if (mdm_sec_auxpcm_sync == AFE_PORT_PCM_SYNC_SRC_INTERNAL) {
-		sec_auxpcm_pdata->mode_8k.mode  = mdm_sec_auxpcm_mode;
-		sec_auxpcm_pdata->mode_16k.mode = mdm_sec_auxpcm_mode;
+		sec_auxpcm_pdata->mode_8k.mode  = mdm_sec_aux_mode;
+		sec_auxpcm_pdata->mode_16k.mode = mdm_sec_aux_mode;
 
 		/* Pleae note that the less PCM clk supported is 512kHz, clk_tbl_pcm[] */
-		if (mdm_sec_auxpcm_mode == AFE_PORT_PCM_AUX_MODE_PCM) {
+		if (mdm_sec_aux_mode == AFE_PORT_PCM_AUX_MODE_PCM) {
 			sec_auxpcm_pdata->mode_8k.pcm_clk_rate =
 				(int)(SAMPLE_RATE_8KHZ * 8 * (0x0001 << mdm_sec_auxpcm_frame));
 			sec_auxpcm_pdata->mode_16k.pcm_clk_rate =
@@ -1850,7 +1906,7 @@ static const struct snd_kcontrol_new auxpcm_snd_controls[] = {
 	SOC_ENUM_EXT("AUX PCM Sample", mdm_auxpcm_enum[0],
 		mdm_auxpcm_rate_get, mdm_auxpcm_rate_put),
 	SOC_ENUM_EXT("AUX PCM Mode", mdm_auxpcm_enum[1],
-		mdm_auxpcm_mode_get, mdm_auxpcm_mode_put),
+		mdm_aux_mode_get, mdm_aux_mode_put),
 	SOC_ENUM_EXT("AUX PCM Sync", mdm_auxpcm_enum[2],
 		mdm_auxpcm_sync_get, mdm_auxpcm_sync_put),
 	SOC_ENUM_EXT("AUX PCM Quant", mdm_auxpcm_enum[3],
@@ -1860,7 +1916,7 @@ static const struct snd_kcontrol_new auxpcm_snd_controls[] = {
 	SOC_ENUM_EXT("SEC AUX PCM Sample", mdm_auxpcm_enum[0],
 		mdm_sec_auxpcm_rate_get, mdm_sec_auxpcm_rate_put),
 	SOC_ENUM_EXT("SEC AUX PCM Mode", mdm_auxpcm_enum[1],
-		mdm_sec_auxpcm_mode_get, mdm_auxpcm_mode_put),
+		mdm_sec_aux_mode_get, mdm_sec_aux_mode_put),
 	SOC_ENUM_EXT("SEC AUX PCM Sync", mdm_auxpcm_enum[2],
 		mdm_sec_auxpcm_sync_get, mdm_sec_auxpcm_sync_put),
 	SOC_ENUM_EXT("SEC AUX PCM Quant", mdm_auxpcm_enum[3],
