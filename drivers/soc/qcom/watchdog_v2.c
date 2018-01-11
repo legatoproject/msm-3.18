@@ -155,7 +155,7 @@ static int msm_softdog_open(struct inode *inode, struct file *file)
 	if(softdogdd == NULL)
 		return 1;
 	if(softdogdd->softdog_en == 1){
-		printk(KERN_INFO"msm_softdog%d was reopened! \n", softdogdd->dev_id);
+		pr_info("msm_softdog%d was reopened! \n", softdogdd->dev_id);
 		mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
 		file->private_data = softdogdd;
 		return 0;
@@ -167,7 +167,7 @@ static int msm_softdog_open(struct inode *inode, struct file *file)
 	add_timer(&softdogdd->softdog_timer);
 	softdogdd->softdog_en = 1;
 	file->private_data = softdogdd;
-	printk(KERN_INFO"msm_softdog%d was opened! \n", softdogdd->dev_id);
+	pr_info("msm_softdog%d was opened! \n", softdogdd->dev_id);
 	return 0;
 }
 
@@ -193,23 +193,23 @@ static long  msm_softdog_ioctl( struct file *file, unsigned int command, unsigne
 		soft_margin = arg;
 		if(softdogdd->softdog_en == 1){
 			mod_timer(&softdogdd->softdog_timer, jiffies+(soft_margin*HZ));
-			printk(KERN_INFO "Set msm_softdog%d margin to %lu \n", softdogdd->dev_id, arg);
+ 			pr_info("Set msm_softdog%d margin to %lu \n", softdogdd->dev_id, arg);
 		}
 		break;
 	case GET_MSM_SOFTDOG_MARGIN :
 		arg = (softdogdd->softdog_timer.expires - jiffies)/HZ;
-		printk(KERN_INFO "Get msm_softdog%d, it is %lu \n", softdogdd->dev_id, arg);
+ 		pr_info("Get msm_softdog%d, it is %lu \n", softdogdd->dev_id, arg);
 		break;
 	case STOP_KICK_MSM_SOFTDOG :
 		if(softdogdd->softdog_en == 1){
 			del_timer_sync(&softdogdd->softdog_timer);
 			softdogdd->softdog_en = 0;
-			printk(KERN_INFO"msm_softdog%d was stoped! \n", softdogdd->dev_id);
+			pr_info("msm_softdog%d was stoped! \n", softdogdd->dev_id);
 		}
 		break;
 	case START_KICK_MSM_SOFTDOG :
 		if(softdogdd->softdog_en == 1){
-			printk(KERN_INFO"msm_softdog%d was restarted! \n", softdogdd->dev_id);
+			pr_info("msm_softdog%d was restarted! \n", softdogdd->dev_id);
 			mod_timer(&softdogdd->softdog_timer,jiffies + soft_margin*HZ);
 			file->private_data = softdogdd;
 			return 0;
@@ -221,7 +221,7 @@ static long  msm_softdog_ioctl( struct file *file, unsigned int command, unsigne
 		add_timer(&softdogdd->softdog_timer);
 		softdogdd->softdog_en = 1;
 		file->private_data = softdogdd;
-		printk(KERN_INFO"msm_softdog%d was started!\n", softdogdd->dev_id);
+		pr_info("msm_softdog%d was started!\n", softdogdd->dev_id);
 		break;
 	default :
 		break ;
