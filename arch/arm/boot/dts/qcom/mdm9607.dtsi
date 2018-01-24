@@ -1210,9 +1210,6 @@
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
-		qcom,freq-mitigation-temp = <105>;
-		qcom,freq-mitigation-temp-hysteresis = <15>;
-		qcom,freq-mitigation-value = <800000>;
 		qcom,disable-cx-phase-ctrl;
 		qcom,disable-gfx-phase-ctrl;
 		qcom,disable-psm;

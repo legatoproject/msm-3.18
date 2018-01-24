@@ -7443,6 +7443,11 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	int ret = 0;
 	char *key = NULL;
 	struct device_node *node = pdev->dev.of_node;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	struct device_node *nodep = node;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	struct msm_thermal_data data;
 
 	if (!mitigation)
@@ -7452,9 +7457,9 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 #ifdef CONFIG_SIERRA
 	/* Delete device_node of PA2 sensor for AR8582,
 	   disabling device registeration of PA2 for AR8582*/
-	for_each_of_allnodes(node) {
-		if ((!pa2_removed) && bs_product_is_ar8582() && !strcmp(node->name, PA2_NAME_STRING)) {
-			of_detach_node(node);
+	for_each_of_allnodes(nodep) {
+		if ((!pa2_removed) && bs_product_is_ar8582() && !strcmp(nodep->name, PA2_NAME_STRING)) {
+			of_detach_node(nodep);
 			pa2_removed = true;
 			pr_debug("%s , %d : delete pa2\n", __func__, __LINE__);
 			break;
