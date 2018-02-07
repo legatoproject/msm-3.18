@@ -718,3 +718,6 @@
 	};
 };
 
+&CPU0 {
+	qcom,limits-info = <&mitigation_profile0>;
+};
