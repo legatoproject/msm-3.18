@@ -21,11 +21,14 @@
  *        startup_timer - set to 60s and don't change
  */
 #include <linux/module.h>
+#include <linux/ctype.h>
 #include <linux/init.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/rtc.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/suspend.h>
 #include <linux/time.h>
 #include <linux/workqueue.h>
@@ -197,40 +200,32 @@ static void linux_resource_check(const char *processp)
 	}
 }
 
-/* Sierra critical resource check routine as part of startup monitor
+/* check a single path for its existence and value
  * pathp  - resource path
  * valuep - resouce expected value (optional)
- * force_dload - if force download mode after crash
+ * return: TRUE if check passed, FALSE if not exists or value not match
  */
-static void sierra_resource_check(const char *pathp, const char *valuep, int force_dload)
+static bool sierra_resource_single_path_check(const char *pathp, const char *valuep)
 {
-	int ret = 0;
 	struct file *filp = (struct file *)-ENOENT;
-	mm_segment_t oldfs;
 	char buf[MAX_VALUE_BUF_LEN];
-	int length;
-	int check_failed = 0;
-
-	oldfs = get_fs();
-	set_fs(KERNEL_DS);
+	int length, ret;
+	bool retval = false;
 
 	do {
 		filp = filp_open(pathp, O_RDONLY, S_IRUSR);
 
 		if (IS_ERR(filp) || !filp->f_op) {
-			pr_err("%s: cannot open file %s\n", __FUNCTION__, pathp);
-			ret = -ENOENT;
-			check_failed = 1;
 			break;
 		}
 
 		if (!valuep) {
 			/* dont need check content of the file */
+			retval = true;
 			break;
 		}
 
 		if (!filp->f_op->read) {
-			ret = -EPERM;
 			pr_err("%s: no read op\n", __FUNCTION__);
 			break;
 		}
@@ -238,7 +233,6 @@ static void sierra_resource_check(const char *pathp, const char *valuep, int for
 		length = strlen(valuep);
 
 		if (length == 0 || length >= sizeof(buf)) {
-			ret = -EPERM;
 			pr_err("%s: invalid len %s, %d\n", __FUNCTION__, pathp, length);
 			break;
 		}
@@ -247,21 +241,107 @@ static void sierra_resource_check(const char *pathp, const char *valuep, int for
 		ret = filp->f_op->read(filp, buf, length, &filp->f_pos);
 		if (ret < 0) {
 			pr_err("%s: read error %s, %d\n", __FUNCTION__, pathp, ret);
-			check_failed = 1;
 			break;
 		}
 
 		/* now compare the content */
 		if (memcmp(valuep, buf, length)) {
 			pr_err("%s: read error %s, %s\n", __FUNCTION__, valuep, buf);
+			break;
+		}
+
+		retval = true;
+
+	} while (0);
+
+	if (!IS_ERR(filp))
+		filp_close(filp, NULL);
+
+	return retval;
+}
+
+/* Sierra critical resource check routine as part of startup monitor
+ * pathp  - resource path
+ * valuep - resouce expected value (optional)
+ * force_dload - if force download mode after crash
+ */
+static void sierra_resource_check(const char *pathp, const char *valuep, int force_dload)
+{
+#define _WILDCARD_LEFT_CHAR   '['
+#define _WILDCARD_RIGHT_CHAR  ']'
+
+	mm_segment_t oldfs;
+	int check_failed = 0;
+	char start_char, stop_char, cur_char;
+	char *path_bufp = NULL, *leftp, *rightp, *cur_pathp;
+	bool wildcard = false;
+
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+
+	do {
+		/* check if path includes wildcard char:
+		 * limit only one instance of wildcard in the format of
+		 * [a-b] while a and b is the start/stop char
+		 */
+		leftp = strchr(pathp, _WILDCARD_LEFT_CHAR);
+		rightp = strchr(pathp, _WILDCARD_RIGHT_CHAR);
+
+		/* only support [a-b] */
+		if (leftp &&
+		    rightp &&
+		    ((leftp + 4) == rightp) &&
+		    (leftp[2] == '-')) {
+
+			start_char = leftp[1];
+			stop_char = leftp[3];
+			wildcard = true;
+
+			/* allocate temp path string */
+			path_bufp = kmalloc(strlen(pathp) + 1, GFP_KERNEL);
+			if (!path_bufp) {
+				pr_err("%s: kmalloc err len:%d\n", __FUNCTION__, strlen(pathp));
+				check_failed = 1;
+				break;
+			}
+
+		}
+		else {
+			start_char = 0;
+			stop_char = 0;
+		}
+
+		for (cur_char = start_char; cur_char <= stop_char; cur_char++)
+		{
+			if (wildcard && (isalpha(cur_char) || isdigit(cur_char))) {
+				/* compose string by replacing wildcard char */
+				strcpy(path_bufp, pathp);
+				path_bufp[leftp - pathp] = cur_char;
+				memmove(path_bufp + (leftp - pathp + 1),  rightp + 1,
+					strlen(rightp + 1) + 1);
+
+				cur_pathp = path_bufp;
+			}
+			else {
+				cur_pathp = pathp;
+			}
+
+			if (sierra_resource_single_path_check(cur_pathp, valuep)) {
+				/* check passed */
+				break;
+			}
+		}
+
+		if (cur_char > stop_char) {
 			check_failed = 1;
 			break;
 		}
 
 	} while (0);
 
-	if (!IS_ERR(filp))
-		filp_close(filp, NULL);
+	if (path_bufp) {
+		kfree(path_bufp);
+	}
 
 	set_fs(oldfs);
 
