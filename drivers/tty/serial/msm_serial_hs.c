@@ -2429,6 +2429,10 @@ static irqreturn_t msm_hs_wakeup_isr(int irq, void *dev)
 		 * Port was clocked off during rx, wake up and
 		 * optionally inject char into tty rx
 		 */
+
+		spin_unlock_irqrestore(&uport->lock, flags);
+		msm_hs_pm_resume(uport->dev);
+		spin_lock_irqsave(&uport->lock, flags);
 		if (msm_uport->wakeup.inject_rx) {
 			tty = uport->state->port.tty;
 			tty_insert_flip_char(tty->port,
@@ -3631,6 +3635,11 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 	msm_serial_debugfs_init(msm_uport, pdev->id);
 	msm_hs_unconfig_uart_gpios(uport);
+
+	ret = device_init_wakeup(&pdev->dev, true);
+	if(ret) {
+		MSM_HS_ERR("Failed to initialize wakeup\n");
+	}
 
 	uport->line = pdev->id;
 	if (pdata->userid && pdata->userid <= UARTDM_NR)
