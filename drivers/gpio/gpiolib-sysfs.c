@@ -75,7 +75,10 @@ static struct ext_gpio_map ext_gpio_ar[]={
 	{"47", 51,FUNCTION_UNALLOCATED},
 	{"48", 25,FUNCTION_UNALLOCATED},
 	{"49", 58,FUNCTION_UNALLOCATED},
-	{"50", 38,FUNCTION_UNALLOCATED},
+	{"50", 38,FUNCTION_UNALLOCATED}
+};
+
+static struct ext_gpio_map ripmgpio_map[] ={
 	{"M1", 1020,FUNCTION_UNALLOCATED},
 	{"M2", 1021,FUNCTION_UNALLOCATED},
 	{"M3", 1023,FUNCTION_UNALLOCATED},
@@ -269,6 +272,25 @@ static int gpio_map_name_to_num(const char *buf, bool *alias)
 			}
 		}
 	}
+
+	/* MFT mode should not execute */
+	if (gRmode != 1)
+	{
+		for (i = 0; i < sizeof(ripmgpio_map) / sizeof(struct ext_gpio_map); i++)
+		{
+			if (strncasecmp(gpio_name, ripmgpio_map[i].gpio_name, GPIO_NAME_MAX) == 0)
+			{
+				if (FUNCTION_EMBEDDED_HOST == ripmgpio_map[i].function)
+				{
+					return -1;
+				}
+
+				gpio_num = ripmgpio_map[i].gpio_num;
+				pr_debug("%s: find GPIO %d\n", __func__, gpio_num);
+				return gpio_num;
+			}
+		}
+	}
 	pr_debug("%s: Can not find GPIO %s\n", __func__, gpio_name);
 	return -1;
 }
@@ -302,6 +324,23 @@ static char *gpio_map_num_to_name(int gpio_num, bool alias)
 			}
 		}
 	}
+
+	/* MFT mode should not execute */
+	if (gRmode != 1)
+	{
+		for (i = 0; i < sizeof(ripmgpio_map) / sizeof(struct ext_gpio_map); i++)
+		{
+			if (gpio_num == ripmgpio_map[i].gpio_num)
+			{
+				if (FUNCTION_EMBEDDED_HOST == ripmgpio_map[i].function)
+				{
+					return NULL;
+				}
+				return ripmgpio_map[i].gpio_name;
+			}
+		}
+	}
+
 	pr_debug("%s: Can not find GPIO %d\n", __func__, gpio_num);
 	return NULL;
 }
@@ -323,14 +362,14 @@ static int gpio_sync_ri(void)
 		 */
 		ri_owner = bsgetriowner();
 		if (RI_OWNER_APP == ri_owner) {
-			if (ext_gpio[gpio_ri].function != FUNCTION_UNALLOCATED) {
+			if (ripmgpio_map[gpio_ri].function != FUNCTION_UNALLOCATED) {
 				pr_debug("%s: RI owner is APP\n", __func__);
-				ext_gpio[gpio_ri].function = FUNCTION_UNALLOCATED;
+				ripmgpio_map[gpio_ri].function = FUNCTION_UNALLOCATED;
 			}
 		} else {
-			if (ext_gpio[gpio_ri].function != FUNCTION_EMBEDDED_HOST) {
+			if (ripmgpio_map[gpio_ri].function != FUNCTION_EMBEDDED_HOST) {
 				pr_debug("%s: RI owner is Modem\n", __func__);
-				ext_gpio[gpio_ri].function = FUNCTION_EMBEDDED_HOST;
+				ripmgpio_map[gpio_ri].function = FUNCTION_EMBEDDED_HOST;
 			}
 		}
 	}
@@ -1299,9 +1338,12 @@ static int __init gpiolib_sysfs_init(void)
 		else
 		{
 			ext_gpio[gpio].function = FUNCTION_UNALLOCATED;
-
 		}
-		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0)
+	}
+
+	for (gpio = 0; gpio < sizeof(ripmgpio_map) / sizeof(struct ext_gpio_map); gpio++)
+	{
+		if (strcasecmp(ripmgpio_map[gpio].gpio_name, GPIO_NAME_RI) == 0)
 		{
 			gpio_ri = gpio;
 			gpio_sync_ri();
