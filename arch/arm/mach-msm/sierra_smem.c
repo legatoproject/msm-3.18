@@ -27,6 +27,18 @@
 #include <linux/slab.h>
 struct kmsg_dumper kmsg_dumper;
 static unsigned char * smem_base = NULL;
+static unsigned char * im_smem_base = NULL;
+
+unsigned char *sierra_im_smem_base_addr_get(void)
+{
+        if (!im_smem_base) {
+                im_smem_base = (unsigned char *)ioremap_nocache(IM_SMEM_BASE, IM_SMEM_SIZE);
+                if (!im_smem_base) {
+                        pr_err("sierra_im_smem_base_addr_get error");
+                }
+        }
+        return im_smem_base;
+}
 
 unsigned char * sierra_smem_base_addr_get(void)
 {

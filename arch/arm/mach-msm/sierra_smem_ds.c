@@ -376,3 +376,96 @@ int sierra_smem_handle_bad_partition_name(char * partition_name)
 
 EXPORT_SYMBOL(sierra_smem_handle_bad_partition_name);
 
+/************
+ *
+ * Name:     sierra_ds_smem_get
+ *
+ * Purpose:  Get dual system infomation from sierra smem
+ *
+ * Parms:   [out]ds_smem_bufp dual system infomation buffer pointer
+ *
+ * Return:   None
+ *
+ * Abort:    None
+ *
+ * Notes:   None
+ *
+ ************/
+void sierra_ds_smem_get(struct ds_smem_message_s * ds_infop)
+{
+	struct ds_smem_message_s * ds_smem_bufp = NULL;
+
+	/* Get DS SMEM region */
+	ds_smem_bufp = sierra_smem_ds_get_buf();
+	if (NULL == ds_smem_bufp)
+	{
+		ds_infop->ssid_modem_idx = DS_SSID_SUB_SYSTEM_1;
+		ds_infop->ssid_lk_idx = DS_SSID_SUB_SYSTEM_1;
+		ds_infop->ssid_linux_idx = DS_SSID_SUB_SYSTEM_1;
+		ds_infop->is_changed = 0;
+		ds_infop->bad_image = DS_IMAGE_CLEAR_FLAG;
+
+		return;
+	}
+	else
+	{
+		memcpy((void *)ds_infop, (void *)ds_smem_bufp, sizeof(struct ds_smem_message_s));
+	}
+
+	return;
+}
+EXPORT_SYMBOL(sierra_ds_smem_get);
+
+/************
+ *
+ * Name:     sierra_ds_smem_erestore_info_get
+ *
+ * Purpose:  Set efs restore_info in share memory
+ *
+ * Parms:    [OUT]efs_restore_infop - efs restore info buffer
+ *
+ * Return:   None
+ *
+ * Abort:    None
+ *
+ * Notes:    None
+ *
+ ************/
+void sierra_ds_smem_erestore_info_get(struct ds_smem_erestore_info *efs_restore_infop)
+{
+	struct ds_smem_erestore_info *efs_restore = NULL;
+	unsigned char *virtual_addr = NULL;
+
+	virtual_addr = sierra_smem_base_addr_get();
+	if (NULL != virtual_addr)
+	{
+		/* Get EFS restore SMEM base address */
+		virtual_addr += BSMEM_EFS_RESTORE_OFFSET;
+		efs_restore = (struct ds_smem_erestore_info *)virtual_addr;
+
+		/* Check if data in smem valid */
+		if ((DS_MAGIC_EFSB == efs_restore->magic_beg) &&
+			(DS_MAGIC_EFSE == efs_restore->magic_end) &&
+			(crc32_le(~0, (void *)efs_restore, DS_ERESTORE_CRC_SZ)))
+		{
+			/* Initalize the BS_SMEM_REGION_EFS_RESTORE.
+			* If cold-reset or smem-destroyed happend, initialize the region in defalt.
+			*/
+			memcpy((void *)efs_restore_infop, (void *)efs_restore, sizeof(struct ds_smem_erestore_info));
+
+			return;
+		}
+	}
+
+	/* Initalize the BS_SMEM_REGION_EFS_RESTORE.
+	* If cold-reset or smem-destroyed happend, initialize the region in defalt.
+	*/
+	efs_restore_infop->erestore_t         = BL_RESTORE_INFO_INVALID_VALUE;
+	efs_restore_infop->errorcount         = BL_RESTORE_INFO_INVALID_VALUE;
+	efs_restore_infop->restored_flag      = BL_RESTORE_INFO_INVALID_VALUE;
+	efs_restore_infop->beroption          = BL_RESTORE_INFO_INVALID_VALUE;
+
+	return;
+}
+EXPORT_SYMBOL(sierra_ds_smem_erestore_info_get);
+

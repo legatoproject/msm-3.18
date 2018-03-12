@@ -32,4 +32,5 @@ extern bool bsgetbsfunction(uint32_t bitmask);
 extern void bsclearbsfunction(uint32_t bitmask);
 extern bool bsgetwarmresetflag(void);
 extern void bsclearwarmresetflag(void);
+extern void blsyncddrsmtoimsm(void);
 #endif
