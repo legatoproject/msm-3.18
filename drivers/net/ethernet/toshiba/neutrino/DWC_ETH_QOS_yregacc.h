@@ -28615,7 +28615,7 @@
 #define DMA_TXCH_DESC_RING_LENGTH_RgWr(n, data) { iowrite32(data, (void *)DMA_TXCH_DESC_RING_LENGTH_RgOffAddr(n));   }
 #define DMA_TXCH_DESC_RING_LENGTH_RgRd(n, data) { (data) = ioread32((void *)DMA_TXCH_DESC_RING_LENGTH_RgOffAddr(n)); }
 
-#define DMA_TXCHINTMASK_MASK    (0x81F)
+#define DMA_TXCHINTMASK_MASK    (0x813)
 
 #define DMA_TXCHINTMASK_RgWr(n, data) { iowrite32(data, (void *)DMA_TXCHINTMASK_RgOffAddr(n));   }
 #define DMA_TXCHINTMASK_RgRd(n, data) { (data) = ioread32((void *)DMA_TXCHINTMASK_RgOffAddr(n)); }
@@ -28977,7 +28977,7 @@
 #define DMA_RXCH_DESC_RING_LENGTH_RgWr(n, data) { iowrite32(data, (void *)DMA_RXCH_DESC_RING_LENGTH_RgOffAddr(n));   }
 #define DMA_RXCH_DESC_RING_LENGTH_RgRd(n, data) { (data) = ioread32((void *)DMA_RXCH_DESC_RING_LENGTH_RgOffAddr(n)); }
 
-#define DMA_RXCHINTMASK_MASK    (0x17)
+#define DMA_RXCHINTMASK_MASK    (0x11)
 
 #define DMA_RXCHINTMASK_RgWr(n, data) { iowrite32(data, (void *)DMA_RXCHINTMASK_RgOffAddr(n));   }
 #define DMA_RXCHINTMASK_RgRd(n, data) { (data) = ioread32((void *)DMA_RXCHINTMASK_RgOffAddr(n)); }

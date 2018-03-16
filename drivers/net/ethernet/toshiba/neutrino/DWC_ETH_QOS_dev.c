@@ -1821,11 +1821,7 @@ static INT config_mmc_counters(struct DWC_ETH_QOS_prv_data *pdata)
 
 static INT disable_rx_interrupt(UINT chInx,struct DWC_ETH_QOS_prv_data *pdata)
 {
-    /* INTC register */
-    //NTN_INTC_INTMCUMASK1_RXCHINT_UdfWr(chInx, 0);
-
-    /* MAC Wrapper register */
-    DMA_RXCHINTMASK_UNFEN_UdfWr(chInx, 0);
+    /* Disable receive complete interrupt*/
     DMA_RXCHINTMASK_RCEN_UdfWr(chInx, 0);
 
     return Y_SUCCESS;
@@ -1844,11 +1840,7 @@ static INT disable_rx_interrupt(UINT chInx,struct DWC_ETH_QOS_prv_data *pdata)
 
 static INT enable_rx_interrupt(UINT chInx,struct DWC_ETH_QOS_prv_data *pdata)
 {
-    /* INTC register */
-//    NTN_INTC_INTMCUMASK1_RXCHINT_UdfWr(chInx, 0x1);
-
-    /* MAC Wrapper register */
-    DMA_RXCHINTMASK_UNFEN_UdfWr(chInx, 0x1);
+    /* Enable receive complete interrupt */
     DMA_RXCHINTMASK_RCEN_UdfWr(chInx, 0x1);
 
   return Y_SUCCESS;
@@ -3422,14 +3414,14 @@ static void pre_transmit(struct DWC_ETH_QOS_prv_data *pdata,
 	 * an interrupt on complete for every packet (in order to get the TX time). */
 	if (chInx == NTN_TX_DMA_CH_0) {
 		if (ethertype == NTN_GPTP_ETH_TYPE) {
-			TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, 0x1);
+			TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, INTR_MODERATE_CNT_GPTP_TRAFFIC);
 		} else {
-			TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, (!(tx_desc_data->cur_tx % 8)));
+			TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, (!(tx_desc_data->cur_tx % INTR_MODERATE_CNT_REGULAR_IP_TRAFFIC)));
 		}
 	} else if (chInx == NTN_TX_DMA_CH_3 || chInx == NTN_TX_DMA_CH_4) {
-		TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, (!(tx_desc_data->cur_tx % 8)));
+		TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, (!(tx_desc_data->cur_tx % INTR_MODERATE_CNT_AVB_TRAFFIC)));
 	} else {
-		TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, 0x1);
+		TX_NORMAL_DESC_TDES2_IC_Mlf_Wr(TX_NORMAL_DESC->TDES2, (!(tx_desc_data->cur_tx % INTR_MODERATE_CNT_REGULAR_IP_TRAFFIC)));
 	}
 #endif
 
@@ -3800,7 +3792,7 @@ static INT configure_dma_tx_channel(UINT chInx,
 
 	enable_dma_tx_interrupts(chInx, pdata);
 
-	DMA_TXCHCTL_TXPBL_UdfWr(chInx, 32);
+	DMA_TXCHCTL_TXPBL_UdfWr(chInx, 48);
 
     /* To get Best Performance */
     DMA_BUSCFG_BLEN16_UdfWr(1);

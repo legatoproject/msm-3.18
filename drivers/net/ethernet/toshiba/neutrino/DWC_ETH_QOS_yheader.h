@@ -317,7 +317,7 @@
 /* NOTE: Uncomment below line for TX and RX DESCRIPTOR DUMP in KERNEL LOG */
 //#define DWC_ETH_QOS_ENABLE_TX_DESC_DUMP
 //#define DWC_ETH_QOS_ENABLE_RX_DESC_DUMP
-
+//#define DWC_ETH_QOS_ENABLE_ERROR_COUNTERS
 /* NOTE: Uncomment below line for TX and RX PACKET DUMP in KERNEL LOG */
 //#define DWC_ETH_QOS_ENABLE_TX_PKT_DUMP
 //#define DWC_ETH_QOS_ENABLE_RX_PKT_DUMP
@@ -398,11 +398,13 @@
 #define IPA_RX_DESC_CNT	128 /*Increase the RX desc count to 128 for IPA offload*/
 
 #define TX_DESC_CNT     128
-#define RX_DESC_CNT     128
+#define RX_DESC_CNT     256
 
 /* Obtained by trial and error  */
 #define MIN_RX_DESC_CNT 44
-
+#define INTR_MODERATE_CNT_AVB_TRAFFIC 8
+#define INTR_MODERATE_CNT_REGULAR_IP_TRAFFIC 32
+#define INTR_MODERATE_CNT_GPTP_TRAFFIC 1
 #define TX_BUF_SIZE 1536
 #define RX_BUF_SIZE 1568
 #define DWC_ETH_QOS_MAX_LRO_DESC 16
@@ -586,12 +588,12 @@
 
 /* Helper macro for handling coalesce parameters via ethtool */
 /* Obtained by trial and error  */
-#define DWC_ETH_QOS_OPTIMAL_DMA_RIWT_USEC  54
+#define DWC_ETH_QOS_OPTIMAL_DMA_RIWT_USEC  523
 /* Max delay before RX interrupt after a pkt is received Max
  * delay in usecs is 1020 for 62.5MHz device clock */
 #define DWC_ETH_QOS_MAX_DMA_RIWT  0xff
 /* Max no of pkts to be received before an RX interrupt */
-#define DWC_ETH_QOS_RX_MAX_FRAMES 32
+#define DWC_ETH_QOS_RX_MAX_FRAMES 1
 
 #define DMA_BUSCFG_AXI_PBL_MASK 0xE
 
