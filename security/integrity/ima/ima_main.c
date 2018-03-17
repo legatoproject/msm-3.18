@@ -209,6 +209,25 @@ static int process_measurement(struct file *file, int mask, int function,
 		}
 	}
 
+#if defined(CONFIG_IMA_FORCE_MEASUREMENT)
+    /* If file is changed, it needs to be re-measured. Unfortunatelly,
+     * if there is no i_version support, file will never make it to
+     * IMA measurement list for re-measurement. In order to ensure that
+     * file is re-measured, the only option left is to re-mesure it every
+     * time it is accessed.
+     *
+     * So, pretend that it was never measured. In order to be consistent,
+     * reset all other "done" flags as well.
+     */
+    if (action && iint && (iint->flags & IMA_MEASURED)) {
+        pr_info("%s: %d: Forcing file re-measurement, flags=0x%lx, action=0x%x\n",
+                __func__, __LINE__, iint->flags, action);
+        iint->flags &= ~( IMA_COLLECTED | IMA_APPRAISED | IMA_MEASURED );
+        pr_info("%s: %d: Flags may have changed, flags=0x%lx\n",
+                __func__, __LINE__, iint->flags);
+    }
+#endif
+
 	/* Determine if already appraised/measured based on bitmask
 	 * (IMA_MEASURE, IMA_MEASURED, IMA_XXXX_APPRAISE, IMA_XXXX_APPRAISED,
 	 *  IMA_AUDIT, IMA_AUDITED)

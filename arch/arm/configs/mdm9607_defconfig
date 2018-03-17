@@ -629,3 +629,13 @@ CONFIG_HOSTAP_FIRMWARE_NVRAM=y
 
 # Audit
 CONFIG_AUDIT=y
+
+# EVM related. EVM protects file metadata.
+CONFIG_EVM=y
+CONFIG_EVM_ATTR_FSUUID=y
+CONFIG_EVM_EXTRA_SMACK_XATTRS=y
+
+# Option to enforce file re-measurement every time file
+# is accessed. The default is set to 'n', so we need to
+# set it to 'y'.
+CONFIG_IMA_FORCE_MEASUREMENT=y
