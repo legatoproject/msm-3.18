@@ -78,6 +78,11 @@ void gserial_free_line(unsigned char port_line);
 int gserial_connect(struct gserial *, u8 port_num);
 void gserial_disconnect(struct gserial *);
 
+#ifdef CONFIG_SIERRA
+enum transport_type;
+void gsmd_setup_port_type(enum transport_type type, int port_num);
+#endif
+
 int gsmd_setup(struct usb_gadget *g, unsigned n_ports);
 int gsmd_connect(struct gserial *, u8 port_num);
 void gsmd_disconnect(struct gserial *, u8 portno);
