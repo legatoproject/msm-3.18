@@ -120,6 +120,7 @@ struct msm_hsic_hcd {
 	unsigned		enable_hbm:1;
 
 	struct pinctrl		*hsic_pinctrl;
+	int wait_conn_cnt;
 };
 
 struct msm_hsic_hcd *__mehci;
@@ -1276,15 +1277,21 @@ fail:
 		pm_qos_update_request(&mehci->pm_qos_req_dma, next_latency);
 }
 
+#define MAX_CONN_RETRY 5
 static int ehci_hsic_bus_suspend(struct usb_hcd *hcd)
 {
 	struct msm_hsic_hcd *mehci = hcd_to_hsic(hcd);
 
-	if (!(readl_relaxed(USB_PORTSC) & PORT_PE)) {
+	if (!(readl_relaxed(USB_PORTSC) & PORT_PE) &&
+	     (mehci->wait_conn_cnt < MAX_CONN_RETRY)) {
 		dbg_log_event(NULL, "RH suspend attempt failed", 0);
 		dev_dbg(mehci->dev, "%s:port is not enabled skip suspend\n",
 				__func__);
+		mehci->wait_conn_cnt++;
 		return -EAGAIN;
+	} else {
+		dev_dbg(mehci->dev, "%s:max retries reached %d while waiting for CONNECT\n",
+			__func__, mehci->wait_conn_cnt);
 	}
 
 	dbg_log_event(NULL, "Suspend RH", 0);
