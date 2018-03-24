@@ -210,21 +210,20 @@ static int process_measurement(struct file *file, int mask, int function,
 	}
 
 #if defined(CONFIG_IMA_FORCE_MEASUREMENT)
-    /* If file is changed, it needs to be re-measured. Unfortunatelly,
-     * if there is no i_version support, file will never make it to
-     * IMA measurement list for re-measurement. In order to ensure that
-     * file is re-measured, the only option left is to re-mesure it every
-     * time it is accessed.
-     *
-     * So, pretend that it was never measured. In order to be consistent,
-     * reset all other "done" flags as well.
-     */
-    if (action && iint && (iint->flags & IMA_MEASURED)) {
-        pr_info("%s: %d: Forcing file re-measurement, flags=0x%lx, action=0x%x\n",
-                __func__, __LINE__, iint->flags, action);
-        iint->flags &= ~( IMA_COLLECTED | IMA_APPRAISED | IMA_MEASURED );
-        pr_info("%s: %d: Flags may have changed, flags=0x%lx\n",
-                __func__, __LINE__, iint->flags);
+	/* If file is changed, it needs to be re-measured. Unfortunatelly,
+	 * there is no i_version support. So, pretend that nothing was ever
+	 * done on this file. If no 'action' is required, do not change
+	 * anything.
+	 */
+	if (action && iint) {
+		pr_info("%s: %d: Forcing file re-measurement: inode=%ld, flags=0x%lx, action=0x%x\n",
+			__func__, __LINE__, inode->i_ino, iint->flags, action);
+
+		/* This will force new collection, measurement and appraisal. */
+		iint->flags &= ~IMA_DONE_MASK;
+
+		pr_info("%s: %d: Flags may have changed: inode=%ld, flags=0x%lx\n",
+			__func__, __LINE__, inode->i_ino, iint->flags);
     }
 #endif
 
