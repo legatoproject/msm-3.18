@@ -30,6 +30,8 @@
 
 
 struct diag_mux_state_t *diag_mux;
+
+#ifndef CONFIG_MSM_SWI_QEMU
 static struct diag_logger_t usb_logger;
 static struct diag_logger_t md_logger;
 
@@ -48,6 +50,7 @@ static struct diag_logger_ops md_log_ops = {
 	.write = diag_md_write,
 	.close_peripheral = diag_md_close_peripheral,
 };
+#endif
 
 int diag_mux_init()
 {

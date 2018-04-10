@@ -3223,13 +3223,14 @@ static int emac_remove(struct platform_device *pdev)
 	    !pm_runtime_suspended(&pdev->dev)) {
 		if (netif_running(netdev)) {
 			/* ensure no task/reset is in progress */
-			while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING))
+			while (TEST_N_SET_FLAG(adpt, ADPT_STATE_RESETTING)) {
 				/* Reset might take few 10s of ms */
 				msleep(EMAC_ADPT_RESET_WAIT_TIME);
-
-				emac_mac_down(adpt, 0);
-				CLR_FLAG(adpt, ADPT_STATE_RESETTING);
 			}
+
+			emac_mac_down(adpt, 0);
+			CLR_FLAG(adpt, ADPT_STATE_RESETTING);
+		}
 		pm_runtime_disable(netdev->dev.parent);
 		pm_runtime_set_suspended(netdev->dev.parent);
 		pm_runtime_enable(netdev->dev.parent);

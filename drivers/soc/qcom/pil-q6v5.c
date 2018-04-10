@@ -573,7 +573,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 	struct q6v5_data *drv;
 	struct resource *res;
 	struct pil_desc *desc;
+#ifndef CONFIG_MSM_SWI_QEMU
 	struct property *prop;
+#endif
 	int ret;
 
 	drv = devm_kzalloc(&pdev->dev, sizeof(*drv), GFP_KERNEL);

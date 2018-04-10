@@ -872,7 +872,7 @@ void blsyncddrsmtoimsm(void)
 	size_t len = sizeof(struct im_swap_data_s) - sizeof(uint32_t);
 
 	/*1. Get IM SMEM pointer */
-	smem_p = sierra_im_smem_base_addr_get();
+	smem_p = (struct im_swap_data_s*)sierra_im_smem_base_addr_get();
 	if (NULL == smem_p)
 	{
 		pr_err("sierra:-%s-failed: can't get valid im smem", __func__);
