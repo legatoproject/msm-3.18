@@ -33,6 +33,7 @@
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/cdev.h>
+#include <linux/sierra_bsudefs.h>
 #endif /*CONFIG_SIERRA*/
 
 #define MODULE_NAME "msm_watchdog"
@@ -686,6 +687,11 @@ void msm_trigger_wdog_bite(void)
 {
 	if (!wdog_data)
 		return;
+
+#ifdef CONFIG_SIERRA
+	blsyncddrsmtoimsm();
+#endif /*CONFIG_SIERRA*/
+
 	pr_info("Causing a watchdog bite!");
 	__raw_writel(1, wdog_data->base + WDT0_BITE_TIME);
 	mb();

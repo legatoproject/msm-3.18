@@ -1022,6 +1022,37 @@ struct __attribute__((packed)) ds_smem_erestore_info
 #define BL_RESTORE_INFO_INVALID_VALUE 0xFF
 #define DS_ERESTORE_CRC_SZ (sizeof(struct ds_smem_erestore_info) - sizeof(uint32_t))
 
+/************
+ *
+ * Name:     im_swap_data_s
+ *
+ * Purpose:  Save DDR SMEM data to IM SMEM when do warm reset
+ *
+ * Notes:    Structure is packed and uses fixed-width types to ensure
+ *           compatibility between images and processors
+ *
+ *           Must reside in uninitialized shared memory
+ *
+ ************/
+struct __attribute__((packed)) im_swap_data_s
+{
+  uint32_t recover_cnt;                     /* Smart Recovery counter */
+  uint8_t reserved;
+  uint8_t ssid_modem_idx;                   /* SSID modem index flag */
+  uint8_t ssid_lk_idx;                      /* SSID LK index flag */
+  uint8_t ssid_linux_idx;                   /* SSID Linux index flag */
+  uint32_t  is_changed;                     /* Mark if it is changed */
+  uint64_t  bad_image;                      /* Record bad images */
+  uint8_t erestore_t;                       /* EFS restore type */
+  uint8_t errorcount;                       /* backup errorcount */
+  uint8_t restored_flag;                    /* efs-restore last booting */
+  uint8_t beroption;                        /* backup beroption */
+  uint32_t crc32;                           /* CRC32 of above fields */
+};
+
+#define IM_SMEM_BASE 0x08600A94
+#define IM_SMEM_SIZE 100
+
 void sierra_smem_errdump_save_start(void);
 void sierra_smem_errdump_save_timestamp(uint32_t time_stamp);
 void sierra_smem_errdump_save_errstr(char *errstrp);
@@ -1038,5 +1069,8 @@ int sierra_smem_ds_write_bad_image_and_swap(uint64_t bad_image_mask);
 int sierra_support_ar_dualsystem(void);
 void ubi_check_bad_image_and_swap(char *ubi_name);
 int sierra_smem_handle_bad_partition_name(char * ubi_volume_name);
+void sierra_ds_smem_get(struct ds_smem_message_s * ds_infop);
+void sierra_ds_smem_erestore_info_get(struct ds_smem_erestore_info *efs_restore_infop);
+unsigned char * sierra_im_smem_base_addr_get(void);
 
 #endif /* SIERRA_SMEM_H */

@@ -330,6 +330,11 @@ static void msm_restart_prepare(const char *cmd)
 
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		blsyncddrsmtoimsm();
+#endif
+/* SWISTOP */
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	} else {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
