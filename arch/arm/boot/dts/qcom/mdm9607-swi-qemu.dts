@@ -67,5 +67,5 @@
 / {
 	model = "Sierra Wireless, Inc. MDM 9607 AR series";
 	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
-	qcom,board-id = <8 0x80>;
+	qcom,board-id = <8 0x85>;
 };
