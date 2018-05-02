@@ -419,7 +419,6 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 #ifdef CONFIG_SIERRA
 	if(bsgetpowerfaultflag())
 	{
-		bsseterrcount(0);
 		bsclearpowerfaultflag();
 		if(pm_power_off)
 		{
@@ -470,6 +469,12 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 static void do_msm_poweroff(void)
 {
 	pr_notice("Powering off the SoC\n");
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	bsseterrcount(0);
+#endif
+/* SWISTOP */
 
 	set_dload_mode(0);
 	scm_disable_sdi();
