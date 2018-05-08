@@ -18,6 +18,12 @@ enum transport_type {
 	USB_GADGET_XPORT_UNDEF,
 	USB_GADGET_XPORT_TTY,
 	USB_GADGET_XPORT_SMD,
+#ifdef CONFIG_SIERRA
+/* new XPORT type to differentiate from DS
+ * which is also SMD
+ */
+	USB_GADGET_XPORT_SMDNMEA,
+#endif
 	USB_GADGET_XPORT_QTI,
 	USB_GADGET_XPORT_BAM2BAM,
 	USB_GADGET_XPORT_BAM2BAM_IPA,
@@ -28,8 +34,6 @@ enum transport_type {
 	USB_GADGET_XPORT_BAM_DMUX,
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	/* SMD bridge to Modem for NMEA */
-	USB_GADGET_XPORT_SMDNMEA,
 	/* TTY Open SIM Access interface */
 	USB_GADGET_XPORT_OSA,
 	/* TTY Raw Data interface for custom application */
@@ -38,6 +42,14 @@ enum transport_type {
 /* SWISTOP */
 	USB_GADGET_XPORT_NONE,
 };
+
+#ifdef CONFIG_SIERRA
+#define USB_GADGET_XPORT_IS_SMD(P) \
+	((P) == USB_GADGET_XPORT_SMD || ((P) == USB_GADGET_XPORT_SMDNMEA))
+#else
+#define USB_GADGET_XPORT_IS_SMD(P) \
+	((P) == USB_GADGET_XPORT_SMD)
+#endif
 
 #define XPORT_STR_LEN	12
 
@@ -48,6 +60,10 @@ static char *xport_to_str(enum transport_type t)
 		return "TTY";
 	case USB_GADGET_XPORT_SMD:
 		return "SMD";
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+		return "SMDNMEA";
+#endif
 	case USB_GADGET_XPORT_QTI:
 		return "QTI";
 	case USB_GADGET_XPORT_BAM2BAM:
@@ -68,8 +84,6 @@ static char *xport_to_str(enum transport_type t)
 		return "NONE";
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	case USB_GADGET_XPORT_SMDNMEA:
-		return "SMDNMEA";
 	case USB_GADGET_XPORT_OSA:
 		return "OSA";
 	case USB_GADGET_XPORT_RAWDAT:
@@ -90,6 +104,10 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_TTY;
 	if (!strncasecmp("SMD", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_SMD;
+#ifdef CONFIG_SIERRA
+	if (!strncasecmp("SMDNMEA", name, XPORT_STR_LEN))
+		return USB_GADGET_XPORT_SMDNMEA;
+#endif
 	if (!strncasecmp("QTI", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_QTI;
 	if (!strncasecmp("BAM", name, XPORT_STR_LEN) ||
@@ -111,8 +129,6 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_NONE;
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	if (!strncasecmp("SMDNMEA", name, XPORT_STR_LEN))
-		return USB_GADGET_XPORT_SMDNMEA;
 	if (!strncasecmp("OSA", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_OSA;
 	if (!strncasecmp("RAWDAT", name, XPORT_STR_LEN))

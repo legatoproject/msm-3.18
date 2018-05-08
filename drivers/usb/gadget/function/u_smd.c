@@ -28,6 +28,9 @@
 #include <soc/qcom/smd.h>
 #include <linux/debugfs.h>
 
+#ifdef CONFIG_SIERRA
+#include "usb_gadget_xport.h"
+#endif
 #include "u_serial.h"
 
 #define SMD_RX_QUEUE_SIZE		8
@@ -993,6 +996,35 @@ static void gsmd_debugfs_init(void)
 }
 #else
 static void gsmd_debugfs_init(void) {}
+#endif
+
+#ifdef CONFIG_SIERRA
+/* This is called multiple times by f_serial.c, one for each SMD port,
+ * to indicate which port number has what type.
+ */
+
+void gsmd_setup_port_type(enum transport_type type, int port_num)
+{
+	if (port_num >= 0 && port_num < SMD_N_PORTS) {
+		switch (type) {
+		case USB_GADGET_XPORT_SMD:
+			smd_pi[port_num].name = "DS";
+			break;
+		case USB_GADGET_XPORT_SMDNMEA:
+			smd_pi[port_num].name = "GPSNMEA";
+			break;
+		default:
+			pr_err("%s: given unexpected transport type %d\n",
+			       __func__, (int) type);
+			/* should not be called */
+			break;
+		}
+
+		return;
+	}
+	pr_err("%s: given out-of-range port number %d\n",
+	       __func__, port_num);
+}
 #endif
 
 int gsmd_setup(struct usb_gadget *g, unsigned count)
