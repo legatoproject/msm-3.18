@@ -244,6 +244,7 @@ Exit:
 static int __init sierra_smem_init(void)
 {
         (void)sierra_smem_base_addr_get();
+        (void)sierra_im_smem_base_addr_get();
 
         kmsg_dumper.max_reason = KMSG_DUMP_OOPS;
         kmsg_dumper.dump = sierra_kmsg_dump_cb;
