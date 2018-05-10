@@ -221,7 +221,7 @@ static void sierra_kmsg_dump_cb(struct kmsg_dumper *dumper,
                         if ((stack_pre + stack_pos) > BS_SMEM_LKC_SIZE)
                                 stack_pos = BS_SMEM_LKC_SIZE - stack_pre;
                         memcpy(er_base+stack_pre, tmp - 15, stack_pos);
-                        
+
                         /* add err string , most importantly set the marker;
                         * prevent other err info writting.
                         */
@@ -244,6 +244,8 @@ Exit:
 static int __init sierra_smem_init(void)
 {
         (void)sierra_smem_base_addr_get();
+        (void)sierra_im_smem_base_addr_get();
+
 
         kmsg_dumper.max_reason = KMSG_DUMP_OOPS;
         kmsg_dumper.dump = sierra_kmsg_dump_cb;
