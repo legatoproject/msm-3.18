@@ -102,12 +102,6 @@ static unsigned int no_smd_ports;
 static unsigned int no_hsic_sports;
 static unsigned int nr_ports;
 static unsigned int gser_next_free_port;
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-/* flag indicating whether NMEA is before Modem interface in order */
-bool nmea_first = false;
-#endif
-/* SWISTOP */
 
 static struct port_info {
 	enum transport_type	transport;
@@ -378,22 +372,7 @@ int gport_setup(struct usb_configuration *c)
 	if (no_char_bridge_ports)
 		gbridge_setup(c->cdev->gadget, no_char_bridge_ports);
 	if (no_smd_ports)
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-/* If the NMEA port is first, do not call the standard gsmd_setup().
- * Instead, call gsmdnmea_setup which puts NMEA port before DS port.
- */
-	{
-		if(nmea_first) {
-			ret = gsmdnmea_setup(c->cdev->gadget, no_smd_ports);
-		} else {
-			ret = gsmd_setup(c->cdev->gadget, no_smd_ports);
-		}
-	}
-#else
 		ret = gsmd_setup(c->cdev->gadget, no_smd_ports);
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	if (no_hsic_sports) {
 		port_idx = ghsic_data_setup(no_hsic_sports, USB_GADGET_SERIAL);
 		if (port_idx < 0)
@@ -464,11 +443,9 @@ static int gport_connect(struct f_gser *gser)
 		gserial_connect(&gser->port, port_num);
 		break;
 	case USB_GADGET_XPORT_SMD:
-/* SWISTART */
 #ifdef CONFIG_SIERRA
 	case USB_GADGET_XPORT_SMDNMEA:
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
+#endif
 		gsmd_connect(&gser->port, port_num);
 		break;
 	case USB_GADGET_XPORT_CHAR_BRIDGE:
@@ -519,11 +496,9 @@ static int gport_disconnect(struct f_gser *gser)
 		gserial_disconnect(&gser->port);
 		break;
 	case USB_GADGET_XPORT_SMD:
-/* SWISTART */
 #ifdef CONFIG_SIERRA
 	case USB_GADGET_XPORT_SMDNMEA:
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
+#endif
 		gsmd_disconnect(&gser->port, port_num);
 		break;
 	case USB_GADGET_XPORT_CHAR_BRIDGE:
@@ -722,11 +697,9 @@ static void gser_suspend(struct usb_function *f)
 
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_SMD:
-/* SWISTART */
 #ifdef CONFIG_SIERRA
 	case USB_GADGET_XPORT_SMDNMEA:
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
+#endif
 		gsmd_suspend(&gser->port, port_num);
 		break;
 /* SWISTART */
@@ -764,11 +737,9 @@ static void gser_resume(struct usb_function *f)
 
 	switch (gser->transport) {
 	case USB_GADGET_XPORT_SMD:
-/* SWISTART */
 #ifdef CONFIG_SIERRA
 	case USB_GADGET_XPORT_SMDNMEA:
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
+#endif
 		gsmd_resume(&gser->port, port_num);
 		break;
 /* SWISTART */
@@ -1248,16 +1219,15 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	gser->port.func.disable = gser_disable;
 	gser->port.func.free_func = gser_free;
 	gser->transport		= gserial_ports[opts->port_num].transport;
-/* SWISTART */
 #ifdef CONFIG_SIERRA_USB_COMP
 	/* For Compositions that have NMEA but not MODEM using port_num breaks the NMEA interface */
 	if (gser->transport == USB_GADGET_XPORT_SMD)
 		gser->port.func.name = "modem";
 	else if (gser->transport == USB_GADGET_XPORT_OSA)
 		gser->port.func.name = "osa";
-	else if (gser->transport ==  USB_GADGET_XPORT_RAWDAT)
+	else if (gser->transport == USB_GADGET_XPORT_RAWDAT)
 		gser->port.func.name = "raw_data";
-	else if(gser->transport == USB_GADGET_XPORT_SMDNMEA)
+	else if (gser->transport == USB_GADGET_XPORT_SMDNMEA)
 		gser->port.func.name = "nmea";
 	else
 		gser->port.func.name = "modem2";
@@ -1270,7 +1240,6 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	else
 		gser->port.func.name = "modem2";
 #endif
-/* SWISTOP */
 	gser->port.func.setup = gser_setup;
 	gser->port.func.suspend = gser_suspend;
 	gser->port.func.resume = gser_resume;
@@ -1319,20 +1288,17 @@ int gserial_init_port(int port_num, const char *name,
 		no_tty_ports++;
 		break;
 	case USB_GADGET_XPORT_SMD:
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_SMDNMEA:
+#endif
 		gserial_ports[port_num].client_port_num = no_smd_ports;
+#ifdef CONFIG_SIERRA
+		gsmd_setup_port_type(transport, no_smd_ports);
+#endif
 		no_smd_ports++;
 		break;
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-	case USB_GADGET_XPORT_SMDNMEA:
-		gserial_ports[port_num].client_port_num = no_smd_ports;
-		if(no_smd_ports) {
-			nmea_first = false;
-		} else {
-			nmea_first = true;
-		}
-		no_smd_ports++;
-		break;
 	case USB_GADGET_XPORT_OSA:
 	case USB_GADGET_XPORT_RAWDAT:
 		no_tty_ports++;
@@ -1531,7 +1497,7 @@ static long gser_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		break;
 
 	case GSERIAL_SMD_WRITE:
-		if (gser->transport != USB_GADGET_XPORT_SMD) {
+		if (!USB_GADGET_XPORT_IS_SMD(gser->transport)) {
 			pr_err("%s: ERR: Got SMD WR cmd when not in SMD mode",
 				__func__);
 
