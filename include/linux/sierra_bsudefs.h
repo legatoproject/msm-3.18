@@ -41,6 +41,7 @@ enum bshwtype
   BSAR7694,                     /* 0x09 - Automotive 7694                     */
   BSAR7696,                     /* 0x0A - Automotive 7696                     */
   BSAR7698,                     /* 0x0B - Automotive 7698                     */
+  BSAR7596RD_NB7,               /* 0x0C - Automotive 7596                     */
   BSHWUNKNOWN,                  /* Unknown HW                                 */
   BSHWINVALID = 0xFF            /* Invalid HW                                 */
 };
