@@ -408,6 +408,7 @@ void diag_send_rsp(unsigned char *buf, int len)
 void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type)
 {
 	unsigned char *ptr = NULL;
+	unsigned char *ptrr = NULL;
 	unsigned char *temp = buf;
 	int *in_busy = NULL;
 	uint32_t *length = NULL;
@@ -438,7 +439,13 @@ void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type)
 	}
 
 	mutex_lock(&driver->diagchar_mutex);
-	if (CHK_OVERFLOW(ptr, ptr, ptr + max_len, len)) {
+
+	/* Braindead construct to avoid
+	   "warning: self-comparison always evaluates to true" gcc 6.2.0 error.
+	*/
+	ptrr = ptr;
+
+	if (CHK_OVERFLOW(ptr, ptrr, ptr + max_len, len)) {
 		memcpy(ptr, temp , len);
 		*length = len;
 		*in_busy = 1;
