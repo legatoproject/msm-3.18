@@ -273,7 +273,8 @@ static void sierra_resource_check(const char *pathp, const char *valuep, int for
 	mm_segment_t oldfs;
 	int check_failed = 0;
 	char start_char, stop_char, cur_char;
-	char *path_bufp = NULL, *leftp, *rightp, *cur_pathp;
+	char *path_bufp = NULL, *leftp, *rightp;
+	const char *cur_pathp;
 	bool wildcard = false;
 
 	oldfs = get_fs();

@@ -1098,7 +1098,8 @@ swimcu_pm_psm_sync_option_default(
 ************/
 static u32 swimcu_pm_psm_time_get(void)
 {
-	u32 rtc_secs, alarm_secs, interval;
+	unsigned long rtc_secs, alarm_secs;
+	u32 interval;
 	struct rtc_wkalrm rtc_alarm;
 	struct rtc_time   rtc_time;
 	struct rtc_device *rtc = alarmtimer_get_rtcdev();
@@ -1129,13 +1130,13 @@ static u32 swimcu_pm_psm_time_get(void)
 
 	if (alarm_secs > rtc_secs)
 	{
-		interval = alarm_secs - rtc_secs;
-		pr_info("%s: alarm %u rtc %u interval %u", __func__, alarm_secs, rtc_secs, interval);
+		interval = (u32)(alarm_secs - rtc_secs);
+		pr_info("%s: alarm %u rtc %u interval %u", __func__, (u32)alarm_secs, (u32)rtc_secs, interval);
 	}
 	else
 	{
 		interval = 0;
-		pr_err("%s: invalid configuration alarm %u rtc %u", __func__, alarm_secs, rtc_secs);
+		pr_err("%s: invalid configuration alarm %u rtc %u", __func__, (u32)alarm_secs, (u32)rtc_secs);
 	}
 
 	return interval;
@@ -1245,7 +1246,7 @@ static void swimcu_pm_rtc_restore(struct swimcu *swimcup)
 	pr_info("%s: MCUFW elapsed PSM tme: %d\n", __func__, ulpm_time);
 	if (ulpm_time == 0)
 	{
-		pr_err("%s: invalid PSM elapsed time: %d\n", __func__);
+		pr_err("%s: invalid PSM elapsed time: %d\n", __func__, ulpm_time);
 		return;
 	}
 
@@ -1259,12 +1260,12 @@ static void swimcu_pm_rtc_restore(struct swimcu *swimcup)
 	tv.tv_sec = ulpm_time / MSEC_PER_SEC;
 	tv.tv_nsec = (ulpm_time % MSEC_PER_SEC) * NSEC_PER_MSEC;
 
-	pr_err("%s ULPM duration converted to MDM time scale: %ul s %l ns\n",
+	pr_err("%s ULPM duration converted to MDM time scale: %ld s %ld ns\n",
 		__func__, tv.tv_sec, tv.tv_nsec);
 
 	tv.tv_sec += swimcu_pm_data[SWIMCU_PM_DATA_PRE_ULPM_RTC_TIME];
 
-	pr_info("%s updated post-PSM RTC: %ul sec\n", __func__, tv.tv_sec);
+	pr_info("%s updated post-PSM RTC: %ld sec\n", __func__, tv.tv_sec);
 
 	ret = do_settimeofday(&tv);
 	if (ret == 0)

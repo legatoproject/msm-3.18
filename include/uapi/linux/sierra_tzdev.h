@@ -143,7 +143,7 @@ typedef struct tz_storage_service_seal_data_cmd
     tz_storage_service_key_blob_t   key_blob;
     uint8_t*                        plain_data;
     uint32_t                        plain_data_len;
-    uint8_t*                        output_buffer;
+    volatile uint8_t*               output_buffer;
     uint32_t                        output_len;
 } tz_storage_service_seal_data_cmd_t;
 
