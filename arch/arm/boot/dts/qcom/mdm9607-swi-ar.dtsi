@@ -315,6 +315,20 @@
 			qcom,sensor-name = "xo_therm";
 		};
 	};
+
+	qcom,msm-dai-mi2s {
+		mi2s_sec: qcom,msm-dai-q6-mi2s-sec {
+			pinctrl-names = "default", "idle";
+			pinctrl-0 = <&sec_mi2s_ws_active
+					&sec_mi2s_sck_active
+					&sec_mi2s_dout_active
+					&sec_mi2s_din_active>;
+			pinctrl-1 = <&sec_mi2s_ws_sleep
+					&sec_mi2s_sck_sleep
+					&sec_mi2s_dout_sleep
+					&sec_mi2s_din_sleep>;
+		};
+	};
 };
 
 &blsp1_uart5 {
