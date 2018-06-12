@@ -2118,16 +2118,19 @@ static void msm_hs_config_port(struct uart_port *uport, int cfg_flags)
 static void msm_hs_handle_delta_cts_locked(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
-	msm_hs_resource_vote(msm_uport);
+
+	clk_enable(msm_uport->clk);
+
 	/* clear interrupt */
 	msm_hs_write(uport, UART_DM_CR, RESET_CTS);
 	/* Calling CLOCK API. Hence mb() requires here. */
 	mb();
 	uport->icount.cts++;
 
+	clk_disable(msm_uport->clk);
+
 	/* clear the IOCTL TIOCMIWAIT if called */
 	wake_up_interruptible(&uport->state->port.delta_msr_wait);
-	msm_hs_resource_unvote(msm_uport);
 }
 
 static irqreturn_t msm_hs_isr(int irq, void *dev)
@@ -2431,7 +2434,7 @@ static irqreturn_t msm_hs_wakeup_isr(int irq, void *dev)
 		 */
 
 		spin_unlock_irqrestore(&uport->lock, flags);
-		msm_hs_pm_resume(uport->dev);
+		msm_hs_request_clock_on(uport);
 		spin_lock_irqsave(&uport->lock, flags);
 		if (msm_uport->wakeup.inject_rx) {
 			tty = uport->state->port.tty;
