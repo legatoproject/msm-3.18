@@ -216,34 +216,14 @@ static int process_measurement(struct file *file, int mask, int function,
 	 * anything.
 	 */
 	if (action && iint) {
-
-    /* DM: BIG RED NOTE
-     * In order to protect immutable files using SMACK labeling
-     * we introduced the following into ima policy:
-     *
-     *     measure func=FILE_CHECK mask=MAY_READ
-     *     appraise obj_user=imaLegato appraise_type=imasig
-     *
-     * Unfortunately, this rule is causing rapid calls to process_measurement()
-     * (this method), if /tmp/ld.so.cache is bind mounted to /etc/ld.so.cache .
-     * For currently unknown reason, ld.so.cache is re-measured over and over
-     * again. This causes the lines bellow to fill up kernel log buffer
-     * fairly quickly, pushing useful log messages out.
-     *
-     * This is just a workaround until we find where the real problem is.
-     */
-#if 0
 		pr_info("%s: %d: Forcing file re-measurement: inode=%ld, flags=0x%lx, action=0x%x\n",
 			__func__, __LINE__, inode->i_ino, iint->flags, action);
-#endif
 
 		/* This will force new collection, measurement and appraisal. */
 		iint->flags &= ~IMA_DONE_MASK;
 
-#if 0
 		pr_info("%s: %d: Flags may have changed: inode=%ld, flags=0x%lx\n",
 			__func__, __LINE__, inode->i_ino, iint->flags);
-#endif
     }
 #endif
 
