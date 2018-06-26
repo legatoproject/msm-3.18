@@ -522,7 +522,7 @@ CONFIG_CRYPTO_SHA256=y
 # Remove trace modules
 # CONFIG_TRACING_SUPPORT is not set
 
-CONFIG_UBI_VOLS_NOT_CHK_CRC="rootfs legato"
+CONFIG_UBI_VOLS_NOT_CHK_CRC="rootfs legato modem"
 # Set Kernel log buffer size to 256KB
 CONFIG_LOG_BUF_SHIFT=18
 # CONFIG_ANDROID_PARANOID_NETWORK is not set
