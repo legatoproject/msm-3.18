@@ -4689,7 +4689,7 @@ struct security_operations smack_ops = {
 
 	.socket_post_create = 		smack_socket_post_create,
 
-#ifndef SMACK_IPV6_PORT_LABELING
+#ifdef SMACK_IPV6_PORT_LABELING
 	.socket_bind =			smack_socket_bind,
 #endif
 	.socket_connect =		smack_socket_connect,

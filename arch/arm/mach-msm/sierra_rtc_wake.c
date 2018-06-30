@@ -149,7 +149,7 @@ static int mypow(int data, int n)
 {
 	int multi=1;
 	int i=0;
-	for(i;i<n;i++)
+	for(i = 0; i < n; i++)
 		multi=multi*data;
 	return multi;
 }
@@ -192,8 +192,6 @@ static const struct file_operations rtc_wake_fops = {
 /* Following are standard module functions */
 static int sierra_rtc_wake_probe(struct platform_device *pdev)
 {
-	pr_info("%s\n", __FUNCTION__ );
-
 	struct device *dev = &pdev->dev;
 	struct device_node *node = dev->of_node;
 	struct device * devrtc;
@@ -202,6 +200,8 @@ static int sierra_rtc_wake_probe(struct platform_device *pdev)
 	struct device *device_handle;
 
 	dev_t c_dev = MKDEV(major, 0);
+
+	pr_info("%s\n", __FUNCTION__ );
 
 	if (major)
 		result = register_chrdev_region(c_dev, 1, DEVICE_NAME);

@@ -13,6 +13,8 @@
 #ifndef __PINCTRL_MSM_H__
 #define __PINCTRL_MSM_H__
 
+#include <linux/platform_device.h>
+
 struct pinctrl_pin_desc;
 
 /* SWISTART */

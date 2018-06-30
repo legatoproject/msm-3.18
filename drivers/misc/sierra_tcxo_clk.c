@@ -48,7 +48,7 @@ static struct qpnp_pin_cfg pm9635_gpio01_conf = {
 
 static ssize_t sierra_tcxo_show(struct kobject *kobj,
   struct kobj_attribute *attr,
-  const char *buf);
+  char *buf);
 static ssize_t sierra_tcxo_store(struct kobject *kobj,
     struct kobj_attribute *attr,
     const char *buf,
@@ -64,7 +64,7 @@ static struct attribute *attrs[] = {
 
 static ssize_t sierra_tcxo_show(struct kobject *kobj,
   struct kobj_attribute *attr,
-  const char *buf)
+  char *buf)
 {
   uint8_t enabled;
   enabled = data->enable;
@@ -118,8 +118,9 @@ static DECLARE_DELAYED_WORK(tcxo_work, clk_gpio_enable);
 static int sierra_tcxo_clk_probe(struct platform_device *pdev)
 {
   int ret = 0;
-  dev_info(&pdev->dev, "sierra_tcxo_clk probe\n");
   struct device_node *np = pdev->dev.of_node;
+
+  dev_info(&pdev->dev, "sierra_tcxo_clk probe\n");
 
   data = (struct swi_tcxo*)kzalloc(sizeof(struct swi_tcxo*), GFP_KERNEL);
   if (!data) {

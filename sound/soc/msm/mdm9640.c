@@ -143,6 +143,8 @@ static int clk_users;
 static int mdm_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 static void *def_codec_mbhc_cal(void);
 
 static struct wcd9xxx_mbhc_config mbhc_cfg = {
@@ -165,7 +167,8 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.enable_anc_mic_detect = false,
 	.hw_jack_type = FOUR_POLE_JACK,
 };
-
+#endif
+/* SWISTOP */
 
 static int mdm_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
 				int rate)
@@ -946,7 +949,8 @@ static void mdm_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int ret;
 
-	pr_debug("mdm_auxpcm_shutdown, aux_ref_count=%d\n", aux_ref_count);
+	pr_debug("mdm_auxpcm_shutdown, aux_ref_count=%d\n",
+		atomic_read(&aux_ref_count));
 	atomic_dec_return(&aux_ref_count);
 
 	ret = mdm_mi2s_clk_ctl(rtd, false, 0);
@@ -1046,7 +1050,8 @@ static void mdm_sec_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	int ret;
 
-	pr_debug("mdm_sec_auxpcm_shutdown, sec_aux_ref_count=%d\n", sec_aux_ref_count);
+	pr_debug("mdm_sec_auxpcm_shutdown, sec_aux_ref_count=%d\n",
+		atomic_read(&sec_aux_ref_count));
 	atomic_dec_return(&sec_aux_ref_count);
 
 	ret = mdm_sec_mi2s_clk_ctl(rtd, false, 0);
@@ -1267,7 +1272,8 @@ static int mdm_sec_auxpcm_mode_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int mdm_sec_auxpcm_mode_put(struct snd_kcontrol *kcontrol,
+static int __attribute__((__unused__)) mdm_sec_auxpcm_mode_put(
+				struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
@@ -1675,10 +1681,15 @@ static int mdm_auxpcm_init(struct snd_soc_pcm_runtime *rtd)
 #endif
 /* SWISTOP */
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 static int msm_snd_get_ext_clk_cnt(void)
 {
 	return clk_users;
 }
+#endif
+/* SWISTOP */
+
 /* SWISTART */
 #ifdef CONFIG_SIERRA_AUDIO_CONFIG
 int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)

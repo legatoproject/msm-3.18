@@ -79,10 +79,10 @@ static struct wakeup_source * ws;
 
 static void sierra_rtc_wake(struct work_struct *work)
 {
-	pr_info("%s",__func__);
 	struct qpnp_rtc * rtc_d;
 	char event[16], *envp[2];
 
+	pr_info("%s",__func__);
 
 	rtc_d = container_of(work, struct qpnp_rtc, sierra_rtc_work);
 

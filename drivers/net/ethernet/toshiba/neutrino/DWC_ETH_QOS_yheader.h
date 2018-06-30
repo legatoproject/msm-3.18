@@ -308,7 +308,7 @@
 
 #include <asm-generic/errno.h>
 
-#define CONFIG_PTPSUPPORT_OBJ
+/* #define CONFIG_PTPSUPPORT_OBJ */
 
 #ifdef CONFIG_PTPSUPPORT_OBJ
 #define DWC_ETH_QOS_CONFIG_PTP

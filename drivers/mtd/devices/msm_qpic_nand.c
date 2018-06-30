@@ -25,6 +25,12 @@
 
 static bool enable_euclean;
 
+#ifdef CONFIG_MSM_SMD
+static struct flash_partition_table ptable;
+#endif
+
+static struct mtd_partition mtd_part[FLASH_PTABLE_MAX_PARTS_V4];
+
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
  * to free memory available from the allocated pool. Returns NULL if there

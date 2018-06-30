@@ -689,12 +689,12 @@ DEFINE_SIMPLE_ATTRIBUTE(loopback_enable_fops, msm_serial_loopback_enable_get,
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 const static char at_func_string[] = "AT\n";
-const static char dm_func_string[] = "DM\n";
+const static char __attribute__((__unused__)) dm_func_string[] = "DM\n";
 const static char nmea_func_string[] = "NMEA\n";
-const static char cons_func_string[] = "CONSOLE\n";
+const static char __attribute__((__unused__)) cons_func_string[] = "CONSOLE\n";
 const static char app_func_string[] = "APP\n";
 const static char inv_func_string[] = "UNAVAILABLE\n";
-const static char dis_func_string[] = "DISABLED\n";
+const static char __attribute__((__unused__)) dis_func_string[] = "DISABLED\n";
 static int8_t uart_func[UARTDM_NR];
 static char* uart_func_str_pt[UARTDM_NR] = {0};
 const static char* uart_hs_sym_dir_str_pt[UARTDM_NR] = { "msm_serial_hs.0", "msm_serial_hs.1" };

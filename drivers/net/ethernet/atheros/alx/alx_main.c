@@ -4895,6 +4895,8 @@ static int __devinit alx_init(struct pci_dev *pdev,
 		       const struct pci_device_id *ent)
 {
 	struct net_device *netdev;
+	static int cards_found;
+	int retval;
 	struct alx_adapter *adpt = NULL;
 	struct alx_hw *hw = NULL;
 #ifdef MDM_PLATFORM
@@ -4902,8 +4904,6 @@ static int __devinit alx_init(struct pci_dev *pdev,
 	struct odu_bridge_params *params_ptr, params;
 	params_ptr = &params;
 #endif
-	static int cards_found;
-	int retval;
 
 #ifdef MDM_PLATFORM
 	retval = msm_pcie_pm_control(MSM_PCIE_RESUME, pdev->bus->number,

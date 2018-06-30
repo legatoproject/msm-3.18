@@ -989,7 +989,11 @@ err_return:
 
 static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 {
+
+#ifndef CONFIG_SIERRA
 	int rc;
+#endif
+
 	struct qpnp_pon *pon = _pon;
 	struct qpnp_pon_config *cfg;
 

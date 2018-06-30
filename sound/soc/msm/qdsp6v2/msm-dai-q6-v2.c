@@ -226,6 +226,10 @@ static const struct soc_enum sb_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, sb_format),
 };
 
+static DEFINE_MUTEX(tdm_mutex);
+
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 static const char *const tdm_data_format[] = {
 	"LPCM",
 	"Compr",
@@ -241,8 +245,6 @@ static const struct soc_enum tdm_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, tdm_data_format),
 	SOC_ENUM_SINGLE_EXT(3, tdm_header_type),
 };
-
-static DEFINE_MUTEX(tdm_mutex);
 
 static atomic_t tdm_group_ref[IDX_GROUP_TDM_MAX];
 
@@ -275,6 +277,8 @@ static struct afe_clk_set tdm_clk_set = {
 	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
 	0,
 };
+#endif
+/* SWISTOP */
 
 int msm_dai_q6_get_group_idx(u16 id)
 {
@@ -2035,6 +2039,8 @@ static struct snd_soc_dai_driver msm_dai_q6_afe_tx_dai[] = {
 	},
 };
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 static struct snd_soc_dai_driver msm_dai_q6_bt_sco_rx_dai = {
 	.playback = {
 		.stream_name = "Internal BT-SCO Playback",
@@ -2121,6 +2127,8 @@ static struct snd_soc_dai_driver msm_dai_q6_fm_tx_dai = {
 	.probe = msm_dai_q6_dai_probe,
 	.remove = msm_dai_q6_dai_remove,
 };
+#endif
+/* SWISTOP */
 
 static struct snd_soc_dai_driver msm_dai_q6_voc_playback_dai[] = {
 	{
@@ -2470,6 +2478,8 @@ static struct platform_driver msm_auxpcm_dev_driver = {
 	},
 };
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 static struct snd_soc_dai_driver msm_dai_q6_slimbus_rx_dai[] = {
 	{
 		.playback = {
@@ -2744,6 +2754,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 		.remove = msm_dai_q6_dai_remove,
 	},
 };
+#endif
+/* SWISTOP */
 
 static int msm_dai_q6_mi2s_format_put(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
@@ -4009,6 +4021,8 @@ static struct platform_driver msm_dai_q6_spdif_driver = {
 	},
 };
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA_AUDIO_CONFIG
 static int msm_dai_tdm_q6_probe(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -6993,6 +7007,8 @@ static struct platform_driver msm_dai_q6_tdm_driver = {
 		.of_match_table = msm_dai_q6_tdm_dev_dt_match,
 	},
 };
+#endif
+/* SWISTOP */
 
 static int __init msm_dai_q6_init(void)
 {
@@ -7056,10 +7072,10 @@ static int __init msm_dai_q6_init(void)
 #ifndef CONFIG_SIERRA_AUDIO_CONFIG
 dai_tdm_q6_fail:
 	platform_driver_unregister(&msm_dai_q6_tdm_driver);
-#endif
-/* SWISTOP */
 dai_q6_tdm_drv_fail:
 	platform_driver_unregister(&msm_dai_q6_spdif_driver);
+#endif
+/* SWISTOP */
 dai_spdif_q6_fail:
 	platform_driver_unregister(&msm_dai_mi2s_q6);
 dai_mi2s_q6_fail:

@@ -124,7 +124,7 @@ static void mmc_set_erase_size(struct mmc_card *card)
 	mmc_init_erase(card);
 }
 
-static const struct mmc_fixup mmc_fixups[] = {
+static const struct mmc_fixup __attribute__((__unused__)) mmc_fixups[] = {
 
 	/* avoid HPI for specific cards */
 	MMC_FIXUP_EXT_CSD_REV("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY,

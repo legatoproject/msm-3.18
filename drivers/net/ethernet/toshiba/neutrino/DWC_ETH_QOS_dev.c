@@ -4390,7 +4390,7 @@ static INT DWC_ETH_QOS_yinit(struct DWC_ETH_QOS_prv_data *pdata)
 
         DBGPR("-->DWC_ETH_QOS_yinit\n");
 
-#if CONFIG_NTN_PHY_RMII
+#ifdef CONFIG_NTN_PHY_RMII
 	/*do nothing*/
 #else
         /* Initialize for 1Gbps, Full Duplex and 125 MHz */

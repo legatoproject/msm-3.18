@@ -87,8 +87,6 @@ typedef uint32 CRYPTO_ASYM_BLONG;
 typedef uint32 KM_BLONG;
 #define KM_MAX_KEY_SIZE          4128                                              ///< Maximum key size in bits
 #define KM_BLONG_SIZE            sizeof(KM_BLONG)                                ///< Bytes per digit
-#define TZ_CRYPTO_SVC_NONCE_LEN         (8)
-#define TZ_CRYPTO_SVC_MAC_LEN           (16)
 
 /*
  -----------------------------------------------------------------------------------------------------------------------
