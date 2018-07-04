@@ -1380,11 +1380,48 @@ static inline void gser_device_unlock(atomic_t *excl)
 	atomic_dec(excl);
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int gser_get_smd_port(void)
+{
+	int i;
+
+	for (i = 0; i < GSERIAL_NO_PORTS; i++) {
+		if (gserial_ports[i].transport == USB_GADGET_XPORT_SMD) {
+			return i;
+		}
+	}
+	return -EINVAL;
+}
+#endif /* SIERRA */
+/* SWISTOP */
+
 static int gser_open_dev(struct inode *ip, struct file *fp)
 {
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	struct f_gser *gser = gserial_ports[0].gser_ptr;
+#else
+	struct f_gser *gser;
+	int port_num;
+#endif /* !SIERRA */
+/* SWISTOP */
 
 	pr_debug("%s: Open serial device", __func__);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	port_num = gser_get_smd_port();
+	pr_debug("\n%s(), port_num=%d\n", __func__, port_num);
+
+	if (port_num < 0) {
+		pr_debug("%s(): no SMD devices avail..assume idx is 0\n",__func__);
+		port_num = 0;
+	}
+
+	gser = gserial_ports[port_num].gser_ptr;
+#endif /* SIERRA */
+/* SWISTOP */
 
 	if (!gser) {
 		pr_err("%s: Serial device not created yet", __func__);

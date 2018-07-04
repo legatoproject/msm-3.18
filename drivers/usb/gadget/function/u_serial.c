@@ -1477,7 +1477,14 @@ int gserial_alloc_line(unsigned char *line_num)
 	coding.bParityType = USB_CDC_NO_PARITY;
 	coding.bDataBits = USB_CDC_1_STOP_BITS;
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	for (port_num = 0; port_num < MAX_U_SERIAL_PORTS; port_num++) {
+#else /* !CONFIG_SIERRA */
+	/* Skip port ttyGS0 which is used by NMEA, so start from 1 */
+	for (port_num = 1; port_num < MAX_U_SERIAL_PORTS; port_num++) {
+#endif
+/* SWISTOP */
 		ret = gs_port_alloc(port_num, &coding);
 		if (ret == -EBUSY)
 			continue;
