@@ -2434,7 +2434,7 @@ static irqreturn_t msm_hs_wakeup_isr(int irq, void *dev)
 		 */
 
 		spin_unlock_irqrestore(&uport->lock, flags);
-		msm_hs_request_clock_on(uport);
+		msm_hs_pm_resume(uport->dev);
 		spin_lock_irqsave(&uport->lock, flags);
 		if (msm_uport->wakeup.inject_rx) {
 			tty = uport->state->port.tty;
