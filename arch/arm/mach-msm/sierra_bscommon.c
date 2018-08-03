@@ -837,7 +837,7 @@ static void bslatesterrcountget(uint32_t *err_count)
 			b2amsgp = (struct bc_smem_message_s *)(virtual_addr + offset[i]);
 			if (b2amsgp->magic_beg == BC_SMEM_MSG_MAGIC_BEG &&
 			  b2amsgp->magic_end == BC_SMEM_MSG_MAGIC_END &&
-			  (b2amsgp->version >= BC_SMEM_MSG_CRC32_VERSION_MIN ||
+			  (b2amsgp->version >= BC_SMEM_MSG_CRC32_VERSION_MIN &&
 			   b2amsgp->crc32 == crc32_le(~0, (void *)b2amsgp, BC_MSG_CRC_SZ)) &&
 			   BC_MSG_RECOVER_CNT_INVALID != b2amsgp->out.recover_cnt)
 			{
