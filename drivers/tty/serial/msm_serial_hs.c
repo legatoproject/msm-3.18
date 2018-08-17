@@ -3520,8 +3520,20 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 	msm_uport->wakeup.irq = pdata->wakeup_irq;
 	msm_uport->wakeup.ignore = 1;
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	msm_uport->wakeup.inject_rx = pdata->inject_rx_on_wakeup;
 	msm_uport->wakeup.rx_to_inject = pdata->rx_to_inject;
+#else
+	if (BS_UART_FUNC_AT == uart_config_get(line, BS_UART_TYPE_HS)) {
+		msm_uport->wakeup.inject_rx = 1;
+		msm_uport->wakeup.rx_to_inject = 0xFD;
+	} else {
+		msm_uport->wakeup.inject_rx = pdata->inject_rx_on_wakeup;
+		msm_uport->wakeup.rx_to_inject = pdata->rx_to_inject;
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	msm_uport->obs = pdata->obs;
 
 	msm_uport->bam_tx_ep_pipe_index =
