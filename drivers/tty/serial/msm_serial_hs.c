@@ -70,6 +70,7 @@
 /* SWISTART */
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_serial.h>
+#include <linux/hrtimer.h>
 #endif /*CONFIG_SIERRA*/
 /* SWISTOP */
 
@@ -231,6 +232,12 @@ struct msm_hs_port {
 	struct msm_hs_tx tx;
 	struct msm_hs_rx rx;
 	atomic_t resource_count;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	struct hrtimer wakeup_ignore_timer;
+	ktime_t wakeup_ignore_delay;
+#endif /*CONFIG_SIERRA*/
+/* SWISTOP */
 	struct msm_hs_wakeup wakeup;
 
 	struct dentry *loopback_dir;
@@ -301,6 +308,20 @@ static int msm_hs_pm_resume(struct device *dev);
 
 #define UARTDM_TO_MSM(uart_port) \
 	container_of((uart_port), struct msm_hs_port, uport)
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+enum hrtimer_restart msm_hs_wakeup_ignore_func(struct hrtimer *timer)
+{
+	struct msm_hs_port *msm_uport = container_of(timer, struct msm_hs_port, wakeup_ignore_timer);
+
+	MSM_HS_INFO("%s(): msm_uport->wakeup.ignore:%d", __func__, msm_uport->wakeup.ignore);
+	if (msm_uport->wakeup.ignore == 1)
+		msm_uport->wakeup.ignore = 0;
+	return HRTIMER_NORESTART;
+}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static int msm_hs_ioctl(struct uart_port *uport, unsigned int cmd,
 						unsigned long arg)
@@ -2262,6 +2283,13 @@ void enable_wakeup_interrupt(struct msm_hs_port *msm_uport)
 		spin_unlock_irqrestore(&uport->lock, flags);
 		disable_irq(uport->irq);
 		enable_irq(msm_uport->wakeup.irq);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		MSM_HS_INFO("%s(): msm_uport->wakeup.ignore:%d", __func__, msm_uport->wakeup.ignore);
+		/* Start the hrtimer just before clock off */
+		hrtimer_start(&msm_uport->wakeup_ignore_timer, msm_uport->wakeup_ignore_delay, HRTIMER_MODE_REL);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	} else {
 		MSM_HS_WARN("%s:Wake up IRQ already enabled", __func__);
 	}
@@ -3622,6 +3650,14 @@ static int msm_hs_probe(struct platform_device *pdev)
 
 	/* configure the CR Protection to Enable */
 	msm_hs_write(uport, UART_DM_CR, CR_PROTECTION_EN);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	hrtimer_init(&msm_uport->wakeup_ignore_timer, CLOCK_REALTIME, HRTIMER_MODE_REL);
+	msm_uport->wakeup_ignore_timer.function = msm_hs_wakeup_ignore_func;
+	msm_uport->wakeup_ignore_delay = ktime_set(0, 5000000); /* 5 ms */
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	/*
 	 * Enable Command register protection before going ahead as this hw
