@@ -32,6 +32,10 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/android.h>
 
+#ifdef CONFIG_SIERRA_USB_COMP
+#include <linux/usb/sierra_ududefs.h>
+#endif
+
 #include <linux/qcom/diag_dload.h>
 
 #include "gadget_chips.h"
@@ -78,7 +82,7 @@ MODULE_DESCRIPTION("Android Composite USB Driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
-static const char longname[] = "Gadget Android";
+static const char __attribute__((__unused__)) longname[] = "Gadget Android";
 
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1

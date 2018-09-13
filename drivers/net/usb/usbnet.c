@@ -87,7 +87,7 @@
 // randomly generated ethernet address
 static u8	node_id [ETH_ALEN];
 
-static const char driver_name [] = "usbnet";
+static const char __attribute__((__unused__)) driver_name [] = "usbnet";
 
 static struct workqueue_struct	*usbnet_wq;
 

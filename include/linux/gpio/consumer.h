@@ -71,6 +71,14 @@ int gpiod_direction_input(struct gpio_desc *desc);
 int gpiod_direction_output(struct gpio_desc *desc, int value);
 int gpiod_direction_output_raw(struct gpio_desc *desc, int value);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int gpio_pull_up(struct gpio_desc *desc);
+int gpio_pull_down(struct gpio_desc *desc);
+int gpio_set_pull(struct gpio_desc *desc, int type);
+#endif
+/* SWISTOP */
+
 /* Value get/set from non-sleeping context */
 int gpiod_get_value(const struct gpio_desc *desc);
 void gpiod_set_value(struct gpio_desc *desc, int value);

@@ -90,6 +90,12 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include "ubi.h"
+/* SWISTART */
+#include <linux/reboot.h>
+#include <mach/sierra_smem.h>
+#include <mach/sierra_proc_buffer.h>
+#include <../devices/msm_qpic_nand.h>
+/* SWISTOP */
 
 static int self_check_not_bad(const struct ubi_device *ubi, int pnum);
 static int self_check_peb_ec_hdr(const struct ubi_device *ubi, int pnum);
@@ -129,6 +135,11 @@ int ubi_io_read(const struct ubi_device *ubi, void *buf, int pnum, int offset,
 	int err, retries = 0;
 	size_t read;
 	loff_t addr;
+/* SWISTART */
+	char partition_name[UBI_MAX_VOLUME_NAME+1]= {0};
+	char pro_name[SIERRA_PROC_NODE_MAX_NAME+1]= {0};
+	char *match = NULL;
+/* SWISTOP */
 
 	dbg_io("read %d bytes from PEB %d:%d", len, pnum, offset);
 
@@ -193,6 +204,35 @@ retry:
 		ubi_err(ubi, "error %d%s while reading %d bytes from PEB %d:%d, read %zd bytes",
 			err, errstr, len, pnum, offset, read);
 		dump_stack();
+
+/* SWISTART */
+		sierra_inquire_smem_ptable_name(partition_name, ubi->mtd->index, UBI_MAX_VOLUME_NAME);
+		if ((NULL != current) && (NULL != current->parent))
+			ubi_err(ubi, "partition_name:%s, pid %d, name %s", partition_name, current->pid, current->parent->comm);
+		else
+			ubi_err(ubi, "ubi_io_read current is error");
+
+		err = sierra_get_dual_system_proc_buffer(pro_name, SIERRA_PROC_NODE_MAX_NAME);
+		if(!err) {
+			ubi_err(ubi, "pro_ubi_name name:%s", pro_name);
+
+			match = strstr(pro_name, partition_name);
+			if(match) {
+				ubi_err(ubi, "ubi_io_read ubi_name match patable");
+				err = sierra_smem_handle_bad_partition_name(partition_name);
+				if(err) {
+					ubi_err(ubi, "ubi_io_read ud bad image not belong to current system err is %d",err);
+					return err;
+				}
+			}
+			else {
+				ubi_err(ubi, "ubi_io_read ubi_name can't match patable");
+			}
+		}
+		else {
+			ubi_err(ubi, "pro_ubi_name can't get");
+		}
+/* SWISTOP */
 
 		/*
 		 * The driver should never return -EBADMSG if it failed to read

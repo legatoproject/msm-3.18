@@ -57,6 +57,11 @@
 #include <linux/bottom_half.h>
 #include <asm/barrier.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsuproto.h>
+#endif
+/* SWISTOP */
 
 /*
  * Must define these before including other files, inline functions need them

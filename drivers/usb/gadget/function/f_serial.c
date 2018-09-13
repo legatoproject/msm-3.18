@@ -331,7 +331,21 @@ int gport_setup(struct usb_configuration *c)
 		__func__, no_tty_ports, no_smd_ports, no_hsic_sports, nr_ports);
 
 	if (no_tty_ports) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/* scan all nr_ports, as these tty ports may be not continuous,
+		 * they may be scattered in gserial_ports[0 ... nr_ports -1 ]
+		*/
+		for (i = 0; i < nr_ports; i++) {
+			if (gserial_ports[i].transport != USB_GADGET_XPORT_TTY &&
+				gserial_ports[i].transport != USB_GADGET_XPORT_OSA){
+				continue;
+			}
+#else /* !SIERRA */
+
 		for (i = 0; i < no_tty_ports; i++) {
+#endif
+/* SWISTOP */
 			ret = gserial_alloc_line(
 					&gserial_ports[i].client_port_num);
 			if (ret)
@@ -370,8 +384,22 @@ void gport_cleanup(void)
 {
 	int i;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	for (i = 0; i < nr_ports; i++) {
+		if (gserial_ports[i].transport != USB_GADGET_XPORT_TTY &&
+			gserial_ports[i].transport != USB_GADGET_XPORT_OSA){
+			continue;
+		}
+		gserial_free_line(gserial_ports[i].client_port_num);
+	}
+#else  /* !SIERRA */
+
 	for (i = 0; i < no_tty_ports; i++)
 		gserial_free_line(gserial_ports[i].client_port_num);
+#endif
+/* SWISTOP */
+
 }
 
 static int gport_connect(struct f_gser *gser)
@@ -386,6 +414,11 @@ static int gport_connect(struct f_gser *gser)
 	port_num = gserial_ports[gser->port_num].client_port_num;
 
 	switch (gser->transport) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_OSA:
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_TTY:
 		gserial_connect(&gser->port, port_num);
 		break;
@@ -430,6 +463,11 @@ static int gport_disconnect(struct f_gser *gser)
 			gser, &gser->port, gser->port_num);
 
 	switch (gser->transport) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		case USB_GADGET_XPORT_OSA:
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_TTY:
 		gserial_disconnect(&gser->port);
 		break;
@@ -1132,6 +1170,16 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 	gser->port.func.disable = gser_disable;
 	gser->port.func.free_func = gser_free;
 	gser->transport		= gserial_ports[opts->port_num].transport;
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+	/* Here, it supports only two ports for now */
+	if (gser->transport == USB_GADGET_XPORT_SMD)
+		gser->port.func.name = "modem";
+	else if ( gser->transport == USB_GADGET_XPORT_TTY )
+		gser->port.func.name = "nmea";
+	else if ( gser->transport == USB_GADGET_XPORT_OSA )
+		gser->port.func.name = "osa";
+#else
 	/* We support only three ports for now */
 	if (opts->port_num == 0)
 		gser->port.func.name = "modem";
@@ -1139,6 +1187,8 @@ static struct usb_function *gser_alloc(struct usb_function_instance *fi)
 		gser->port.func.name = "nmea";
 	else
 		gser->port.func.name = "modem2";
+#endif
+/* SWISTOP */
 	gser->port.func.setup = gser_setup;
 	gser->port.func.suspend = gser_suspend;
 	gser->port.func.resume = gser_resume;
@@ -1183,6 +1233,11 @@ int gserial_init_port(int port_num, const char *name,
 	gserial_ports[port_num].port_num = port_num;
 
 	switch (transport) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	case USB_GADGET_XPORT_OSA:
+#endif
+/* SWISTOP */
 	case USB_GADGET_XPORT_TTY:
 		no_tty_ports++;
 		break;
@@ -1211,6 +1266,21 @@ int gserial_init_port(int port_num, const char *name,
 	return ret;
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+bool nmea_port_exist(void)
+{
+	int i;
+	for ( i = 0; i < GSERIAL_NO_PORTS ; i++)
+	{
+		if(gserial_ports[i].transport == USB_GADGET_XPORT_TTY )
+			return true;
+	}
+
+	return false;
+}
+#endif
+/* SWISTOP */
 
 bool gserial_is_connected(void)
 {

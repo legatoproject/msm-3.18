@@ -1,0 +1,59 @@
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "swi-mdm9640.dtsi"
+
+/{
+	aliases {
+
+	};
+
+};
+&soc {
+
+};
+
+&blsp1_uart2 {
+
+};
+
+&blsp1_uart1 {
+
+};
+
+&spi_0 {
+
+};
+
+&spi_1 {
+
+};
+
+&spi_2 {
+
+};
+
+&spi_3 {
+
+};
+
+&pmd9635_gpios {
+
+};
+
+&pmd9635_mpps {
+
+};
+
+&pmd9635_vadc {
+
+};

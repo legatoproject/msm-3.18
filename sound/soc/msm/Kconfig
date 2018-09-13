@@ -3,6 +3,13 @@ menu "MSM SoC Audio support"
 config SND_SOC_MSM_HOSTLESS_PCM
 	tristate
 
+#SWISTRART
+config SIERRA_AUDIO_CONFIG
+	def_bool y
+	help
+	 Configuraton for proprietary audio feature of Sierra
+#SWISTOP
+	 
 config SND_SOC_MSM_QDSP6V2_INTF
 	bool "SoC Q6 audio driver for APQ8084"
 	depends on MSM_QDSP6_APRV2
@@ -255,13 +262,16 @@ config SND_SOC_MDM9640
 	depends on ARCH_MDM9640
 	select SND_SOC_QDSP6V2
 	select SND_SOC_MSM_STUB
-	select SND_SOC_WCD9330
+#	select SND_SOC_WCD9330
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_DYNAMIC_MINORS
 	select MSM_QDSP6_APRV3
 	select MSM_QDSP6V2_CODECS
 	select SND_HWDEP
-        help
+	#SWISTRART
+	select SIERRA_AUDIO_CONFIG
+	#SWISTOP
+    help
 	 To add support for SoC audio on MDM9640 boards.
 	 This will enable sound soc drivers which
 	 interfaces with DSP, also it will enable

@@ -1,6 +1,6 @@
 /*
  *  linux/mm/oom_kill.c
- * 
+ *
  *  Copyright (C)  1998,2000  Rik van Riel
  *	Thanks go out to Claus Fischer for some serious inspiration and
  *	for goading me into coding this file...
@@ -35,6 +35,11 @@
 #include <linux/freezer.h>
 #include <linux/ftrace.h>
 #include <linux/ratelimit.h>
+#include <linux/kthread.h>
+#include <linux/init.h>
+
+#include <asm/tlb.h>
+#include "internal.h"
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/oom.h>
@@ -422,6 +427,169 @@ void note_oom_kill(void)
 }
 
 #define K(x) ((x) << (PAGE_SHIFT-10))
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+void print_stack_info(struct task_struct *p)
+{
+  int permitted;
+  struct mm_struct *mm;
+  struct task_struct *task = p;
+  unsigned long start_stack = 0;
+  unsigned long esp = 0;
+
+  permitted = ptrace_may_access(task, PTRACE_MODE_READ_FSCREDS | PTRACE_MODE_NOAUDIT);
+  mm = task->mm;
+  if (permitted)
+  {
+    esp = KSTK_ESP(task);
+  }
+  start_stack = (permitted && mm) ? mm->start_stack : 0;
+
+  pr_err("Print_stack_info:%d (%s) start_stack %lu,esp=%lu\n",
+        task_pid_nr(p), p->comm, start_stack,esp);
+}
+
+void print_thread_stack_info(struct task_struct *p)
+{
+  struct task_struct *t;
+
+  read_lock(&tasklist_lock);
+  for_each_thread(p, t) {
+    print_stack_info(t);
+  }
+
+  read_unlock(&tasklist_lock);
+}
+#endif
+/*SWISTOP*/
+#ifdef CONFIG_MMU
+/*
+ * OOM Reaper kernel thread which tries to reap the memory used by the OOM
+ * victim (if that is possible) to help the OOM killer to move on.
+ */
+static struct task_struct *oom_reaper_th;
+static struct mm_struct *mm_to_reap;
+static DECLARE_WAIT_QUEUE_HEAD(oom_reaper_wait);
+
+static bool __oom_reap_vmas(struct mm_struct *mm)
+{
+	struct mmu_gather tlb;
+	struct vm_area_struct *vma;
+	struct zap_details details = {.check_swap_entries = true,
+				      .ignore_dirty = true};
+	bool ret = true;
+
+	/* We might have raced with exit path */
+	if (!atomic_inc_not_zero(&mm->mm_users))
+		return true;
+
+	if (!down_read_trylock(&mm->mmap_sem)) {
+		ret = false;
+		goto out;
+	}
+
+	tlb_gather_mmu(&tlb, mm, 0, -1);
+	for (vma = mm->mmap ; vma; vma = vma->vm_next) {
+		if (is_vm_hugetlb_page(vma))
+			continue;
+
+		/*
+		 * mlocked VMAs require explicit munlocking before unmap.
+		 * Let's keep it simple here and skip such VMAs.
+		 */
+		if (vma->vm_flags & VM_LOCKED)
+			continue;
+
+		/*
+		 * Only anonymous pages have a good chance to be dropped
+		 * without additional steps which we cannot afford as we
+		 * are OOM already.
+		 *
+		 * We do not even care about fs backed pages because all
+		 * which are reclaimable have already been reclaimed and
+		 * we do not want to block exit_mmap by keeping mm ref
+		 * count elevated without a good reason.
+		 */
+		if (vma_is_anonymous(vma) || !(vma->vm_flags & VM_SHARED))
+			unmap_page_range(&tlb, vma, vma->vm_start, vma->vm_end,
+					 &details);
+	}
+	tlb_finish_mmu(&tlb, 0, -1);
+	up_read(&mm->mmap_sem);
+out:
+	mmput(mm);
+	return ret;
+}
+
+static void oom_reap_vmas(struct mm_struct *mm)
+{
+	int attempts = 0;
+
+	/* Retry the down_read_trylock(mmap_sem) a few times */
+	while (attempts++ < 10 && !__oom_reap_vmas(mm))
+		schedule_timeout_idle(HZ/10);
+
+	/* Drop a reference taken by wake_oom_reaper */
+	mmdrop(mm);
+}
+
+static int oom_reaper(void *unused)
+{
+	while (true) {
+		struct mm_struct *mm;
+
+		wait_event_freezable(oom_reaper_wait,
+				     (mm = READ_ONCE(mm_to_reap)));
+		oom_reap_vmas(mm);
+		WRITE_ONCE(mm_to_reap, NULL);
+	}
+
+	return 0;
+}
+
+static void wake_oom_reaper(struct mm_struct *mm)
+{
+	struct mm_struct *old_mm;
+
+	if (!oom_reaper_th)
+		return;
+
+	/*
+	 * Pin the given mm. Use mm_count instead of mm_users because
+	 * we do not want to delay the address space tear down.
+	 */
+	atomic_inc(&mm->mm_count);
+
+	/*
+	 * Make sure that only a single mm is ever queued for the reaper
+	 * because multiple are not necessary and the operation might be
+	 * disruptive so better reduce it to the bare minimum.
+	 */
+	old_mm = cmpxchg(&mm_to_reap, NULL, mm);
+	if (!old_mm)
+		wake_up(&oom_reaper_wait);
+	else
+		mmdrop(mm);
+}
+
+static int __init oom_init(void)
+{
+	oom_reaper_th = kthread_run(oom_reaper, NULL, "oom_reaper");
+	if (IS_ERR(oom_reaper_th)) {
+		pr_err("Unable to start OOM reaper %ld. Continuing regardless\n",
+				PTR_ERR(oom_reaper_th));
+		oom_reaper_th = NULL;
+	}
+	return 0;
+}
+subsys_initcall(oom_init)
+#else
+static void wake_oom_reaper(struct mm_struct *mm)
+{
+}
+#endif
+
 /*
  * Must be called while holding a reference to p, which will be released upon
  * returning.
@@ -438,6 +606,7 @@ void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 	unsigned int victim_points = 0;
 	static DEFINE_RATELIMIT_STATE(oom_rs, DEFAULT_RATELIMIT_INTERVAL,
 					      DEFAULT_RATELIMIT_BURST);
+	bool can_oom_reap = true;
 
 	/*
 	 * If the task is already exiting, don't alarm the sysadmin or kill
@@ -503,6 +672,12 @@ void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 		K(get_mm_counter(victim->mm, MM_FILEPAGES)));
 	task_unlock(victim);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	print_thread_stack_info(victim);
+#endif
+/* SWISTOP */
+
 	/*
 	 * Kill all user processes sharing victim->mm in other thread groups, if
 	 * any.  They don't get access to memory reserves, though, to avoid
@@ -513,11 +688,20 @@ void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 	 * pending fatal signal.
 	 */
 	rcu_read_lock();
-	for_each_process(p)
-		if (p->mm == mm && !same_thread_group(p, victim) &&
-		    !(p->flags & PF_KTHREAD)) {
-			if (p->signal->oom_score_adj == OOM_SCORE_ADJ_MIN)
+	for_each_process(p) {
+		if (same_thread_group(p, victim))
+			continue;
+		if (p->mm == mm) {
+			if (unlikely(p->flags & PF_KTHREAD) || is_global_init(p) ||
+				p->signal->oom_score_adj == OOM_SCORE_ADJ_MIN) {
+				/*
+				* We cannot use oom_reaper for the mm shared by this
+				* process because it wouldn't get killed and so the
+				* memory might be still used.
+				*/
+				can_oom_reap = false;
 				continue;
+			}
 
 			task_lock(p);	/* Protect ->comm from prctl() */
 			pr_err("Kill process %d (%s) sharing same memory\n",
@@ -525,7 +709,11 @@ void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 			task_unlock(p);
 			do_send_sig_info(SIGKILL, SEND_SIG_FORCED, p, true);
 		}
+    }
 	rcu_read_unlock();
+
+	if (can_oom_reap)
+		wake_oom_reaper(mm);
 
 	set_tsk_thread_flag(victim, TIF_MEMDIE);
 	do_send_sig_info(SIGKILL, SEND_SIG_FORCED, victim, true);

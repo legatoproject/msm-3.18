@@ -157,6 +157,11 @@
 /* Maximum volume name length */
 #define UBI_MAX_VOLUME_NAME 127
 
+/* SWISTART */
+/* Proc buffer name max length */
+#define SIERRA_PROC_NODE_MAX_NAME 127
+/* SWISTOP */
+
 /* ioctl commands of UBI character devices */
 
 #define UBI_IOC_MAGIC 'o'

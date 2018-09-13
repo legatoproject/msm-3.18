@@ -117,6 +117,20 @@ static int pcm_period_size(struct snd_pcm_hw_params *params)
 	return i->min;
 }
 
+#ifdef CONFIG_SIERRA_UAC2
+static inline
+uint num_channels(uint chanmask)
+{
+	uint num = 0;
+
+	while (chanmask) {
+		num += (chanmask & 1);
+		chanmask >>= 1;
+	}
+
+	return num;
+}
+#endif
 /**
  * Set default hardware params
  */
@@ -140,9 +154,13 @@ static int playback_prepare_params(struct gaudio_snd_dev *snd)
 	*/
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
+#ifdef CONFIG_SIERRA_UAC2
+	snd->channels = num_channels(opts->p_chmask);
+	snd->rate = opts->p_srate;
+#else
 	snd->channels = 1;
 	snd->rate = opts->sample_rate;
-
+#endif
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
 		return -ENOMEM;
@@ -237,8 +255,13 @@ static int capture_prepare_params(struct gaudio_snd_dev *snd)
 	 */
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
+#ifdef CONFIG_SIERRA_UAC2
+	snd->channels = num_channels(opts->c_chmask);
+	snd->rate = opts->c_srate;
+#else
 	snd->channels = 1;
 	snd->rate = opts->sample_rate;
+#endif
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params) {
@@ -336,8 +359,13 @@ static int playback_default_hw_params(struct gaudio_snd_dev *snd)
 	*/
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
+#ifdef CONFIG_SIERRA_UAC2
+	snd->channels = num_channels(opts->p_chmask);
+	snd->rate = opts->p_srate;
+#else
 	snd->channels = 1;
 	snd->rate = opts->sample_rate;
+#endif
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
@@ -383,8 +411,13 @@ static int capture_default_hw_params(struct gaudio_snd_dev *snd)
 	 */
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
+#ifdef CONFIG_SIERRA_UAC2
+	snd->channels = num_channels(opts->c_chmask);
+	snd->rate = opts->c_srate;
+#else
 	snd->channels = 1;
 	snd->rate = opts->sample_rate;
+#endif
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
@@ -699,6 +732,12 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
+/* SWISTART */
+/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
+#ifdef CONFIG_SIERRA
+	snd->card = NULL;
+#endif
+/* SWISTOP */
 
 	/* Close PCM playback device and setup substream */
 	snd = &gau->playback;
@@ -706,6 +745,12 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
+/* SWISTART */
+/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
+#ifdef CONFIG_SIERRA
+	snd->card = NULL;
+#endif
+/* SWISTOP */
 
 	/* Close PCM capture device and setup substream */
 	snd = &gau->capture;
@@ -713,6 +758,12 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
 		filp_close(snd->filp, NULL);
 		snd->filp = NULL;
 	}
+/* SWISTART */
+/* QC case 02683614 USB audio can't work after unplug/re-plug USB */
+#ifdef CONFIG_SIERRA
+	snd->card = NULL;
+#endif
+/* SWISTOP */
 
 	return 0;
 }

@@ -25,6 +25,13 @@
 #include <linux/nmi.h>
 #include <linux/console.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsuproto.h>
+#include <mach/sierra_smem.h>
+#endif
+/* SWISTOP */
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/exception.h>
 
@@ -81,6 +88,15 @@ void panic(const char *fmt, ...)
 	va_list args;
 	long i, i_next = 0;
 	int state = 0;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetbsfunction(BSFUNCTIONS_FORCERESET))
+	{
+		machine_restart(NULL);
+	}
+#endif
+/* SWISTOP */
 
 	trace_kernel_panic(0);
 	/*
@@ -168,6 +184,31 @@ void panic(const char *fmt, ...)
 		panic_blink = no_blink;
 
 	if (panic_timeout > 0) {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		if(bsgetpowerfaultflag())
+		{
+			pr_emerg("Power off with power fault..");
+			touch_nmi_watchdog();
+		}
+		else
+		{
+			/*
+			 * Delay timeout seconds before rebooting the machine.
+			 * We can't use the "normal" timers since we just panicked.
+			 */
+			pr_emerg("Rebooting in %d seconds..", panic_timeout);
+
+			for (i = 0; i < panic_timeout * 1000; i += PANIC_TIMER_STEP) {
+				touch_nmi_watchdog();
+				if (i >= i_next) {
+					i += panic_blink(state ^= 1);
+					i_next = i + 3600 / PANIC_BLINK_SPD;
+				}
+				mdelay(PANIC_TIMER_STEP);
+			}
+		}
+#else
 		/*
 		 * Delay timeout seconds before rebooting the machine.
 		 * We can't use the "normal" timers since we just panicked.
@@ -182,6 +223,8 @@ void panic(const char *fmt, ...)
 			}
 			mdelay(PANIC_TIMER_STEP);
 		}
+#endif
+/* SWISTOP */
 	}
 
 	trace_kernel_panic_late(0);

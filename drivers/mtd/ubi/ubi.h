@@ -43,6 +43,11 @@
 
 #include "ubi-media.h"
 
+#ifdef CONFIG_SIERRA
+/* Maximum string length pass from "CONFIG_UBI_VOLS_NOT_CHK_CRC" */
+#define MAX_INPUT_STR_LEN 512
+#endif
+
 /* Maximum number of supported UBI devices */
 #define UBI_MAX_DEVICES 32
 
@@ -785,6 +790,10 @@ extern const struct file_operations ubi_vol_cdev_operations;
 extern struct class ubi_class;
 extern struct mutex ubi_devices_mutex;
 extern struct blocking_notifier_head ubi_notifiers;
+
+#ifdef CONFIG_SIERRA
+extern int max_beb_per1024_warn;
+#endif
 
 /* attach.c */
 int ubi_add_to_av(struct ubi_device *ubi, struct ubi_attach_info *ai, int pnum,

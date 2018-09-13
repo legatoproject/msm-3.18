@@ -24,6 +24,11 @@
 #include <asm/unaligned.h>
 
 #include "u_os_desc.h"
+
+#ifdef CONFIG_SIERRA_USB_COMP
+#include <linux/usb/sierra_ududefs.h>
+#endif
+
 #define SSUSB_GADGET_VBUS_DRAW 900 /* in mA */
 #define SSUSB_GADGET_VBUS_DRAW_UNITS 8
 #define HSUSB_GADGET_VBUS_DRAW_UNITS 2
@@ -358,11 +363,23 @@ int usb_interface_id(struct usb_configuration *config,
 	unsigned id = config->next_interface_id;
 
 	if (id < MAX_CONFIG_INTERFACES) {
+#ifdef CONFIG_SIERRA_USB_COMP
+		/* Obtain Interface Number Desired
+		Allow existing next_interface_id to continue counting
+		That is used elsewhere for total number of interfaces in configuration
+		*/
+		unsigned swi_id;
+		swi_id = ud_get_interface_number( function->name, config );
+		config->interface[swi_id] = function;
+		config->next_interface_id = id + 1;
+		return swi_id;
+#else
 		config->interface[id] = function;
 		if (function->intf_id < 0)
 			function->intf_id = id;
 		config->next_interface_id = id + 1;
 		return id;
+#endif
 	}
 	return -ENODEV;
 }
@@ -802,9 +819,14 @@ static int set_config(struct usb_composite_dev *cdev,
 		struct usb_function	*f = c->interface[tmp];
 		struct usb_descriptor_header **descriptors;
 
+#ifdef CONFIG_SIERRA_USB_COMP
+		/* Our Interface numbers are not sequential, allow continuing when one is not used */
+		if (!f)
+			continue;
+#else
 		if (!f)
 			break;
-
+#endif
 		/*
 		 * Record which endpoints are used by the function. This is used
 		 * to dispatch control requests targeted at that endpoint to the

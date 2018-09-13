@@ -16,12 +16,20 @@ struct path;
 struct mount;
 
 /*
+ * dev.c
+ */
+extern int __lookup_dev(const char *pathname, struct cdev **cdevp,
+						struct block_device **bdevp);
+
+/*
  * block_dev.c
  */
 #ifdef CONFIG_BLOCK
 extern void __init bdev_cache_init(void);
 
 extern int __sync_blockdev(struct block_device *bdev, int wait);
+
+extern struct block_device *bd_acquire(struct inode *inode);
 
 #else
 static inline void bdev_cache_init(void)
@@ -31,6 +39,10 @@ static inline void bdev_cache_init(void)
 static inline int __sync_blockdev(struct block_device *bdev, int wait)
 {
 	return 0;
+}
+static struct block_device *bd_acquire(struct inode *inode)
+{
+	return NULL;
 }
 #endif
 
@@ -43,6 +55,7 @@ extern void guard_bio_eod(int rw, struct bio *bio);
  * char_dev.c
  */
 extern void __init chrdev_init(void);
+extern struct cdev *cd_acquire(struct inode *inode);
 
 /*
  * namei.c

@@ -20,5 +20,11 @@
 void msm_set_restart_mode(int mode);
 extern int pmic_reset_irq;
 
+/* SWISTART */
+#if defined (CONFIG_SIERRA)
+void msm_set_download_mode_swi(int mode);
+#endif
+/* SWISTOP */
+
 #endif
 

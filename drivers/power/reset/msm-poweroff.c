@@ -33,6 +33,13 @@
 #include <soc/qcom/restart.h>
 #include <soc/qcom/watchdog.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <mach/sierra_smem.h>
+#include <linux/sierra_bsudefs.h>
+#endif /* SIERRA */
+/* SWISTOP */
+
 #define EMERGENCY_DLOAD_MAGIC1    0x322A4F99
 #define EMERGENCY_DLOAD_MAGIC2    0xC67E4350
 #define EMERGENCY_DLOAD_MAGIC3    0x77777777
@@ -76,6 +83,12 @@ static void *emergency_dload_mode_addr;
 static bool scm_dload_supported;
 static struct kobject dload_kobj;
 static void *dload_type_addr;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int emergency_restart_flag = 0;
+static int trigger_wdog_bite = 0;
+#endif
+/* SWISTOP */
 
 static int dload_set(const char *val, struct kernel_param *kp);
 /* interface for exporting attributes */
@@ -240,6 +253,16 @@ void msm_set_restart_mode(int mode)
 }
 EXPORT_SYMBOL(msm_set_restart_mode);
 
+/* SWISTART */
+#if defined (CONFIG_SIERRA)
+void msm_set_download_mode_swi(int mode)
+{
+	download_mode = mode;
+}
+EXPORT_SYMBOL(msm_set_download_mode_swi);
+#endif
+/* SWISTOP */
+
 /*
  * Force the SPMI PMIC arbiter to shutdown so that no more SPMI transactions
  * are sent from the MSM to the PMIC.  This is required in order to avoid an
@@ -270,13 +293,20 @@ static void msm_restart_prepare(const char *cmd)
 
 #ifdef CONFIG_MSM_DLOAD_MODE
 
-	/* Write download mode flags if we're panic'ing
+	/* Don't write download mode if force reset
+	 * Write download mode flags if we're panic'ing
 	 * Write download mode flags if restart_mode says so
 	 * Kill download mode if master-kill switch is set
 	 */
-
-	set_dload_mode(download_mode &&
-			(in_panic || restart_mode == RESTART_DLOAD));
+	if(bsgetbsfunction(BSFUNCTIONS_FORCERESET))
+	{
+		set_dload_mode(0);
+		pr_debug("Detect force reset then clear dload\n");
+		bsclearbsfunction(BSFUNCTIONS_FORCERESET);
+	}
+	else
+		set_dload_mode(download_mode &&
+				(in_panic || restart_mode == RESTART_DLOAD));
 #endif
 
 	if (qpnp_pon_check_hard_reset_stored()) {
@@ -290,8 +320,22 @@ static void msm_restart_prepare(const char *cmd)
 				(cmd != NULL && cmd[0] != '\0'));
 	}
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(emergency_restart_flag || bsgetwarmresetflag())
+	{
+		need_warm_reset = true;
+		emergency_restart_flag = 0;
+		bsclearwarmresetflag();
+		trigger_wdog_bite = 1;
+	}
+	pr_err("need_warm_reset: %d\n", need_warm_reset);
+#endif
+/* SWISTOP */
+
 	/* Hard reset the PMIC unless memory contents must be maintained. */
 	if (need_warm_reset) {
+		blsyncddrsmtoimsm();
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_WARM_RESET);
 	} else {
 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
@@ -371,6 +415,30 @@ static void deassert_ps_hold(void)
 
 static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		bsclearpowerfaultflag();
+		if(pm_power_off)
+		{
+			pm_power_off();
+		}
+	}
+
+	/* clear error reset count */
+	if (!(in_panic || restart_mode == RESTART_DLOAD))
+		bsseterrcount(0);
+
+	/* set linux reset type */
+	if((bsgetresettypeflag() == BS_BCMSG_RTYPE_IS_CLEAR) &&
+		true != bscheckapplresettypeflag())
+	{
+		bssetresettype(BS_BCMSG_RTYPE_LINUX_SOFTWARE);
+	}
+#endif
+/* SWISTOP */
+
 	pr_notice("Going down for restart now\n");
 
 	msm_restart_prepare(cmd);
@@ -381,7 +449,13 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 	 * device will take the usual restart path.
 	 */
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (trigger_wdog_bite)
+#else
 	if (WDOG_BITE_ON_PANIC && in_panic)
+#endif
+/* SWISTOP */
 		msm_trigger_wdog_bite();
 #endif
 
@@ -395,6 +469,12 @@ static void do_msm_restart(enum reboot_mode reboot_mode, const char *cmd)
 static void do_msm_poweroff(void)
 {
 	pr_notice("Powering off the SoC\n");
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	bsseterrcount(0);
+#endif
+/* SWISTOP */
 
 	set_dload_mode(0);
 	scm_disable_sdi();
@@ -577,6 +657,12 @@ skip_sysfs_create:
 
 	if (scm_is_call_available(SCM_SVC_PWR, SCM_IO_DEASSERT_PS_HOLD) > 0)
 		scm_deassert_ps_hold_supported = true;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	download_mode = sierra_smem_get_download_mode();
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	set_dload_mode(download_mode);
 	if (!download_mode)

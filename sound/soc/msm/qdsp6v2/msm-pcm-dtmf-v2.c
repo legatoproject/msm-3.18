@@ -120,8 +120,16 @@ static int msm_dtmf_detect_voice_rx_put(struct snd_kcontrol *kcontrol,
 	int enable = ucontrol->value.integer.value[0];
 
 	pr_debug("%s: enable=%d\n", __func__, enable);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	voc_enable_dtmf_rx_detection(voc_get_session_id(VOICEMMODE1_NAME),
+				     enable);
+#else
 	voc_enable_dtmf_rx_detection(voc_get_session_id(VOICE_SESSION_NAME),
 				     enable);
+#endif
+/* SWISTOP */
 
 	return 0;
 }

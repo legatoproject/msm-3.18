@@ -925,4 +925,9 @@ config GPIO_VIPERBOARD
           River Tech's viperboard.h for detailed meaning
           of the module parameters.
 
+config SIERRA_GPIO_WAKEN
+	def_bool y
+	help
+	  YES to add wake_n gpio driver.
+
 endif

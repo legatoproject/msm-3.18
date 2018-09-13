@@ -107,6 +107,15 @@ static int vol_cdev_open(struct inode *inode, struct file *file)
 	struct ubi_volume_desc *desc;
 	int vol_id = iminor(inode) - 1, mode, ubi_num;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if ((NULL != current) && (NULL != current->parent))
+		pr_info("func %s, pid %d, name %s\n", __func__, current->pid, current->parent->comm);
+	else
+		pr_info("func %s, current is error\n", __func__);
+#endif
+/* SWISTOP */
+
 	ubi_num = ubi_major2num(imajor(inode));
 	if (ubi_num < 0)
 		return ubi_num;

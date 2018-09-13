@@ -124,7 +124,7 @@ static void mmc_set_erase_size(struct mmc_card *card)
 	mmc_init_erase(card);
 }
 
-static const struct mmc_fixup mmc_fixups[] = {
+static const struct mmc_fixup __attribute__((__unused__)) mmc_fixups[] = {
 
 	/* avoid HPI for specific cards */
 	MMC_FIXUP_EXT_CSD_REV("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY,
@@ -1896,11 +1896,23 @@ reinit:
 	}
 
 	card->clk_scaling_lowest = host->f_min;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS400) ||
+			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS200))
+#else
 	if ((card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS400) ||
 			(card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS200))
+#endif
 		card->clk_scaling_highest = card->ext_csd.hs200_max_dtr;
+#ifdef CONFIG_SIERRA
+	else if ((card->mmc_avail_type & EXT_CSD_CARD_TYPE_HS) ||
+			(card->mmc_avail_type & EXT_CSD_CARD_TYPE_DDR_52))
+#else
 	else if ((card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS) ||
 			(card->mmc_avail_type | EXT_CSD_CARD_TYPE_DDR_52))
+#endif
+/* SWISTOP */
 		card->clk_scaling_highest = card->ext_csd.hs_max_dtr;
 	else
 		card->clk_scaling_highest = card->csd.max_dtr;

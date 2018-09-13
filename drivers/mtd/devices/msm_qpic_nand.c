@@ -15,6 +15,12 @@
 
 #include "msm_qpic_nand.h"
 #include <linux/timer.h>
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_bsuproto.h>
+#include <linux/reboot.h>
+#endif
+/* SWISTOP */
 
 #define QPIC_BAM_DEFAULT_IPC_LOGLVL 2
 #define SW_REQ_TIMEOUT_SEC 10
@@ -39,6 +45,11 @@ static void msm_nand_transfer_timeout(unsigned long data)
 	pr_err("NAND request timeout\n");
 	schedule_work(&info->tout_work);
 }
+#ifdef CONFIG_MSM_SMD
+static struct flash_partition_table ptable;
+#endif
+
+static struct mtd_partition mtd_part[FLASH_PTABLE_MAX_PARTS_V4];
 
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
@@ -1640,6 +1651,13 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	struct sps_iovec iovec_temp;
 	bool erased_page;
 	uint64_t fix_data_in_pages = 0;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	uint64_t base_fix_page = 1;
+	int temp_page = 0, oobsize = 0;
+	int fix_page_count = 0, offset = 0;
+#endif
+/* SWISTOP */
 
 	/*
 	 * The following 6 commands will be sent only once for the first
@@ -1682,6 +1700,12 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	cmd_list = (struct msm_nand_rw_cmd_desc *)&dma_buffer->cmd_list;
 
 	ecc_capability = flash_dev->ecc_capability;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	fix_page_count = rw_params.page_count;
+	oobsize = rw_params.cwperpage << 2;
+#endif
+/* SWISTOP */
 
 	while (rw_params.page_count-- > 0) {
 		uint32_t cw_desc_cnt = 0;
@@ -1875,7 +1899,13 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			 * and this will only handle about 64 pages being read
 			 * at a time i.e. one erase block worth of pages.
 			 */
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 			fix_data_in_pages |= BIT(rw_params.page_count);
+#else /* SIERRA */
+			fix_data_in_pages |= (base_fix_page << rw_params.page_count);
+#endif
+/* SWISTOP */
 		}
 		/* check for correctable errors */
 		if (!rawerr) {
@@ -1942,6 +1972,8 @@ free_dma:
 	 * it is most likely that the data is not all 0xff. So memset that
 	 * page to all 0xff.
 	 */
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	while (fix_data_in_pages) {
 		int temp_page = 0, oobsize = rw_params.cwperpage << 2;
 		int count = 0, offset = 0;
@@ -1961,6 +1993,26 @@ free_dma:
 		if (ops->oobbuf)
 			memset(ops->oobbuf + offset, 0xff, oobsize);
 	}
+#else /* SIERRA */
+	while ((fix_data_in_pages) && (fix_page_count > 0)) {
+		temp_page = fix_data_in_pages & BIT_MASK(0);
+
+		if (temp_page)
+		{
+			offset = (fix_page_count - 1) * mtd->writesize;
+			if (ops->datbuf)
+				memset((ops->datbuf + offset), 0xff, mtd->writesize);
+
+			offset = (fix_page_count - 1) * oobsize;
+			if (ops->oobbuf)
+				memset(ops->oobbuf + offset, 0xff, oobsize);
+		}
+
+		fix_data_in_pages = fix_data_in_pages >> 1;
+		fix_page_count--;
+	}
+#endif
+/* SWISTOP */
 validate_mtd_params_failed:
 	if (ops->mode != MTD_OPS_RAW)
 		ops->retlen = mtd->writesize * pages_read;
@@ -2218,6 +2270,15 @@ static int msm_nand_write_oob(struct mtd_info *mtd, loff_t to,
 		} data[cwperpage];
 	} *dma_buffer;
 	struct msm_nand_rw_cmd_desc *cmd_list = NULL;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		panic("power fault panic!");
+	}
+#endif
+/* SWISTOP */
 
 	memset(&rw_params, 0, sizeof(struct msm_nand_rw_params));
 	err = msm_nand_validate_mtd_params(mtd, false, to, ops, &rw_params);
@@ -2505,6 +2566,15 @@ static int msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 		struct msm_nand_sps_cmd cmd[total_cnt];
 		uint32_t flash_status;
 	} *dma_buffer;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if(bsgetpowerfaultflag())
+	{
+		panic("power fault panic!");
+	}
+#endif
+/* SWISTOP */
 
 	if (mtd->writesize == PAGE_SIZE_2K)
 		page = instr->addr >> 11;
@@ -3319,6 +3389,11 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	struct flash_partition_entry *pentry;
 	char *delimiter = ":";
 	void *temp_ptable = NULL;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	uint32_t mtd_num;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	pr_info("Parsing partition table info from SMEM\n");
 	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
@@ -3374,6 +3449,78 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 
 	for (i = 0; i < ptable.numparts; i++) {
 		pentry = &ptable.part_entry[i];
+		if (pentry->name[0] == '\0')
+			continue;
+		/* Convert name to lower case and discard the initial chars */
+		mtd_part[i].name        = pentry->name;
+		for (j = 0; j < strlen(mtd_part[i].name); j++)
+			*(mtd_part[i].name + j) =
+				tolower(*(mtd_part[i].name + j));
+		strsep(&(mtd_part[i].name), delimiter);
+		mtd_part[i].offset      = pentry->offset;
+		mtd_part[i].mask_flags  = pentry->attr;
+		mtd_part[i].size        = pentry->length;
+		pr_debug("%d: %s offs=0x%08x size=0x%08x attr:0x%08x\n",
+			i, pentry->name, pentry->offset, pentry->length,
+			pentry->attr);
+	}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	mtd_num = ptable.numparts;
+	for (i = 0; i < ptable.numparts; i++) {
+		if (!strcmp("mibib", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+		if (!strcmp("efs2", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+	}
+	*nr_parts = mtd_num;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+	pr_info("SMEM partition table found: ver: %d len: %d\n",
+		ptable.version, ptable.numparts);
+	return 0;
+out:
+	return -EINVAL;
+}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int sierra_inquire_smem_ptable_name(char *partition_name, int index, int length)
+{
+	uint32_t  i, j;
+	uint32_t len = FLASH_PTABLE_HDR_LEN;
+	struct flash_partition_entry *pentry;
+	char *delimiter = ":";
+	void *temp_ptable = NULL;
+	uint32_t mtd_num;
+	struct flash_partition_table partition_table;
+
+	pr_info("sierra_inquire_smem_ptable_name from SMEM\n");
+	/*
+	 * Now that the partition table header has been parsed, verified
+	 * and the length of the partition table calculated, read the
+	 * complete partition table.
+	 */
+	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
+					SMEM_ANY_HOST_FLAG);
+	if (!temp_ptable) {
+		pr_err("Error reading partition table\n");
+		goto out;
+	}
+
+	/* Read only the header portion of ptable */
+	partition_table = *(struct flash_partition_table *)temp_ptable;
+
+	for (i = 0; i < partition_table.numparts; i++) {
+		pentry = &partition_table.part_entry[i];
 		if (pentry->name == '\0')
 			continue;
 		/* Convert name to lower case and discard the initial chars */
@@ -3389,12 +3536,41 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 			i, pentry->name, pentry->offset, pentry->length,
 			pentry->attr);
 	}
+
+	mtd_num = partition_table.numparts;
+	for (i = 0; i < partition_table.numparts; i++) {
+		if (!strcmp("mibib", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+		if (!strcmp("efs2", mtd_part[i].name)){
+			for (j = i; j < (mtd_num - 1); j++) {
+				memcpy(&mtd_part[j],&mtd_part[j+1],sizeof(struct mtd_partition));
+			}
+			mtd_num = mtd_num -1;
+		}
+	}
+
+	for(i = 0; i < mtd_num; i++)
+	{
+		if((index == i) && (length >= FLASH_PTABLE_HDR_LEN))
+		{
+			memcpy(partition_name,mtd_part[i].name, FLASH_PTABLE_HDR_LEN);
+		}
+	}
+
 	pr_info("SMEM partition table found: ver: %d len: %d\n",
-		ptable.version, ptable.numparts);
+		partition_table.version, partition_table.numparts);
 	return 0;
 out:
 	return -EINVAL;
 }
+
+EXPORT_SYMBOL(sierra_inquire_smem_ptable_name);
+/* SWISTOP */
+#endif
 #else
 static int msm_nand_parse_smem_ptable(int *nr_parts)
 {

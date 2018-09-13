@@ -74,6 +74,14 @@ struct f_uac1_opts {
 	int				audio_capture_buf_size;
 	int				audio_playback_realtime;
 	int				sample_rate;
+#ifdef CONFIG_SIERRA_UAC2
+	int				p_chmask;
+	int				p_srate;
+	int				p_ssize;
+	int				c_chmask;
+	int				c_srate;
+	int				c_ssize;
+#endif
 	char				*fn_play;
 	char				*fn_cap;
 	char				*fn_cntl;
