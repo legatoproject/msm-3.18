@@ -17,6 +17,20 @@
 #include <sound/pcm.h>
 #include <sound/soc.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static int msm_stub_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
+{
+	/* Do nothing */
+	return 0;
+}
+
+static struct snd_soc_dai_ops msm_stub_dai_ops = {
+	.set_fmt = msm_stub_set_dai_fmt,
+};
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 /* A dummy driver useful only to advertise hardware parameters */
 static struct snd_soc_dai_driver msm_stub_dais[] = {
 	{
@@ -28,6 +42,11 @@ static struct snd_soc_dai_driver msm_stub_dais[] = {
 			.rates = SNDRV_PCM_RATE_8000_48000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.ops = &msm_stub_dai_ops,
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	},
 	{
 		.name = "msm-stub-tx",
@@ -39,6 +58,11 @@ static struct snd_soc_dai_driver msm_stub_dais[] = {
 			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
 				    SNDRV_PCM_FMTBIT_S24_LE),
 		},
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		.ops = &msm_stub_dai_ops,
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	},
 };
 
