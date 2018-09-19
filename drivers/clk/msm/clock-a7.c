@@ -445,6 +445,7 @@ static int clock_a7_probe(struct platform_device *pdev)
 	rate = clk_get_rate(&a7ssmux.c);
 	clk_set_rate(&a7ssmux.c, aux_rate);
 	clk_set_rate(main_pll, clk_round_rate(main_pll, 1));
+	clk_set_rate(&a7ssmux.c, clk_get_rate(main_pll));
 	clk_set_rate(&a7ssmux.c, rate);
 
 	/*

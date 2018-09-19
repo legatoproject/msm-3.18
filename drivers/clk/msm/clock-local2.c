@@ -2103,7 +2103,7 @@ static void rcg_disable(struct mux_div_clk *md)
 	if (md->force_enable_md)
 		mux_div_clear_force_enable(md);
 
-	if (!md->safe_freq)
+	if (IS_ERR_OR_NULL(md->safe_parent))
 		return;
 
 	src_sel = parent_to_src_sel(md->parents, md->num_parents,
