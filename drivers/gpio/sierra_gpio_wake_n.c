@@ -71,13 +71,21 @@ static irqreturn_t gpio_wake_input_irq_handler(int irq, void *dev_id)
 static int wake_n_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np;
 
+	if (!pdev) {
+		pr_err("%s: NULL input parameter\n", __func__);
+		return -EINVAL;
+	}
 	dev_info(&pdev->dev, "wake_n probe\n");
 
+	np = pdev->dev.of_node;
 	wake_n_pdata.gpio = of_get_named_gpio(np, "wake-n-gpio", 0);
-	if (!gpio_is_valid(wake_n_pdata.gpio))
-		return ret;
+	if (!gpio_is_valid(wake_n_pdata.gpio)) {
+		pr_err("%s: invalid wake-n-gpio value %d\n", __func__,
+			wake_n_pdata.gpio);
+		return -EINVAL;
+	}
 
 	ret = gpio_request(wake_n_pdata.gpio, "WAKE_N_GPIO");
 	if (ret) {
@@ -106,6 +114,9 @@ static int wake_n_probe(struct platform_device *pdev)
 			wake_n_pdata.gpio);
 		goto release_gpio;
 	}
+	wakeup_source_init(&wake_n_pdata.ws, "wake-n_GPIO");
+	wake_n_pdata.pdev = pdev;
+	INIT_WORK(&wake_n_pdata.check_work, gpio_check_and_wake);
 
 	ret = request_irq(wake_n_pdata.irq, gpio_wake_input_irq_handler,
                       IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
@@ -123,9 +134,6 @@ static int wake_n_probe(struct platform_device *pdev)
 		goto free_irq;
 	}
 
-	wakeup_source_init(&wake_n_pdata.ws, "wake-n_GPIO");
-	wake_n_pdata.pdev = pdev;
-	INIT_WORK(&wake_n_pdata.check_work, gpio_check_and_wake);
 	__pm_stay_awake(&wake_n_pdata.ws);
 	schedule_work(&wake_n_pdata.check_work);
 
