@@ -1903,7 +1903,7 @@ void mmc_set_data_timeout(struct mmc_data *data, const struct mmc_card *card)
 	/*
 	 * Some cards require longer data read timeout than indicated in CSD.
 	 * Address this by setting the read timeout to a "reasonably high"
-	 * value. For the cards tested, 300ms has proven enough. If necessary,
+	 * value. For the cards tested, 600ms has proven enough. If necessary,
 	 * this value can be increased if other problematic cards require this.
 	 * Certain Hynix 5.x cards giving read timeout even with 300ms.
 	 * Increasing further to max value (4s).
@@ -4028,6 +4028,14 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 			err = host->bus_ops->pre_suspend(host);
 		if (!err)
 			break;
+
+		if (!mmc_card_is_removable(host)) {
+			dev_warn(mmc_dev(host),
+				 "pre_suspend failed for non-removable host: "
+				 "%d\n", err);
+			/* Avoid removing non-removable hosts */
+			break;
+		}
 
 		/* Calling bus_ops->remove() with a claimed host can deadlock */
 		host->bus_ops->remove(host);

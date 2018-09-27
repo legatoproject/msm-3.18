@@ -17,6 +17,7 @@
  */
 
 #include <linux/atomic.h>
+#include <linux/device.h>
 #include <linux/err.h>
 #include <linux/file.h>
 #include <linux/freezer.h>
@@ -409,7 +410,8 @@ static void ion_handle_get(struct ion_handle *handle)
 }
 
 /* Must hold the client lock */
-static struct ion_handle* ion_handle_get_check_overflow(struct ion_handle *handle)
+static struct ion_handle *ion_handle_get_check_overflow(
+					struct ion_handle *handle)
 {
 	if (atomic_read(&handle->ref.refcount) + 1 == 0)
 		return ERR_PTR(-EOVERFLOW);
@@ -467,17 +469,6 @@ static struct ion_handle *pass_to_user(struct ion_handle *handle)
 	ret = user_ion_handle_get_check_overflow(handle);
 	ion_handle_put_nolock(handle);
 	mutex_unlock(&client->lock);
-	return ret;
-}
-
-/* Must hold the client lock */
-static int user_ion_handle_put_nolock(struct ion_handle *handle)
-{
-	int ret = 0;
-
-	if (--handle->user_ref_count == 0)
-		ret = ion_handle_put_nolock(handle);
-
 	return ret;
 }
 
@@ -704,11 +695,7 @@ static void user_ion_free_nolock(struct ion_client *client,
 		WARN(1, "%s: invalid handle passed to free.\n", __func__);
 		return;
 	}
-	if (handle->user_ref_count == 0) {
-		WARN(1, "%s: User does not have access!\n", __func__);
-		return;
-	}
-	user_ion_handle_put_nolock(handle);
+	ion_handle_put_nolock(handle);
 }
 
 void ion_free(struct ion_client *client, struct ion_handle *handle)
@@ -1597,7 +1584,7 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			mutex_unlock(&client->lock);
 			return PTR_ERR(handle);
 		}
-		user_ion_free_nolock(client, handle);
+		ion_free_nolock(client, handle);
 		ion_handle_put_nolock(handle);
 		mutex_unlock(&client->lock);
 		break;
