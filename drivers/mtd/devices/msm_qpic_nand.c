@@ -3521,7 +3521,7 @@ int sierra_inquire_smem_ptable_name(char *partition_name, int index, int length)
 
 	for (i = 0; i < partition_table.numparts; i++) {
 		pentry = &partition_table.part_entry[i];
-		if (pentry->name == '\0')
+		if (pentry->name[0] == '\0')
 			continue;
 		/* Convert name to lower case and discard the initial chars */
 		mtd_part[i].name        = pentry->name;
