@@ -30,67 +30,9 @@
 #define ARM64_HAS_UAO				5
 #define ARM64_ALT_PAN_NOT_UAO			6
 
-#define ARM64_NCAPS				7
+#define ARM64_NCAPS				3
 
 #ifndef __ASSEMBLY__
-
-#include <linux/kernel.h>
-
-/* CPU feature register tracking */
-enum ftr_type {
-	FTR_EXACT,	/* Use a predefined safe value */
-	FTR_LOWER_SAFE,	/* Smaller value is safe */
-	FTR_HIGHER_SAFE,/* Bigger value is safe */
-};
-
-#define FTR_STRICT	true	/* SANITY check strict matching required */
-#define FTR_NONSTRICT	false	/* SANITY check ignored */
-
-#define FTR_SIGNED	true	/* Value should be treated as signed */
-#define FTR_UNSIGNED	false	/* Value should be treated as unsigned */
-
-struct arm64_ftr_bits {
-	bool		sign;	/* Value is signed ? */
-	bool		strict;	/* CPU Sanity check: strict matching required ? */
-	enum ftr_type	type;
-	u8		shift;
-	u8		width;
-	s64		safe_val; /* safe value for discrete features */
-};
-
-/*
- * @arm64_ftr_reg - Feature register
- * @strict_mask		Bits which should match across all CPUs for sanity.
- * @sys_val		Safe value across the CPUs (system view)
- */
-struct arm64_ftr_reg {
-	u32			sys_id;
-	const char		*name;
-	u64			strict_mask;
-	u64			sys_val;
-	struct arm64_ftr_bits	*ftr_bits;
-};
-
-struct arm64_cpu_capabilities {
-	const char *desc;
-	u16 capability;
-	bool (*matches)(const struct arm64_cpu_capabilities *);
-	void (*enable)(void *);		/* Called on all active CPUs */
-	union {
-		struct {	/* To be used for erratum handling only */
-			u32 midr_model;
-			u32 midr_range_min, midr_range_max;
-		};
-
-		struct {	/* Feature register checking */
-			u32 sys_reg;
-			int field_pos;
-			int min_field_value;
-			int hwcap_type;
-			unsigned long hwcap;
-		};
-	};
-};
 
 extern DECLARE_BITMAP(cpu_hwcaps, ARM64_NCAPS);
 
