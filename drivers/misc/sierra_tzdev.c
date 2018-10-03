@@ -559,7 +559,7 @@ out:
 
 static long sierra_tzdev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 {
-  struct tzdev_ioctl_ctx tic = { 0 };
+  struct tzdev_ioctl_ctx tic = { {0} };
   struct tzdev_op_req *krn = &tic.krn;
   int rc  = sierra_tzdev_ioctl_prepare(&tic,
                                        (struct tzdev_op_req __user *) arg);
