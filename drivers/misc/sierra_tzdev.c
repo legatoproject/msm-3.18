@@ -982,7 +982,7 @@ out:
   if (rc != 0 && rc != -ENOMEM)
     printk(KERN_ERR "%s: copy_from_user failed\n", __func__);
 
-  return 0;
+  return rc;
 }
 
 //
