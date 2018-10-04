@@ -53,6 +53,17 @@ struct tzdev_op_req {
 #define TZDEV_COPY_PLAIN_DATA       2
 #define TZDEV_COPY_ENCRYPTED_BUFFER 4
 
+// Maximum sizes for tzdev_op_req buffers
+//
+// Trivia: why is the TZDEV_MAX_ENCKEY so large?
+// The tzdev_rsa_test utility declares and
+// passes array of 2048 *bytes* for a keysize of 2048 *bits*,
+// because the bit size constant is used for array declaration.
+//
+#define TZDEV_MAX_ENCKEY           2100
+#define TZDEV_MAX_PLAIN_DATA       8000
+#define TZDEV_MAX_ENCRYPTED_BUFFER 8000
+
 // Context structure for data passing in ioctl routine
 struct tzdev_ioctl_ctx {
   struct tzdev_op_req usr;      // bit copy of user request structure
@@ -935,6 +946,14 @@ static int sierra_tzdev_copy_from_user(struct tzdev_ioctl_ctx *tic,
 
   if (flags & TZDEV_COPY_ENCKEY) {
     dst->encklen = src->encklen;
+
+    if (dst->encklen > TZDEV_MAX_ENCKEY) {
+      printk(KERN_INFO "%s()_line%d: %lu byte key too large\n",
+             __func__, __LINE__, (unsigned long) dst->encklen);
+      rc = -ENOSPC;
+      goto out;
+    }
+
     if ((dst->enckey = kmalloc(dst->encklen, GFP_KERNEL)) == NULL) {
       printk(KERN_CRIT "%s()_line%d: cannot allocate key_material\n",
              __func__, __LINE__);
@@ -950,6 +969,14 @@ static int sierra_tzdev_copy_from_user(struct tzdev_ioctl_ctx *tic,
 
   if (flags & TZDEV_COPY_PLAIN_DATA) {
     dst->plain_dlen = src->plain_dlen;
+
+    if (dst->plain_dlen > TZDEV_MAX_PLAIN_DATA) {
+      printk(KERN_INFO "%s()_line%d: %lu byte plain data too large\n",
+             __func__, __LINE__, (unsigned long) dst->plain_dlen);
+      rc = -ENOSPC;
+      goto out;
+    }
+
     if ((dst->plain_data = kmalloc(dst->plain_dlen, GFP_KERNEL)) == NULL) {
       printk(KERN_CRIT "%s()_line%d: cannot allocate plain data\n",
              __func__, __LINE__);
@@ -964,6 +991,14 @@ static int sierra_tzdev_copy_from_user(struct tzdev_ioctl_ctx *tic,
 
   if (flags & TZDEV_COPY_ENCRYPTED_BUFFER) {
     dst->encrypted_len = src->encrypted_len;
+
+    if (dst->encrypted_len > TZDEV_MAX_ENCRYPTED_BUFFER) {
+      printk(KERN_INFO "%s()_line%d: %lu byte encrypted data too large\n",
+             __func__, __LINE__, (unsigned long) dst->encrypted_len);
+      rc = -ENOSPC;
+      goto out;
+    }
+
     if ((dst->encrypted_buffer = kmalloc(dst->encrypted_len, GFP_KERNEL)) == NULL) {
       printk(KERN_CRIT "%s()_line%d: cannot allocate sealed data\n",
              __func__, __LINE__);
