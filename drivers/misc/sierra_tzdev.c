@@ -391,7 +391,8 @@ end:
   return rc;
 }
 
-static int tzdev_generate_RSA_keypair(crypto_rsa_key_blob_type* key_blob_ptr, char* rsa_params_ptr)
+static int tzdev_generate_RSA_keypair(crypto_rsa_key_blob_type* key_blob_ptr, char* rsa_params_ptr,
+                                      uint32_t rsa_params_size)
 {
   // Define request and response structures.
   struct crypto_asym_rsa_gen_keypair_cmd *rsa_gen_key_test_req = NULL;
@@ -401,6 +402,12 @@ static int tzdev_generate_RSA_keypair(crypto_rsa_key_blob_type* key_blob_ptr, ch
   // SCM command structure for encapsulating the request and response addresses.
   struct scm_cmd_buf_s scm_cmd_buf;
   crypto_asym_rsa_keygen_params_t* params_p;
+
+  if (rsa_params_size < sizeof *params_p) {
+    printk(KERN_CRIT "%s()_line%d: RSA params too small\n", __func__, __LINE__);
+    rc = -1;
+    goto end;
+  }
 
   rsa_gen_key_test_req = kmalloc(sizeof(struct crypto_asym_rsa_gen_keypair_cmd),GFP_KERNEL);
   rsa_gen_key_test_resp = kmalloc(sizeof(struct crypto_asym_rsa_gen_keypair_resp),GFP_KERNEL);
@@ -1234,8 +1241,7 @@ static long sierra_tzdev_ioctl(struct file *file, unsigned cmd, unsigned long ar
         key_blob.key_material = (crypto_rsa_key_type *) krn->enckey;
         key_blob.key_material_len = krn->encklen;
 
-        /* OOPS: what if plain_datap isn't long enough? */
-        rc = tzdev_generate_RSA_keypair(&key_blob, krn->plain_data);
+        rc = tzdev_generate_RSA_keypair(&key_blob, krn->plain_data, krn->plain_dlen);
 
         pr_info("%s()_line%d:TZDEV_IOCTL_RSA_KEYPAIR_REQ, get key_size:%d, rc=%d\n",
                 __func__, __LINE__, key_blob.key_material_len, rc);
@@ -1344,6 +1350,16 @@ static long sierra_tzdev_ioctl(struct file *file, unsigned cmd, unsigned long ar
                                               TZDEV_COPY_ENCKEY,
                                               false)) != 0)
           goto out;
+
+        // In this operation, we are not just passing the key material to the
+        // device as one blob with a size, but we are treating it as a structure
+        // and passing the individual fields, right in the tzdev_RSA_import_keys
+        // call below. Therefore we must be sure that the object is large enough
+        // to be the structure we think it is.
+        if (krn->encklen < sizeof *key_blob.key_material) {
+          rc = -EFAULT;
+          goto out;
+        }
 
         key_blob.key_material_len = krn->encklen;
         key_blob.key_material = (crypto_rsa_key_type* ) krn->enckey;
