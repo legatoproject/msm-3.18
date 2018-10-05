@@ -47,6 +47,19 @@ struct tzdev_op_req {
   uint32_t        encrypted_len;
 };
 
+// Flags used to indicate which parts of tzdev_op_req structure are to be
+// allocated and/or copied between kernel and user space.
+#define TZDEV_COPY_ENCKEY           1
+#define TZDEV_COPY_PLAIN_DATA       2
+#define TZDEV_COPY_ENCRYPTED_BUFFER 4
+
+// Context structure for data passing in ioctl routine
+struct tzdev_ioctl_ctx {
+  struct tzdev_op_req usr;      // bit copy of user request structure
+  struct tzdev_op_req krn;      // kernel side structure with own buffers.
+  struct tzdev_op_req __user *orig_usr; // original user space pointer
+};
+
 // SCM command structure for encapsulating the request and response addresses.
 struct scm_cmd_buf_s
 {
@@ -79,7 +92,7 @@ static int tzdev_storage_service_generate_key(uint8_t *key_material, uint32_t* k
   if ((!gen_key_reqp) || (!gen_key_respp))
   {
     printk(KERN_CRIT "%s()_line%d: cannot allocate req/resp\n", __func__,__LINE__);
-    rc = -1;
+    rc = -ENOMEM;
     goto end;
   }
 
@@ -360,168 +373,341 @@ end:
   return rc;
 }
 
+static void sierra_tzdev_free_req_buffers(struct tzdev_ioctl_ctx *tic)
+{
+  struct tzdev_op_req *krn = &tic->krn;
+
+  if (krn->encklen)
+    kfree(krn->enckey);
+  if (krn->plain_data)
+    kfree(krn->plain_data);
+  if (krn->encrypted_buffer)
+    kfree(krn->encrypted_buffer);
+}
+
+//
+// This is called at the beginning of the ioctl operation
+// to copy the request structure from user to kernel space.
+// After this we have all the pointers and lengths; we still
+// need to do copy_from_user to get the data itself.
+//
+// Here we also store the original user space request pointer
+// into the tic structure. Later we need that when we copy
+// in the reverse direction as the last step of the ioctl,
+// in sierra_tzdev_copy_to_user.
+//
+// The two levels of copying from user space are split into the
+// two functions sierrqa_tzdev_ioctl_prepare and sierra_tzdev_copy_from_user
+// because the second function is invoked more than once to
+// copy the selected buffers or to just allocate memory.
+//
+// tic:         context holding copy of user request and
+//              the kernel facsimile of that structure
+// req:         pointer to user request
+//
+// Returns a standard Linux error: -EFAULT or 0.
+//
+static int sierra_tzdev_ioctl_prepare(struct tzdev_ioctl_ctx *tic,
+                                      struct tzdev_op_req __user *req)
+{
+  tic->orig_usr = req;
+  return copy_from_user(&tic->usr, req, sizeof tic->usr) ? -EFAULT : 0;
+}
+
+//
+// Copy selected parts of the tzdev_op_req data from user
+// space to kernel space. This is used by sierra_tzdev_ioctl
+// for receiving in or in/out parameters, and for reserving space
+// for out parameters.
+//
+// Comments in the sierra_tzdev_ioctl, where it handles the
+// TZDEV_IOCTL_SEAL_REQ command, give some hints about the usage
+// of these functions.
+//
+// tic:         context holding copy of user request and
+//              the kernel facsimile of that structure
+// flags:       bitmask indicating which fields to operate on.
+// alloc_only:  boolean indicating that a buffers are to be
+//              allocated only, without doing any copying
+//              from user space. This is useful for preparing
+//              space for data to be returned to user space later
+//              (i.e. "out parameters" of the ioctl).
+//
+// For every field group specified by flags, the function reads the length of
+// the buffer from the user space src parameter, and copies that length to the
+// same field in the dst parameter. Then in the dst structure, it allocates a
+// buffer that large, and puts it in the pointer associated with the length.
+// Unless alloc_only is true, then a copy_from_user operation is performed
+// to fill the allocated buffer from its user space counterpart.
+//
+// Returns a standard Linux error: 0 success, -EFAULT, etc.
+//
+static int sierra_tzdev_copy_from_user(struct tzdev_ioctl_ctx *tic,
+                                       unsigned flags,
+                                       bool alloc_only)
+{
+  int rc = -EFAULT;
+  struct tzdev_op_req *src = &tic->usr;
+  struct tzdev_op_req *dst = &tic->krn;
+
+  if (flags & TZDEV_COPY_ENCKEY) {
+    dst->encklen = src->encklen;
+    if ((dst->enckey = kmalloc(dst->encklen, GFP_KERNEL)) == NULL) {
+      printk(KERN_CRIT "%s()_line%d: cannot allocate key_material\n",
+             __func__, __LINE__);
+      rc = -ENOMEM;
+      goto out;
+    }
+    if (!alloc_only &&
+        copy_from_user(dst->enckey,
+                       src->enckey,
+                       dst->encklen) != 0)
+      goto out;
+  }
+
+  if (flags & TZDEV_COPY_PLAIN_DATA) {
+    dst->plain_dlen = src->plain_dlen;
+    if ((dst->plain_data = kmalloc(dst->plain_dlen, GFP_KERNEL)) == NULL) {
+      printk(KERN_CRIT "%s()_line%d: cannot allocate plain data\n",
+             __func__, __LINE__);
+      rc = -ENOMEM;
+      goto out;
+    }
+    if (!alloc_only && copy_from_user(dst->plain_data,
+                                      src->plain_data,
+                                      dst->plain_dlen) != 0)
+      goto out;
+  }
+
+  if (flags & TZDEV_COPY_ENCRYPTED_BUFFER) {
+    dst->encrypted_len = src->encrypted_len;
+    if ((dst->encrypted_buffer = kmalloc(dst->encrypted_len, GFP_KERNEL)) == NULL) {
+      printk(KERN_CRIT "%s()_line%d: cannot allocate sealed data\n",
+             __func__, __LINE__);
+      rc = -ENOMEM;
+      goto out;
+    }
+    if (!alloc_only && copy_from_user(dst->encrypted_buffer,
+                                      src->encrypted_buffer,
+                                      dst->encrypted_len) != 0)
+      goto out;
+  }
+
+  rc = 0;
+
+out:
+  if (rc != 0 && rc != -ENOMEM)
+    printk(KERN_ERR "%s: copy_from_user failed\n", __func__);
+
+  return 0;
+}
+
+//
+// Copy selected parts of the tzdev_op_req data from kernel
+// space to user space. This is used by sierra_tzdev_ioctl
+// for passing out parmeters back to user space.
+//
+// tic:         context holding copy of user request and
+//              the kernel facsimile of that structure
+// flags:       bitmask indicating which fields to operate on.
+//
+// For every field group specified by flags, the function reads the length of
+// the buffer from the kernel space src parameter, and copies that length to the
+// same field in the user-space dst structure. It also copies the associated
+// buffer from kernel space to user space, using the respective pointer
+// fields in the two structures.
+//
+// Returns a standard Linux error: 0 success, -EFAULT, etc.
+//
+static int sierra_tzdev_copy_to_user(struct tzdev_ioctl_ctx *tic,
+                                     unsigned flags)
+{
+  int rc = -EFAULT;
+  struct tzdev_op_req *src = &tic->krn;
+  struct tzdev_op_req *dst = &tic->usr;
+
+  if (flags & TZDEV_COPY_ENCKEY) {
+    dst->encklen = src->encklen;
+    if ((copy_to_user(dst->enckey, src->enckey, src->encklen)) != 0)
+      goto out;
+  }
+
+  if (flags & TZDEV_COPY_PLAIN_DATA) {
+    dst->plain_dlen = src->plain_dlen;
+    if ((copy_to_user(dst->plain_data, src->plain_data, src->plain_dlen)) != 0)
+      goto out;
+  }
+
+  if (flags & TZDEV_COPY_ENCRYPTED_BUFFER) {
+    dst->encrypted_len = src->encrypted_len;
+    if ((copy_to_user(dst->encrypted_buffer, src->encrypted_buffer,
+                      src->encrypted_len)) != 0)
+      goto out;
+  }
+
+  if ((copy_to_user(tic->orig_usr, &tic->usr, sizeof *tic->orig_usr)) != 0)
+    goto out;
+
+  rc = 0;
+
+out:
+  if (rc != 0)
+    printk(KERN_ERR "%s: copy_to_user/put_user failed\n", __func__);
+
+  return rc;
+}
+
 static long sierra_tzdev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 {
-  int rc = 0;
-  struct tzdev_op_req __user * scm_buf_user_ptr = NULL;
+  struct tzdev_ioctl_ctx tic = { {0} };
+  struct tzdev_op_req *krn = &tic.krn;
+  int rc  = sierra_tzdev_ioctl_prepare(&tic,
+                                       (struct tzdev_op_req __user *) arg);
 
-  uint32_t key_material_len;
-  uint8_t *key_material = NULL;
-  uint32_t plain_data_len;
-  uint32_t sealed_data_len;
-  uint8_t *plain_datap = NULL;
-  uint8_t *sealed_datap = NULL;
-  uint32_t output_len;
-
-  scm_buf_user_ptr = (struct tzdev_op_req*)arg;
-
-  if (!scm_buf_user_ptr)
-  {
-    return -EINVAL;
-  }
-
-  if (copy_from_user((void *)&plain_data_len, &(scm_buf_user_ptr->plain_dlen), sizeof(uint32_t)) ||
-      copy_from_user((void *)&sealed_data_len, &(scm_buf_user_ptr->encrypted_len), sizeof(uint32_t)) ||
-      copy_from_user((void *)&key_material_len, &(scm_buf_user_ptr->encklen), sizeof(uint32_t)))
-  {
-     printk(KERN_ERR "%s_line%d: copy_from_user failed\n", __func__,__LINE__);
-     rc = -EFAULT;
-     goto end;
-  }
-
-  key_material = (uint8_t *) kmalloc(key_material_len, GFP_KERNEL);
-  if (!key_material)
-  {
-     printk(KERN_CRIT "%s()_line%d: cannot allocate key_material\n", __func__,__LINE__);
-     rc = -ENOMEM;
-     goto end;
-  }
-
-  if (cmd != TZDEV_IOCTL_KEYGEN_REQ)
-  {
-    /* allocate data buffer */
-    plain_datap = kmalloc(plain_data_len, GFP_KERNEL);
-    sealed_datap = kmalloc(sealed_data_len, GFP_KERNEL);
-    if ((!plain_datap) || (!sealed_datap))
-    {
-       printk(KERN_CRIT "%s()_line%d: cannot allocate plain/sealed data\n", __func__,__LINE__);
-       rc = -ENOMEM;
-       goto end;
-    }
-  }
+  if (rc != 0)
+    goto out;
 
   switch (cmd)
   {
     /*Generate keyblob*/
     case TZDEV_IOCTL_KEYGEN_REQ:
       {
-        output_len = key_material_len;
-        rc = tzdev_storage_service_generate_key(key_material, &output_len);
+        uint32_t output_len;
+
+        if ((rc = sierra_tzdev_copy_from_user(&tic,
+                                              TZDEV_COPY_ENCKEY,
+                                              true)) != 0)
+          goto out;
+
+        output_len = krn->encklen;
+
+        rc = tzdev_storage_service_generate_key(krn->enckey, &output_len);
+
         pr_info("%s()_line%d:TZDEV_IOCTL_KEYGEN_REQ, get key_size:%d, rc=%d\n",
                  __func__, __LINE__, output_len, rc);
 
-        if (rc)
-        {
-          break;
+        if (rc != 0)
+          goto out;
+
+        if (output_len > krn->encklen) {
+          rc = -EFAULT;
+          goto out;
         }
 
-        if ((output_len > key_material_len) ||
-            copy_to_user(scm_buf_user_ptr->enckey, (void *)key_material, output_len) ||
-            copy_to_user(&(scm_buf_user_ptr->encklen), &output_len, sizeof(uint32_t)))
-        {
-                printk(KERN_ERR "%s_%d: copy_to_user failed\n", __func__,__LINE__);
-                rc = -EFAULT;
-                break;
-        }
+        krn->encklen = output_len;
+
+        rc = sierra_tzdev_copy_to_user(&tic, TZDEV_COPY_ENCKEY);
       }
       break;
 
     /* encrypt data */
     case TZDEV_IOCTL_SEAL_REQ:
       {
-        if (copy_from_user((void *)plain_datap, scm_buf_user_ptr->plain_data, plain_data_len) ||
-            copy_from_user((void *)key_material, scm_buf_user_ptr->enckey, key_material_len))
-        {
-           printk(KERN_ERR "%s_line%d: copy_from_user failed\n", __func__,__LINE__);
-           rc = -EFAULT;
-           break;
-        }
+        uint32_t output_len;
 
-        output_len = sealed_data_len;
-        rc = tzdev_seal_data_using_aesccm(plain_datap, plain_data_len,
-                  sealed_datap, &output_len, key_material, key_material_len);
+        //
+        // Copy the in-parameters from user space to kernel space.
+        // For this operation, we need the encryption key, and the plain data,
+        // so we specify these two in the bitmask.
+        //
+        if ((rc = sierra_tzdev_copy_from_user(&tic,
+                                              TZDEV_COPY_ENCKEY | TZDEV_COPY_PLAIN_DATA,
+                                              false)) != 0) // alloc_only is false: we really copy
+          goto out;
+
+        //
+        // We must reserve, in the kernel-side request structure, a buffer to
+        // receive the encrypted block. To do this we use the same function, this
+        // time using the flags parameter to select the encrypted buffer,
+        // and set alloc_only to true, so the payload is not copied from user
+        // space, only the length field is copied. The kernel-side buffer is reserved
+        // only, without being initialized from user space.
+        //
+        if ((rc = sierra_tzdev_copy_from_user(&tic,
+                                              TZDEV_COPY_ENCRYPTED_BUFFER,
+                                              true)) != 0) // alloc_only true: reserve space only
+          goto out;
+
+        //
+        // The kernel buffer now has the encrypted_len set by the second
+        // sierra_tzdev_copy_from_user above. We use this temporary variable,
+        // rather than passing &krn->encrypted_len directly to the crypto
+        // routine. We can then perform a sanity check on this.
+        //
+        output_len = krn->encrypted_len;
+
+        rc = tzdev_seal_data_using_aesccm(krn->plain_data, krn->plain_dlen,
+                                          krn->encrypted_buffer, &output_len,
+                                          krn->enckey, krn->encklen);
+
         pr_info("%s()_line%d: TZDEV_IOCTL_SEAL_REQ: plain_data_len:%d, seal_data_len:%d, rc=%d\n",
-                __func__, __LINE__, plain_data_len, output_len, rc);
+                __func__, __LINE__, krn->plain_dlen, output_len, rc);
 
-        if (rc)
-        {
-          break;
+        if (rc != 0)
+          goto out;
+
+        if (output_len > krn->encrypted_len) {
+          rc = -EFAULT;
+          goto out;
         }
 
-        if ((output_len > sealed_data_len) ||
-            copy_to_user(&(scm_buf_user_ptr->encrypted_len), &output_len, sizeof(uint32_t)) ||
-            copy_to_user(scm_buf_user_ptr->encrypted_buffer, (void *)sealed_datap, output_len))
-        {
-                printk(KERN_ERR "%s_line%d: copy_to_user failed\n", __func__,__LINE__);
-                rc = -EFAULT;
-                break;
-        }
+        //
+        // Store back the actual length reported by the crypto function.
+        //
+        krn->encrypted_len = output_len;
+
+        //
+        // Now propagate the encrypted buffer up to user space.
+        //
+        rc = sierra_tzdev_copy_to_user(&tic, TZDEV_COPY_ENCRYPTED_BUFFER);
       }
       break;
 
     /* decrypt data */
     case TZDEV_IOCTL_UNSEAL_REQ:
       {
-        if (copy_from_user((void *)sealed_datap, scm_buf_user_ptr->encrypted_buffer, sealed_data_len) ||
-            copy_from_user((void *)key_material, scm_buf_user_ptr->enckey, key_material_len))
-        {
-          printk(KERN_ERR "%s_line%d: copy_from_user failed\n", __func__,__LINE__);
-          rc = -EFAULT;
-          break;
-        }
+        uint32_t output_len;
 
-        output_len = plain_data_len;
-        rc = tzdev_unseal_data_using_aesccm(sealed_datap, sealed_data_len,
-                   plain_datap, &output_len, key_material, key_material_len);
+        if ((rc = sierra_tzdev_copy_from_user(&tic,
+                                              TZDEV_COPY_ENCKEY | TZDEV_COPY_ENCRYPTED_BUFFER,
+                                              false)) != 0)
+          goto out;
+
+        if ((rc = sierra_tzdev_copy_from_user(&tic,
+                                              TZDEV_COPY_PLAIN_DATA,
+                                              true)) != 0)
+          goto out;
+
+        output_len = krn->plain_dlen;
+
+        rc = tzdev_unseal_data_using_aesccm(krn->encrypted_buffer, krn->encrypted_len,
+                                            krn->plain_data, &output_len,
+                                            krn->enckey, krn->encklen);
         pr_info("%s()_line%d: TZDEV_IOCTL_UNSEAL_REQ: sealed data len:%d, plain_data_len:%d, rc=%d\n",
-                 __func__, __LINE__, sealed_data_len, output_len, rc);
+                 __func__, __LINE__, krn->encrypted_len, output_len, rc);
 
-        if (rc)
-        {
-          break;
-        }
+        if (rc != 0)
+          goto out;
 
-        if ((output_len > plain_data_len) ||
-            copy_to_user(&(scm_buf_user_ptr->plain_dlen), &output_len, sizeof(uint32_t)) ||
-            copy_to_user(scm_buf_user_ptr->plain_data, (void *)plain_datap, output_len))
-        {
-          printk(KERN_ERR "%s_line%d: copy_to_user failed\n", __func__,__LINE__);
+        if (output_len > krn->plain_dlen) {
           rc = -EFAULT;
-          break;
+          goto out;
         }
+
+        krn->plain_dlen = output_len;
+
+        if (sierra_tzdev_copy_to_user(&tic, TZDEV_COPY_PLAIN_DATA) != 0)
+          goto out;
       }
       break;
 
-      default:
-        rc = -EINVAL;
-        break;
+    default:
+      rc = -EINVAL;
+      break;
   }
 
-end:
-  // Free buffers
-  if (key_material)
-  {
-    kfree(key_material);
-  }
-  if (plain_datap)
-  {
-    kfree(plain_datap);
-  }
-  if (sealed_datap)
-  {
-    kfree(sealed_datap);
-  }
-
+out:
+  sierra_tzdev_free_req_buffers(&tic);
   return rc;
 }
 
