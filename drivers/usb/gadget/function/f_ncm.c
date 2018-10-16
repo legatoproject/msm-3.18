@@ -773,6 +773,16 @@ static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		default:
 			goto invalid;
 		}
+/* SWISTART */
+#if CONFIG_SIERRA
+		/* Update CRC mode whenever CRC setting. */
+		if (ncm->is_crc == true) {
+			ncm->ndp_sign = (ncm->parser_opts->ndp_sign & (~NCM_NDP_HDR_CRC_MASK)) | NCM_NDP_HDR_CRC;
+		} else {
+			ncm->ndp_sign = (ncm->parser_opts->ndp_sign & (~NCM_NDP_HDR_CRC_MASK)) | NCM_NDP_HDR_NOCRC;
+		}
+		DBG(cdev, "USB_CDC_SET_NTB_FORMAT, ncm->ndp_sign = 0x%X\n", ncm->ndp_sign);
+#endif /* SWIEND */
 		value = 0;
 		break;
 	}
@@ -811,7 +821,13 @@ static int ncm_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		default:
 			goto invalid;
 		}
+/* SWISTART */
+#if CONFIG_SIERRA
+		ncm->ndp_sign = (ncm->parser_opts->ndp_sign & (~NCM_NDP_HDR_CRC_MASK)) | ndp_hdr_crc;
+		DBG(cdev, "USB_CDC_SET_CRC_MODE, ncm->ndp_sign = 0x%X\n", ncm->ndp_sign);
+#else
 		ncm->ndp_sign = ncm->parser_opts->ndp_sign | ndp_hdr_crc;
+#endif /* SWIEND */
 		value = 0;
 		break;
 	}
