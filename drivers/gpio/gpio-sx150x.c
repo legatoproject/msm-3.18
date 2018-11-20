@@ -420,7 +420,7 @@ static void sx150x_irq_bus_sync_unlock(struct irq_data *d)
 
 	/* Avoid updates if nothing changed */
 	if (chip->dev_sense == chip->irq_sense &&
-	    chip->dev_sense == chip->irq_masked)
+	    chip->dev_masked == chip->irq_masked)
 		goto out;
 
 	chip->dev_sense = chip->irq_sense;
@@ -603,7 +603,7 @@ static int sx150x_install_irq_chip(struct sx150x_chip *chip,
 	err = request_threaded_irq(irq_summary,
 				NULL,
 				sx150x_irq_thread_fn,
-				IRQF_SHARED | IRQF_TRIGGER_FALLING,
+				IRQF_ONESHOT | IRQF_SHARED | IRQF_TRIGGER_FALLING,
 				chip->irq_chip.name,
 				chip);
 	if (err < 0) {

@@ -31,7 +31,7 @@ struct stub_regulator_pdata {
 	int				system_uA;
 };
 
-#ifdef CONFIG_REGULATOR_STUB
+#if IS_ENABLED(CONFIG_REGULATOR_STUB)
 
 /**
  * regulator_stub_init() - register platform driver for stub-regulator

@@ -567,4 +567,31 @@ CONFIG_CRYPTO_CTR=m
 # we need to disable this Android feature.
 # CONFIG_ANDROID_PARANOID_NETWORK is not set
 # CONFIG_TRACING_SUPPORT is not set
+
+##############################
+# QCA9377 WiFi enablement.
+##############################
+
+# Common for QCA9377 BT & WiFi
+CONFIG_REGULATOR=y
+
+# Keep this as "y". If these are defined as modules,
+# number of errors will pop up before root file system
+# is moulted. For example:
+# cpr_regulator_probe: apc_corner: mem_acc intialization error rc=-517
+# cpu cpu0: dev_pm_opp_get_opp_count: device OPP not found (-19)
+# msm_thermal:get_cpu_freq_plan_len Error reading CPU0 freq table len. error:-19
+CONFIG_REGULATOR_FIXED_VOLTAGE=y
+CONFIG_REGULATOR_STUB=y
+CONFIG_REGULATOR_MEM_ACC=y
+
+# Additional support for QCA9377 WiFi
+CONFIG_ATH_CARDS=m
+CONFIG_ATH_DEBUG=y
+CONFIG_CNSS=m
+CONFIG_CNSS_CRYPTO=m
+CONFIG_CNSS_SDIO=y
+CONFIG_HOSTAP=m
+CONFIG_HOSTAP_FIRMWARE=y
+CONFIG_HOSTAP_FIRMWARE_NVRAM=y
 # SWISTOP
