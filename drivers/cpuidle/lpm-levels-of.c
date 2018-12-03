@@ -808,13 +808,18 @@ failed:
 
 void free_cluster_node(struct lpm_cluster *cluster)
 {
+/* SWISTART */
+/* Fix "error, forbidden warning" for unused variable */
+#ifndef CONFIG_SIERRA
 	struct list_head *list;
+	int i;
+#endif
+/* SWISTOP */
+	struct lpm_cluster *cl, *m;
 
-	list_for_each(list, &cluster->child) {
-		struct lpm_cluster *n;
-		n = list_entry(list, typeof(*n), list);
-		list_del(list);
-		free_cluster_node(n);
+	list_for_each_entry_safe(cl, m, &cluster->child, list) {
+		list_del(&cl->list);
+		free_cluster_node(cl);
 	};
 
 	cluster->ndevices = 0;
