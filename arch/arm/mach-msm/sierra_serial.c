@@ -72,6 +72,8 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 
 	uart_func = bs_uart_fun_get(line);
 
+	pr_info(" uart_func_init(), line=%d, uart_type=%d, uart_func=%d", line, uart_type, uart_func);
+
 	if ( (uart_func < BS_UART_FUNC_DISABLED)
 		|| (uart_func >= BS_UART_FUNC_MAX) ) {
 		uart_func = BS_UART_FUNC_DISABLED;
@@ -99,18 +101,26 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 					uart_func = BS_UART_FUNC_DISABLED;
 			}
 		}
+		else if ( (uart_type == BS_UART_TYPE_HS) && (line == BS_UART2_LINE) ){
+			switch (uart_func) {
+				case BS_UART_FUNC_APP:
+				case BS_UART_FUNC_DISABLED:
+					break;
+				default:
+					uart_func = BS_UART_FUNC_INVALID;
+			}
+		}
 		else if ( (uart_type == BS_UART_TYPE_HSL) && (line == BS_UART2_LINE) ){
 			switch (uart_func) {
 				case BS_UART_FUNC_AT:
 				case BS_UART_FUNC_DM:
 				case BS_UART_FUNC_NMEA:
-				case BS_UART_FUNC_APP:
 				case BS_UART_FUNC_CONSOLE:
 				case BS_UART_FUNC_DISABLED:
 					break;
 				default:
-					/* UART2 is set to console by default if the mapping is invalid */
-					uart_func = BS_UART_FUNC_CONSOLE;
+					/* UART2 is set to disable by default if the mapping is invalid */
+					uart_func = BS_UART_FUNC_DISABLED;
 			}
 		}
 		else {
@@ -118,6 +128,7 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 		}
 	}
 
+	pr_info(" uart_func_init(), line=%d, uart_type=%d, uart_func=%d", line, uart_type, uart_func);
 	uart_func_tbl[uart_type][line] = uart_func;
 }
 

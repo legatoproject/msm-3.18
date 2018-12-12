@@ -415,7 +415,7 @@
 	status = "disabled";
 };
 
-&blsp1_uart2 {
+&blsp1_uart2_hs {
 	status = "ok";
 };
 

@@ -18,9 +18,10 @@
 
 / {
 	aliases {
-		serial0 = &blsp1_uart2_ls;
-		serial1 = &blsp1_uart1;
-		uart0 = &blsp1_uart2;
+		serial0 = &blsp1_uart2_ls; /* SWI:UART1 low speed */
+		serial1 = &blsp1_uart1_ls; /* SWI:UART2 low speed */
+		uart0 = &blsp1_uart2_hs;   /* SWI:UART1 high speed */
+		uart1 = &blsp1_uart1_hs;   /* SWI:UART2 high speed */
 	};
 };
 
@@ -33,7 +34,7 @@
 		interrupt-names = "vbus_det_irq";
 	};
 
-	blsp1_uart2_ls: serial@78b0000 { /* BLSP1 UART2 */
+	blsp1_uart2_ls: serial@78b0000 { /* BLSP1 UART2, SWI:UART1, low speed */
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
 		interrupts = <0 108 0>;
@@ -50,6 +51,38 @@
 		status = "disabled";
 	};
 
+	blsp1_uart1_hs: uart@78af000 { /* BLSP1 UART1, SWI:UART2, high speed */
+		compatible = "qcom,msm-hsuart-v14";
+		reg = <0x78af000 0x200>,
+			<0x7884000 0x2b000>;
+		reg-names = "core_mem", "bam_mem";
+		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
+		interrupt-parent = <&blsp1_uart1_hs>;
+		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 107 0
+				1 &intc 0 238 0
+				2 &tlmm_pinmux 13 0>;
+
+		qcom,bam-tx-ep-pipe-index = <0>;
+		qcom,bam-rx-ep-pipe-index = <1>;
+		qcom,master-id = <86>;
+		clock-names = "core_clk", "iface_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+			<&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		pinctrl-names = "sleep", "default";
+		pinctrl-0 = <&blsp1_uart1_sleep>;
+		pinctrl-1 = <&blsp1_uart1_active>;
+		qcom,msm-bus,name = "blsp1_uart1_hs";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					<86 512 0 0>,
+					<86 512 500 800>;
+		status = "disabled";
+	};
 
 	sierra_gpio_wake_n {
 		compatible = "sierra,gpio_wake_n";
@@ -80,7 +113,7 @@
 				<79 41>;
 		gpio-RI = <25>;
 
-		uart_console_sleep: uart_console_sleep {
+		uart1_console_sleep: uart1_console_sleep {
 			mux {
 				pins = "gpio12", "gpio13";
 				function = "blsp_uart1";
@@ -101,6 +134,32 @@
 				pins = "gpio4", "gpio5";
 				drive-strength = <2>;
 				bias-pull-down;
+			};
+		};
+
+		blsp1_uart1_active: blsp1_uart1_active {
+			mux {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				function = "blsp_uart1";
+			};
+
+			config {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart1_sleep: blsp1_uart1_sleep {
+			mux {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio12", "gpio13", "gpio14", "gpio15";
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -308,13 +367,17 @@
 	};
 };
 
-&blsp1_uart1 {
+&blsp1_uart1_hs {
 	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart_console_sleep>;
 };
 
-&blsp1_uart2 {
+&blsp1_uart1_ls {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart1_console_sleep>;
+};
+
+&blsp1_uart2_hs {
 	status = "ok";
 };
 
