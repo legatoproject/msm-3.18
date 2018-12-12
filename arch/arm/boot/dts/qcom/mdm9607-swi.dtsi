@@ -37,7 +37,7 @@
 		memory-region = <&sierra_ssmem_region>;
 	};
 
-	blsp1_uart1: serial@78af000 { /* BLSP1 UART1 */
+	blsp1_uart1_ls: serial@78af000 { /* BLSP1 UART1, SWI:UART2, low speed*/
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;
 		interrupts = <0 107 0>;
@@ -45,7 +45,7 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
-		qcom,msm-bus,name = "blsp1_uart1";
+		qcom,msm-bus,name = "blsp1_uart1_ls";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
@@ -54,14 +54,14 @@
 		status = "disabled";
 	};
 
-	blsp1_uart2: uart@78b0000 {
+	blsp1_uart2_hs: uart@78b0000 { /* BLSP1 UART2, SWI:UART1, high speed*/
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x78b0000 0x200>,
 			<0x7884000 0x2b000>;
 		reg-names = "core_mem", "bam_mem";
 		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
 		#address-cells = <0>;
-		interrupt-parent = <&blsp1_uart2>;
+		interrupt-parent = <&blsp1_uart2_hs>;
 		interrupts = <0 1 2>;
 		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
@@ -78,7 +78,7 @@
 		pinctrl-names = "sleep", "default";
 		pinctrl-0 = <&blsp1_uart2_sleep>;
 		pinctrl-1 = <&blsp1_uart2_active>;
-		qcom,msm-bus,name = "blsp1_uart2";
+		qcom,msm-bus,name = "blsp1_uart2_hs";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
