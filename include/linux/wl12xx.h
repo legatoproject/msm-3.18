@@ -63,6 +63,7 @@ struct wl12xx_platform_data {
 	 * avoid reading/writing it if not sure.
 	 */
 	int gpio;
+	int wlan_en;
 };
 
 /* Platform does not support level trigger interrupts */

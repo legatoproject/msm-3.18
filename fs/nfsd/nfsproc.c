@@ -74,10 +74,10 @@ nfsd_proc_setattr(struct svc_rqst *rqstp, struct nfsd_sattrargs *argp,
 	 * which only requires access, and "set-[ac]time-to-X" which
 	 * requires ownership.
 	 * So if it looks like it might be "set both to the same time which
-	 * is close to now", and if inode_change_ok fails, then we
+	 * is close to now", and if setattr_prepare fails, then we
 	 * convert to "set to now" instead of "set to explicit time"
 	 *
-	 * We only call inode_change_ok as the last test as technically
+	 * We only call setattr_prepare as the last test as technically
 	 * it is not an interface that we should be using.
 	 */
 #define BOTH_TIME_SET (ATTR_ATIME_SET | ATTR_MTIME_SET)
@@ -92,17 +92,15 @@ nfsd_proc_setattr(struct svc_rqst *rqstp, struct nfsd_sattrargs *argp,
 		 * request is.  We require it be within 30 minutes of now.
 		 */
 		time_t delta = iap->ia_atime.tv_sec - get_seconds();
-		struct inode *inode;
 
 		nfserr = fh_verify(rqstp, fhp, 0, NFSD_MAY_NOP);
 		if (nfserr)
 			goto done;
-		inode = d_inode(fhp->fh_dentry);
 
 		if (delta < 0)
 			delta = -delta;
 		if (delta < MAX_TOUCH_TIME_ERROR &&
-		    inode_change_ok(inode, iap) != 0) {
+		    setattr_prepare(fhp->fh_dentry, iap) != 0) {
 			/*
 			 * Turn off ATTR_[AM]TIME_SET but leave ATTR_[AM]TIME.
 			 * This will cause notify_change to set these times
@@ -283,7 +281,7 @@ nfsd_proc_create(struct svc_rqst *rqstp, struct nfsd_createargs *argp,
 		 */
 		nfserr = nfserr_acces;
 		if (!newfhp->fh_dentry) {
-			printk(KERN_WARNING 
+			printk(KERN_WARNING
 				"nfsd_proc_create: file handle not verified\n");
 			goto out_unlock;
 		}
@@ -517,7 +515,7 @@ nfsd_proc_readdir(struct svc_rqst *rqstp, struct nfsd_readdirargs *argp,
 	loff_t		offset;
 
 	dprintk("nfsd: READDIR  %s %d bytes at %d\n",
-		SVCFH_fmt(&argp->fh),		
+		SVCFH_fmt(&argp->fh),
 		argp->count, argp->cookie);
 
 	/* Shrink to the client read size */
@@ -534,7 +532,7 @@ nfsd_proc_readdir(struct svc_rqst *rqstp, struct nfsd_readdirargs *argp,
 	resp->common.err = nfs_ok;
 	/* Read directory and encode entries on the fly */
 	offset = argp->cookie;
-	nfserr = nfsd_readdir(rqstp, &argp->fh, &offset, 
+	nfserr = nfsd_readdir(rqstp, &argp->fh, &offset,
 			      &resp->common, nfssvc_encode_entry);
 
 	resp->count = resp->buffer - argp->buffer;

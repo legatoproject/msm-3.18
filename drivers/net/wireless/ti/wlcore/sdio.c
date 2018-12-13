@@ -357,6 +357,9 @@ static int wl1271_probe(struct sdio_func *func,
 	/* Use block mode for transferring over one block size of data */
 	func->card->quirks |= MMC_QUIRK_BLKSZ_FOR_BYTE_MODE;
 
+	/* Fake non-removable card */
+	func->card->host->caps |= MMC_CAP_NONREMOVABLE;
+
 	pdev_data.pdata = get_platform_data(&func->dev);
 	if (!pdev_data.pdata)
 		goto out_free_glue;
@@ -440,6 +443,10 @@ static void wl1271_remove(struct sdio_func *func)
 
 	/* Undo decrement done above in wl1271_probe */
 	pm_runtime_get_noresume(&func->dev);
+
+	/* Undo faking a non-removable card, force detect after 1s */
+	func->card->host->caps &= ~MMC_CAP_NONREMOVABLE;
+	mmc_detect_change(func->card->host, HZ);
 
 	platform_device_unregister(glue->core);
 	del_platform_data(pdata);

@@ -32,7 +32,8 @@ static void __init mdm9607_init(void)
 }
 
 #ifdef CONFIG_WL_TI
-#define MSM_WIFI_IRQ_GPIO       79
+#define MSM_WIFI_IRQ_GPIO       79	/* IOT0_GPIO1 */
+#define MSM_WLAN_EN_GPIO	58	/* IOT0_GPIO3 */
 #endif
 
 #ifdef CONFIG_WL_TI
@@ -43,8 +44,10 @@ static void __init mdm9607_wl18xx_init(void)
 
 	memset(&msm_wl12xx_pdata, 0, sizeof(msm_wl12xx_pdata));
 
+	msm_wl12xx_pdata.wlan_en = MSM_WLAN_EN_GPIO;
+	pr_info("wl12xx WLAN_EN GPIO: %d\n", msm_wl12xx_pdata.wlan_en);
 	msm_wl12xx_pdata.irq = gpio_to_irq(MSM_WIFI_IRQ_GPIO);
-	printk(KERN_ERR "wl12xx GPIO: %d\n", msm_wl12xx_pdata.irq);
+	pr_info("wl12xx IRQ: %d\n", msm_wl12xx_pdata.irq);
 	if (msm_wl12xx_pdata.irq < 0)
 		goto fail;
 
