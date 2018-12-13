@@ -1910,7 +1910,7 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	{
 	case SWIMCU_PM_OFF:
 	case SWIMCU_PM_PSM_ENABLE:
-	case SWIMCU_PM_PSM_ULPM_FALLBACK:
+        //case SWIMCU_PM_PSM_ULPM_FALLBACK:
 	case SWIMCU_PM_NONE:
 
 		/* Handled in the glue logic */
@@ -1939,7 +1939,8 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 
 		pr_info("%s: SWIMCU_PM_PSM_SYNC - continue sync with MCU\n",__func__);
 		break;
-
+	/* Temporary workaround for QTI9X07-2954 : Force ULPM for fallback scenarios until PSM to ULPM fallback is reliable */
+	case SWIMCU_PM_PSM_ULPM_FALLBACK:
 	case SWIMCU_PM_ULPM_ENABLE:
 
 		if (!swimcu_mcufw_running(swimcu))
