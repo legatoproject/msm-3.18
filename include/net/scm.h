@@ -21,6 +21,7 @@ struct scm_creds {
 struct scm_fp_list {
 	short			count;
 	short			max;
+	struct user_struct *user;
 	struct file		*fp[SCM_MAX_FD];
 };
 
@@ -132,7 +133,7 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
 
 	if (!scm->fp)
 		return;
-	
+
 	scm_detach_fds(msg, scm);
 }
 

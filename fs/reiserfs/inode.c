@@ -2326,7 +2326,7 @@ int reiserfs_truncate_file(struct inode *inode, int update_timestamps)
 		error = err2;
   		goto out;
 	}
-	
+
 	if (update_timestamps) {
 		error = remove_save_link(inode, 1 /* truncate */);
 		if (error)
@@ -3312,7 +3312,7 @@ int reiserfs_setattr(struct dentry *dentry, struct iattr *attr)
 	unsigned int ia_valid;
 	int error;
 
-	error = inode_change_ok(inode, attr);
+	error = setattr_prepare(dentry, attr);
 	if (error)
 		return error;
 
