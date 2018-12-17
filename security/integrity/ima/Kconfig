@@ -8,7 +8,7 @@ config IMA
 	select CRYPTO_MD5
 	select CRYPTO_SHA1
 	select CRYPTO_HASH_INFO
-	select TCG_TPM if HAS_IOMEM && !UML
+	select TCG_TPM if HAS_IOMEM && !UML && !ARCH_MDM9607
 	select TCG_TIS if TCG_TPM && X86
 	select TCG_IBMVTPM if TCG_TPM && PPC64
 	help
@@ -26,6 +26,26 @@ config IMA
 	  Read <http://www.usenix.org/events/sec04/tech/sailer.html>
 	  to learn more about IMA.
 	  If unsure, say N.
+
+config IMA_FORCE_MEASUREMENT
+	bool "Force file measurement on access"
+	depends on IMA
+    default n
+	help
+	  On fput(), i_version is used to detect and flag files that
+	  have changed, and need to be re-measured in the IMA
+	  measurement policy. In order to be affective, file system
+	  file is located on, must update i_version using
+	  inode_inc_iversion() method.
+
+	  In order to support this functionality, file system must
+	  be mounted with 'i_version' option (not 'iversion' which
+	  documentation suggests). Unfortunately, most of the file
+	  systems are not supporting it, and the file must be
+	  re-measured every time it is accessed.
+
+	  If your file system does not support i_version mount
+	  option, you may need to enable this option.
 
 config IMA_MEASURE_PCR_IDX
 	int
