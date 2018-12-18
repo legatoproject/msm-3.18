@@ -152,13 +152,8 @@ struct dentry *ovl_entry_real(struct ovl_entry *oe, bool *is_upper)
 struct vfsmount *ovl_entry_mnt_real(struct ovl_entry *oe, struct inode *inode,
 				    bool is_upper)
 {
-	if (is_upper) {
-		struct ovl_fs *ofs = inode->i_sb->s_fs_info;
-
-		return ofs->upper_mnt;
-	} else {
-		return oe->numlower ? oe->lowerstack[0].mnt : NULL;
-	}
+	struct ovl_fs *ofs = inode->i_sb->s_fs_info;
+	return (is_upper ? ofs->upper_mnt : ofs->lower_mnt);
 }
 
 struct ovl_dir_cache *ovl_dir_cache(struct dentry *dentry)

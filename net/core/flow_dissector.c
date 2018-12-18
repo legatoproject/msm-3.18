@@ -275,7 +275,6 @@ ipv6:
 		flow->ports = __skb_flow_get_ports(skb, nhoff, ip_proto,
 						   data, hlen);
 
-out_good:
 	ret = true;
 
 out_bad:
