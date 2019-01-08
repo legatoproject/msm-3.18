@@ -348,8 +348,9 @@ static u32 swimcu_watchdog_timeout = SWIMCU_WATCHDOG_TIMEOUT_INVALID;
 static u32 swimcu_watchdog_reset_delay = SWIMCU_WATCHDOG_RESET_DELAY_DEFAULT;
 static u32 swimcu_watchdog_renew_count = 0;
 
-/* PSM support configuration (psm time is aliased to ulpm time) */
-static u32 swimcu_psm_active_time = 0;
+/* PSM support configuration */
+static u32 swimcu_psm_time = 0;
+static u32 swimcu_active_time = 0;
 static enum mci_protocol_pm_psm_sync_option_e
                 swimcu_psm_sync_select = MCI_PROTOCOL_PM_PSM_SYNC_OPTION_NONE;
 
@@ -1910,7 +1911,7 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 	{
 	case SWIMCU_PM_OFF:
 	case SWIMCU_PM_PSM_ENABLE:
-        //case SWIMCU_PM_PSM_ULPM_FALLBACK:
+	case SWIMCU_PM_PSM_ULPM_FALLBACK:
 	case SWIMCU_PM_NONE:
 
 		/* Handled in the glue logic */
@@ -1939,8 +1940,7 @@ static int pm_set_mcu_ulpm_enable(struct swimcu *swimcu, int pm)
 
 		pr_info("%s: SWIMCU_PM_PSM_SYNC - continue sync with MCU\n",__func__);
 		break;
-	/* Temporary workaround for QTI9X07-2954 : Force ULPM for fallback scenarios until PSM to ULPM fallback is reliable */
-	case SWIMCU_PM_PSM_ULPM_FALLBACK:
+
 	case SWIMCU_PM_ULPM_ENABLE:
 
 		if (!swimcu_mcufw_running(swimcu))
@@ -3052,13 +3052,13 @@ static ssize_t swimcu_psm_enable_attr_store(struct kobject *kobj,
 	return ret;
 }
 
-static ssize_t swimcu_psm_active_time_attr_show(
+static ssize_t swimcu_active_time_attr_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%u\n", swimcu_psm_active_time);
+	return scnprintf(buf, PAGE_SIZE, "%u\n", swimcu_active_time);
 }
 
-static ssize_t swimcu_psm_active_time_attr_store(struct kobject *kobj,
+static ssize_t swimcu_active_time_attr_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	int tmp_active_time, ret;
@@ -3066,7 +3066,7 @@ static ssize_t swimcu_psm_active_time_attr_store(struct kobject *kobj,
 	ret = kstrtouint(buf, 0, &tmp_active_time);
 	if (!ret)
 	{
-		swimcu_psm_active_time = tmp_active_time;
+		swimcu_active_time = tmp_active_time;
 		ret = count;
 	} else {
 		ret = -EINVAL;
@@ -3078,8 +3078,7 @@ static ssize_t swimcu_psm_active_time_attr_store(struct kobject *kobj,
 static ssize_t swimcu_psm_time_attr_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	return scnprintf(buf, PAGE_SIZE, "%u\n",
-		swimcu_pm_data[SWIMCU_PM_DATA_WUSRC_TIMEOUT]);
+	return scnprintf(buf, PAGE_SIZE, "%u\n", swimcu_psm_time);
 }
 
 static ssize_t swimcu_psm_time_attr_store(struct kobject *kobj,
@@ -3090,7 +3089,7 @@ static ssize_t swimcu_psm_time_attr_store(struct kobject *kobj,
 	ret = kstrtouint(buf, 0, &tmp_psm_time);
 	if (!ret)
 	{
-		swimcu_pm_data[SWIMCU_PM_DATA_WUSRC_TIMEOUT] = tmp_psm_time;
+		swimcu_psm_time = tmp_psm_time;
 		ret = count;
 	} else {
 		ret = -EINVAL;
@@ -3129,13 +3128,13 @@ static const struct kobj_attribute swimcu_psm_enable_attr = {
 };
 
 /* sysfs entry to set PSM/ULPM active time */
-static const struct kobj_attribute swimcu_psm_active_time_attr = {
+static const struct kobj_attribute swimcu_active_time_attr = {
 	.attr = {
 		.name = "active_time",
 		.mode = S_IRUGO | S_IWUSR | S_IWGRP
 	},
-	.show = &swimcu_psm_active_time_attr_show,
-	.store = &swimcu_psm_active_time_attr_store,
+	.show = &swimcu_active_time_attr_show,
+	.store = &swimcu_active_time_attr_store,
 };
 
 /* sysfs entry to set PSM/ULPM PSM time */
@@ -3552,7 +3551,7 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 			goto sysfs_add_exit;
 		}
 
-		ret = sysfs_create_file(&swimcu->pm_psm_kobj, &swimcu_psm_active_time_attr.attr);
+		ret = sysfs_create_file(&swimcu->pm_psm_kobj, &swimcu_active_time_attr.attr);
 		if (ret) {
 			pr_err("%s: cannot create PSM active_time node ret=%d\n", __func__, -ret);
 			goto sysfs_add_exit;

@@ -165,6 +165,8 @@ are provided for PSM configuration:
    -17       ULPM failed to enter ULPS.
    -16       Failed to configure wakeup sources.
    -15       No wakeup source configured to wake from ULPS.
+   -13       Invalid timeout specified for the PSM/ULPM Fallback mode.
+   -12       Modem is is not attached to any mobile network.
    -11       PSM client failed to request PSM in OOS or LS.
    -10       Network with Limited Service (LS).
     -9       Network out of service (OOS).
@@ -191,6 +193,11 @@ are provided for PSM configuration:
     16       ULPM is requeseted as fallback from PSM failure.
     17       ULPM Entered Ultra Low Power State successfully.
     18       Powering off.)
+
+It is useful always to check the "status" node to get current status before
+and after making a request via the "enable" node. Both nodes are readabe and
+writable. A user-space program may also opt to use selec() or poll() to wait
+for node value changes.
 
 For a WP76/77 module with an on-board MCU, I2C messaging handshake is
 used for the on-board MCU to synchronize with the MDM power state. Two
@@ -226,21 +233,38 @@ to wake from PSM.
 
 For WP76/77 modules with on-board MCU, an option is provided for user
 to request PSM with ULPM as fallback. When this option is requested,
-a PSM request is sent to a registered network. If the PSM request is
-honored by the network, autonomous PSM will occur. If the PSM request
-is rejected by the netwrok, a ULPM operation will start immediately.
-As a result, the MDM will be powered off immediately with a timer boot
-condition, configured with the PSM time (T3412 value) as the timeout
-value. Any other GPIO and ADC boot condition configured for the PSM
-will also take effect for the ULPM. On exit from ULPM, a normal Attach
-procedure will be performed between UE and NW.
+PSM is attempted as the preferred power saving mechanism. If PSM can
+be enabled successfully, autonomous PSM will occur in the current and
+subsequent PSM cycles. If PSM cannot be activated for whatevr reasons,
+a ULPM operation will start immediately as the alternative power saving
+mechanism. The PSM activation failure could be caused by some system
+errors, e.g.,
 
-For WP76/77 modules with on-board MCU, following sysfs node pairs are
+  - the module is not attached to the network
+  - the attached network does not support PSM feature
+  - the attached network supports PSM feature but rejects the request
+
+It could also caused by user-input PSM parameter errors, e.g.
+
+  - PSM parameters do not conform to 3GPP standard.
+  - the PSM time is equal to or below the "threshold" value specifed
+    in NV 73769.
+
+When a ULPM fallback occurs, the MDM will be powered off immediately with
+the timer boot condition and, if available, any other configured GPIO and
+ADC boot conditions. The boot timer will start with the ULPM timeout value
+set in the node '/sys/module/swimcu_pm/boot_source/timer/timeout' if it is
+non-zero; otherwise, the boot timer will start with the PSM time set in the
+node '/sys/module/swimcu_pm/psm/psm_time'.
+
+If the module enters ULPS due to ULPM fallback, on exit from ULPS, a normal
+Attach procedure is performed between the module and the network. PSM will
+be requested in the Attach or TAU Updates unless PSM is explicitly disabled.
+However, this PSM/ULPM falback operation mode is no longer effective, i.e.
+ULPM fallback will not occur, until it is requested again.
+
+For WP76/77 modules with on-board MCU, following pair of sysfs nodes are
 alias to each other:
-
-	'/sys/module/swimcu_pm/psm/psm_time'
-and
-	'/sys/module/swimcu_pm/boot_source/timer/timeout'
 
 	'/sys/module/swimcu_pm/psm/enable'
 and
@@ -248,11 +272,14 @@ and
 
 For WP76/77 modules without on-board MCU, the 'boot_source' branch of
 the swimcu_pm, '/sys/module/swimcu_pm/boot_source', will be trimmed, 
-as the GPIO and ADC wakeup sources are not longer avaiable. Therefore,
+as the GPIO and ADC boot sources are not longer available. Therefore,
 it is recommended to use the sysfs nodes under the 'psm' branch,
 'sys/module/swimcu_pm/psm/", to set the timeout value and to request
 power operation modes.
 
+For WP76/77 modules without the on-board MCU, this PSM/ULPM fallback
+operation mode is not applicable, since the ULPM functionality is not
+supported. It behaves like PSM operartion mode described above.
 
 6. MCU Firmware Version
 ==========================
