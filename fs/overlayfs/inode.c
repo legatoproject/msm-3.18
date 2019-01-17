@@ -44,6 +44,19 @@ int ovl_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	int err;
 	struct dentry *upperdentry;
+	
+	/*
+	 * Check for permissions before trying to copy-up.  This is redundant
+	 * since it will be rechecked later by ->setattr() on upper dentry.  But
+	 * without this, copy-up can be triggered by just about anybody.
+	 *
+	 * We don't initialize inode->size, which just means that
+	 * inode_newsize_ok() will always check against MAX_LFS_FILESIZE and not
+	 * check for a swapfile (which this won't be anyway).
+	 */
+	err = setattr_prepare(dentry, attr);
+	if (err)
+		return err;
 
 	err = ovl_want_write(dentry);
 	if (err)
@@ -103,6 +116,29 @@ int ovl_permission(struct inode *inode, int mask)
 	}
 
 	realdentry = ovl_entry_real(oe, &is_upper);
+	
+	if (ovl_is_default_permissions(inode)) {
+		struct kstat stat;
+		struct path realpath = { .dentry = realdentry };
+
+		if (mask & MAY_NOT_BLOCK)
+			return -ECHILD;
+
+		realpath.mnt = ovl_entry_mnt_real(oe, inode, is_upper);
+
+		err = vfs_getattr(&realpath, &stat);
+		if (err)
+			return err;
+
+		if ((stat.mode ^ inode->i_mode) & S_IFMT)
+			return -ESTALE;
+
+		inode->i_mode = stat.mode;
+		inode->i_uid = stat.uid;
+		inode->i_gid = stat.gid;
+
+		return generic_permission(inode, mask);
+	}
 
 	/* Careful in RCU walk mode */
 	realinode = ACCESS_ONCE(realdentry->d_inode);
@@ -376,6 +412,9 @@ struct inode *ovl_d_select_inode(struct dentry *dentry, unsigned file_flags)
 
 		ovl_path_upper(dentry, &realpath);
 	}
+
+	if (realpath.dentry->d_flags & DCACHE_OP_SELECT_INODE)
+		return realpath.dentry->d_op->d_select_inode(realpath.dentry, file_flags);
 
 	return d_backing_inode(realpath.dentry);
 }
