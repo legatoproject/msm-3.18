@@ -133,6 +133,12 @@ static struct afe_ctl this_afe;
 #define TIMEOUT_MS 1000
 #define Q6AFE_MAX_VOLUME 0x3FFF
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define DTMF_TIMEOUT_MS 100
+#endif
+/* SWISTOP */
+
 static int pcm_afe_instance[2];
 static int proxy_afe_instance[2];
 bool afe_close_done[2] = {true, true};
@@ -4434,7 +4440,11 @@ int afe_dtmf_generate_rx(int64_t duration_in_ms,
 	int ret = 0;
 	int index = 0;
 	struct afe_dtmf_generation_command cmd_dtmf;
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	int count = 0;
+#endif
+/* SWISTOP */
 	pr_debug("%s: DTMF AFE Gen\n", __func__);
 
 	if (afe_validate_port(this_afe.dtmf_gen_rx_portid) < 0) {
@@ -4491,9 +4501,21 @@ int afe_dtmf_generate_rx(int64_t duration_in_ms,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	ret = wait_event_timeout(this_afe.wait[index],
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
+#else
+	for (count = 0; count < (TIMEOUT_MS / DTMF_TIMEOUT_MS); count++) {
+		ret = wait_event_timeout(this_afe.wait[index],
+				(atomic_read(&this_afe.state) == 0),
+				msecs_to_jiffies(DTMF_TIMEOUT_MS));
+		if ((atomic_read(&this_afe.state) == 0) && (ret))
+			break;
+	}
+#endif
+/* SWISTOP */
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
