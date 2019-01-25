@@ -1036,6 +1036,16 @@ static void msm_pinctrl_resume(void)
 #define msm_pinctrl_resume NULL
 #endif
 
+#ifdef CONFIG_SIERRA
+struct gpio_chip *msm_pinctrl_get_gpio_chip(struct platform_device *pdev)
+{
+	struct msm_pinctrl *pctrl = platform_get_drvdata(pdev);
+
+	return pctrl ? &pctrl->chip : NULL;
+}
+#endif
+EXPORT_SYMBOL(msm_pinctrl_get_gpio_chip);
+
 static struct syscore_ops msm_pinctrl_pm_ops = {
 	.suspend = msm_pinctrl_suspend,
 	.resume = msm_pinctrl_resume,

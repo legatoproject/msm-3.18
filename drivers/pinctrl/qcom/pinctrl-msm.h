@@ -130,4 +130,9 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 int msm_pinctrl_remove(struct platform_device *pdev);
 
 extern int msm_show_resume_irq_mask;
+
+#ifdef CONFIG_SIERRA
+extern struct gpio_chip *msm_pinctrl_get_gpio_chip(struct platform_device *pdev);
+#endif
+
 #endif

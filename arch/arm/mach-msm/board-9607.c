@@ -19,6 +19,7 @@
 #ifdef CONFIG_WL_TI
 #include <linux/wl12xx.h>
 #include <linux/gpio.h>
+#include <linux/sierra_gpio.h>
 #endif
 
 static const char *mdm9607_dt_match[] __initconst = {
@@ -32,8 +33,8 @@ static void __init mdm9607_init(void)
 }
 
 #ifdef CONFIG_WL_TI
-#define MSM_WIFI_IRQ_GPIO       79	/* IOT0_GPIO1 */
-#define MSM_WLAN_EN_GPIO	58	/* IOT0_GPIO3 */
+#define MSM_WIFI_IRQ_ALIAS_GPIO		"WIFI_IRQ"	/* IOT0_GPIO1 */
+#define MSM_WLAN_EN_ALIAS_GPIO		"WLAN_EN"	/* IOT0_GPIO3 */
 #endif
 
 #ifdef CONFIG_WL_TI
@@ -41,12 +42,21 @@ static void __init mdm9607_wl18xx_init(void)
 {
 	struct wl12xx_platform_data msm_wl12xx_pdata;
 	int ret;
+	struct gpio_desc *desc;
 
 	memset(&msm_wl12xx_pdata, 0, sizeof(msm_wl12xx_pdata));
 
-	msm_wl12xx_pdata.wlan_en = MSM_WLAN_EN_GPIO;
+	if (gpio_alias_lookup(MSM_WLAN_EN_ALIAS_GPIO, &desc)) {
+		pr_err("wl18xx: NO WLAN_EN gpio");
+		goto fail;
+	}
+	msm_wl12xx_pdata.wlan_en = desc_to_gpio(desc);
 	pr_info("wl12xx WLAN_EN GPIO: %d\n", msm_wl12xx_pdata.wlan_en);
-	msm_wl12xx_pdata.irq = gpio_to_irq(MSM_WIFI_IRQ_GPIO);
+	if (gpio_alias_lookup(MSM_WIFI_IRQ_ALIAS_GPIO, &desc)) {
+		pr_err("wl18xx: NO WIFI_IRQ gpio");
+		goto fail;
+	}
+	msm_wl12xx_pdata.irq = gpio_to_irq(desc_to_gpio(desc));
 	pr_info("wl12xx IRQ: %d\n", msm_wl12xx_pdata.irq);
 	if (msm_wl12xx_pdata.irq < 0)
 		goto fail;
