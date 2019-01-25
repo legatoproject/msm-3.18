@@ -111,7 +111,5 @@ obj-$(CONFIG_MSM_SMP2P)         += gpio-msm-smp2p.o
 
 #SIERRA
 obj-$(CONFIG_SIERRA_GPIO_WAKEN) += sierra_gpio_wake_n.o
+obj-$(CONFIG_SIERRA) += sierra_gpio.o
 #SIERRA
-
-CFLAGS_gpiolib.o := -I$(src)
-CFLAGS_gpiolib-sysfs.o := -I$(src)

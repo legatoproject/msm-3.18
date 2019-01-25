@@ -38,4 +38,6 @@ extern void bsclearbsfunction(uint32_t bitmask);
 extern bool bsgetwarmresetflag(void);
 extern void bsclearwarmresetflag(void);
 extern void blsyncddrsmtoimsm(void);
+
+extern int sierra_smem_get_factory_mode(void);
 #endif
