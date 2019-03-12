@@ -17,6 +17,7 @@
 #include <linux/pinctrl/pinctrl.h>
 
 #include "pinctrl-msm.h"
+#include "../pinctrl-sierra.h"
 
 #define FUNCTION(fname)					\
 	[msm_mux_##fname] = {		                \
@@ -1521,7 +1522,17 @@ static const struct msm_pinctrl_soc_data mdm9640_pinctrl = {
 
 static int mdm9640_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &mdm9640_pinctrl);
+	int status = msm_pinctrl_probe(pdev, &mdm9640_pinctrl);
+
+	if (!status)
+		status = sierra_pinctrl_probe(pdev);
+	return status;
+}
+
+static int mdm9640_pinctrl_remove(struct platform_device *pdev)
+{
+	sierra_pinctrl_remove(pdev);
+	return msm_pinctrl_remove(pdev);
 }
 
 static const struct of_device_id mdm9640_pinctrl_of_match[] = {
@@ -1536,7 +1547,7 @@ static struct platform_driver mdm9640_pinctrl_driver = {
 		.of_match_table = mdm9640_pinctrl_of_match,
 	},
 	.probe = mdm9640_pinctrl_probe,
-	.remove = msm_pinctrl_remove,
+	.remove = mdm9640_pinctrl_remove,
 };
 
 static int __init mdm9640_pinctrl_init(void)

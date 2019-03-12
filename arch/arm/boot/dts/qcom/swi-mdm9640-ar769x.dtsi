@@ -336,109 +336,109 @@
 	};
 
 	tlmm_pinmux: pinctrl@1000000 {
-	blsp1_uart1{
-		uart1_console_tx_active: uart1_console_tx_active {
-			mux {
-				pins = "gpio20";
-				function = "blsp_uart_tx_b1";
+		blsp1_uart1 {
+			uart1_console_tx_active: uart1_console_tx_active {
+				mux {
+					pins = "gpio20";
+					function = "blsp_uart_tx_b1";
+				};
+				config {
+					pins = "gpio20";
+					drive-strength = <2>;
+					bias-disable;
+				};
 			};
-			config {
-				pins = "gpio20";
-				drive-strength = <2>;
-				bias-disable;
+			uart1_console_rx_active: uart1_console_rx_active {
+				mux {
+					pins = "gpio21";
+					function = "blsp_uart_rx_b1";
+				};
+				config {
+					pins = "gpio21";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			uart1_console_cts_active: uart1_console_cts_active {
+				mux {
+					pins = "gpio22";
+					function = "blsp_uart_cts_n_b1";
+				};
+				config {
+					pins = "gpio22";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			uart1_console_rts_active: uart1_console_rts_active {
+				mux {
+					pins = "gpio23";
+					function = "blsp_uart_rfr_n_b1";
+				};
+				config {
+					pins = "gpio23";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			uart1_console_tx_sleep: uart1_console_tx_sleep {
+				mux {
+					pins = "gpio20";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio20";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			uart1_console_rx_sleep: uart1_console_rx_sleep {
+				mux {
+					pins = "gpio21";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio21";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			uart1_console_cts_sleep: uart1_console_cts_sleep {
+				mux {
+					pins = "gpio22";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio22";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+			uart1_console_rts_sleep: uart1_console_rts_sleep {
+				mux {
+					pins = "gpio23";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio23";
+					drive-strength = <2>;
+					bias-disable;
+				};
 			};
 		};
-		uart1_console_rx_active: uart1_console_rx_active {
-			mux {
-				pins = "gpio21";
-				function = "blsp_uart_rx_b1";
-			};
-			config {
-				pins = "gpio21";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-		uart1_console_cts_active: uart1_console_cts_active {
-			mux {
-				pins = "gpio22";
-				function = "blsp_uart_cts_n_b1";
-			};
-			config {
-				pins = "gpio22";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-		uart1_console_rts_active: uart1_console_rts_active {
-			mux {
-				pins = "gpio23";
-				function = "blsp_uart_rfr_n_b1";
-			};
-			config {
-				pins = "gpio23";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-		uart1_console_tx_sleep: uart1_console_tx_sleep {
-			mux {
-				pins = "gpio20";
-				function = "gpio";
-			};
-			config {
-				pins = "gpio20";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-		uart1_console_rx_sleep: uart1_console_rx_sleep {
-			mux {
-				pins = "gpio21";
-				function = "gpio";
-			};
-			config {
-				pins = "gpio21";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-		uart1_console_cts_sleep: uart1_console_cts_sleep {
-			mux {
-				pins = "gpio22";
-				function = "gpio";
-			};
-			config {
-				pins = "gpio22";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-		uart1_console_rts_sleep: uart1_console_rts_sleep {
-			mux {
-				pins = "gpio23";
-				function = "gpio";
-			};
-			config {
-				pins = "gpio23";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
-	};
 
-	blsp1_uart1_ls{
-		uart1_console_tx_active_ls: uart1_console_tx_active_ls {
-			mux {
-				pins = "gpio20";
-				function = "blsp_uart_tx_b1";
+		blsp1_uart1_ls {
+			uart1_console_tx_active_ls: uart1_console_tx_active_ls {
+				mux {
+					pins = "gpio20";
+					function = "blsp_uart_tx_b1";
+				};
+				config {
+					pins = "gpio20";
+					drive-strength = <2>;
+					bias-disable;
+				};
 			};
-			config {
-				pins = "gpio20";
-				drive-strength = <2>;
-				bias-disable;
-			};
-		};
 
 		uart1_console_rx_active_ls: uart1_console_rx_active_ls {
 			mux {
