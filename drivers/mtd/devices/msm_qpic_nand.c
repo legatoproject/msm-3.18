@@ -1622,7 +1622,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	struct msm_nand_chip *chip = &info->nand_chip;
 	struct flash_identification *flash_dev = &info->flash_dev;
 	uint32_t cwperpage = (mtd->writesize >> 9);
-	int err, pageerr = 0, rawerr = 0, submitted_num_desc = 0;
+	int err, pageerr = 0, rawerr = 0, submitted_num_desc = 0, count = 0;
 	uint32_t n = 0, pages_read = 0;
 	uint32_t ecc_errors = 0, total_ecc_errors = 0, ecc_capability;
 	struct msm_nand_rw_params rw_params;
@@ -1631,13 +1631,6 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	struct sps_iovec iovec_temp;
 	bool erased_page;
 	uint64_t fix_data_in_pages = 0;
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	uint64_t base_fix_page = 1;
-	int temp_page = 0, oobsize = 0;
-	int fix_page_count = 0, offset = 0;
-#endif
-/* SWISTOP */
 
 	/*
 	 * The following 6 commands will be sent only once for the first
@@ -1680,12 +1673,6 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	cmd_list = (struct msm_nand_rw_cmd_desc *)&dma_buffer->cmd_list;
 
 	ecc_capability = flash_dev->ecc_capability;
-/* SWISTART */
-#ifdef CONFIG_SIERRA
-	fix_page_count = rw_params.page_count;
-	oobsize = rw_params.cwperpage << 2;
-#endif
-/* SWISTOP */
 
 	while (rw_params.page_count-- > 0) {
 		uint32_t cw_desc_cnt = 0;
@@ -1879,13 +1866,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 			 * and this will only handle about 64 pages being read
 			 * at a time i.e. one erase block worth of pages.
 			 */
-/* SWISTART */
-#ifndef CONFIG_SIERRA
-			fix_data_in_pages |= BIT(rw_params.page_count);
-#else /* SIERRA */
-			fix_data_in_pages |= (base_fix_page << rw_params.page_count);
-#endif
-/* SWISTOP */
+			fix_data_in_pages |= BIT(pages_read);
 		}
 		/* check for correctable errors */
 		if (!rawerr) {
@@ -1952,11 +1933,9 @@ free_dma:
 	 * it is most likely that the data is not all 0xff. So memset that
 	 * page to all 0xff.
 	 */
-/* SWISTART */
-#ifndef CONFIG_SIERRA
 	while (fix_data_in_pages) {
 		int temp_page = 0, oobsize = rw_params.cwperpage << 2;
-		int count = 0, offset = 0;
+		int offset = 0;
 
 		temp_page = fix_data_in_pages & BIT_MASK(0);
 		fix_data_in_pages = fix_data_in_pages >> 1;
@@ -1973,26 +1952,6 @@ free_dma:
 		if (ops->oobbuf)
 			memset(ops->oobbuf + offset, 0xff, oobsize);
 	}
-#else /* SIERRA */
-	while ((fix_data_in_pages) && (fix_page_count > 0)) {
-		temp_page = fix_data_in_pages & BIT_MASK(0);
-
-		if (temp_page)
-		{
-			offset = (fix_page_count - 1) * mtd->writesize;
-			if (ops->datbuf)
-				memset((ops->datbuf + offset), 0xff, mtd->writesize);
-
-			offset = (fix_page_count - 1) * oobsize;
-			if (ops->oobbuf)
-				memset(ops->oobbuf + offset, 0xff, oobsize);
-		}
-
-		fix_data_in_pages = fix_data_in_pages >> 1;
-		fix_page_count--;
-	}
-#endif
-/* SWISTOP */
 validate_mtd_params_failed:
 	if (ops->mode != MTD_OPS_RAW)
 		ops->retlen = mtd->writesize * pages_read;

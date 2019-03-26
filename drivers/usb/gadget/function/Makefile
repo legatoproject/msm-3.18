@@ -32,10 +32,6 @@ usb_f_mass_storage-y		:= f_mass_storage.o storage_common.o
 obj-$(CONFIG_USB_F_MASS_STORAGE)+= usb_f_mass_storage.o
 usb_f_fs-y			:= f_fs.o
 obj-$(CONFIG_USB_F_FS)		+= usb_f_fs.o
-#SWISTART
-usb_f_uac2_swi-y		:= f_uac1.o u_uac1.o
-obj-$(CONFIG_SIERRA_UAC2)	+= usb_f_uac2_swi.o
-#SWISTOP
 usb_f_uac1-y			:= f_uac1.o u_uac1.o
 obj-$(CONFIG_USB_F_UAC1)	+= usb_f_uac1.o
 usb_f_uac2-y			:= f_uac2.o
@@ -50,5 +46,7 @@ usb_f_audio_source-y            := f_audio_source.o
 obj-$(CONFIG_USB_F_AUDIO_SRC)   += usb_f_audio_source.o
 usb_f_accessory-y               := f_accessory.o
 obj-$(CONFIG_USB_F_ACC)         += usb_f_accessory.o
+usb_f_ipc-y                     := f_ipc.o
+obj-$(CONFIG_USB_F_IPC)         += usb_f_ipc.o
 
 
