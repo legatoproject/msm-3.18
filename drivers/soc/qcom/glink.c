@@ -2697,7 +2697,7 @@ int glink_close(void *handle)
 {
 	struct glink_core_xprt_ctx *xprt_ctx = NULL;
 	struct channel_ctx *ctx = (struct channel_ctx *)handle;
-	int ret;
+	int ret = 0;
 	unsigned long flags;
 	bool is_empty = false;
 
@@ -5272,7 +5272,7 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 	size_t txd_len = 0;
 	size_t tx_len = 0;
 	uint32_t num_pkts = 0;
-	int ret;
+	int ret = 0;
 
 	spin_lock_irqsave(&ctx->tx_lists_lock_lhc3, flags);
 	while (txd_len < xprt_ctx->mtu &&
