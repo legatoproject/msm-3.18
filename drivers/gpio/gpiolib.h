@@ -78,7 +78,8 @@ struct gpio_desc {
 #define FLAG_USED_AS_IRQ 9	/* GPIO is connected to an IRQ */
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-#define FLAG_IS_UP 10	/* GPIO pull type */
+#define FLAG_IS_UP      10      /* GPIO pull type */
+#define FLAG_IRQ_WAKEUP 11      /* IRQ wakeup enabled */
 #endif
 /* SWISTOP*/
 
