@@ -602,6 +602,12 @@ static int gpio_setup_irq(struct gpio_desc *desc, struct device *dev,
 	desc->flags &= ~GPIO_TRIGGER_MASK;
 
 	if (!gpio_flags) {
+#ifdef CONFIG_SIERRA
+		if(test_bit(FLAG_IRQ_WAKEUP, &desc->flags)) {
+			clear_bit(FLAG_IRQ_WAKEUP, &desc->flags);
+			irq_set_irq_wake(irq, 0);
+		}
+#endif
 		gpio_unlock_as_irq(desc->chip, gpio_chip_hwgpio(desc));
 		ret = 0;
 		goto free_id;
@@ -648,6 +654,12 @@ static int gpio_setup_irq(struct gpio_desc *desc, struct device *dev,
 	}
 
 	desc->flags |= gpio_flags;
+#ifdef CONFIG_SIERRA
+	if(!test_bit(FLAG_IRQ_WAKEUP, &desc->flags)) {
+		set_bit(FLAG_IRQ_WAKEUP, &desc->flags);
+		irq_set_irq_wake(irq, 1);
+	}
+#endif
 	return 0;
 
 free_id:
