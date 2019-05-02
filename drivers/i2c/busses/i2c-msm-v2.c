@@ -1485,7 +1485,11 @@ err_dma_xfer:
  */
 static bool i2c_msm_qup_slv_holds_bus(struct i2c_msm_ctrl *ctrl)
 {
+#ifdef CONFIG_SIERRA
+	u32 status = ctrl->i2c_sts_reg;
+#else /* CONFIG_SIERRA */
 	u32 status = readl_relaxed(ctrl->rsrcs.base + QUP_I2C_STATUS);
+#endif /* CONFIG_SIERRA */
 
 	bool slv_holds_bus =	!(status & QUP_I2C_SDA) &&
 				(status & QUP_BUS_ACTIVE) &&
@@ -1860,6 +1864,13 @@ isr_end:
 	if (signal_complete)
 		complete(&ctrl->xfer.complete);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	ctrl->i2c_sts_reg = i2c_status;
+	ctrl->qup_op_reg = qup_op;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	return IRQ_HANDLED;
 }
 
@@ -2062,12 +2073,38 @@ static int i2c_msm_xfer_wait_for_completion(struct i2c_msm_ctrl *ctrl,
 		i2c_msm_prof_evnt_add(ctrl, MSM_ERR, I2C_MSM_COMPLT_FL,
 						xfer->timeout, time_left, 0);
 	} else {
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+		/*
+		 * Dump diagnostic data in case of error or
+		 * when logging level is debug.
+		 */
+		if ((xfer->err) ||
+		    (ctrl->dbgfs.dbg_lvl >= MSM_DBG)) {
+			i2c_msm_dbg_dump_diag(ctrl, true,
+					ctrl->i2c_sts_reg, ctrl->qup_op_reg);
+		}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 		/* return an error if one detected by ISR */
 		if (xfer->err)
 			ret = -(xfer->err);
 		i2c_msm_prof_evnt_add(ctrl, MSM_DBG, I2C_MSM_COMPLT_OK,
 					xfer->timeout, time_left, 0);
 	}
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if ((xfer->err == I2C_MSM_ERR_ARB_LOST) ||
+	    (xfer->err == I2C_MSM_ERR_BUS_ERR)  ||
+	    (xfer->err == I2C_MSM_ERR_TIMEOUT)) {
+		if (i2c_msm_qup_slv_holds_bus(ctrl)) {
+			qup_i2c_recover_bus_busy(ctrl);
+		}
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	return ret;
 }
