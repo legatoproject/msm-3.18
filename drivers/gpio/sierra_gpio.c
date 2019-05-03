@@ -811,11 +811,14 @@ static int sierra_gpio_probe(struct platform_device *pdev)
 		desc = gpio_to_desc(gpio_alias_map[ngpios].gpio_num);
 		if (desc && desc->chip) {
 			if (desc->chip->bitmask_valid && desc->chip->max_bit != -1) {
+				int mask_array_size = (desc->chip->ngpio +
+					8 * sizeof(desc->chip->mask[0]) - 1) /
+					(8 * sizeof(desc->chip->mask[0]));
 				u64 mask = ((1ULL << (desc->chip->max_bit %
                                                          (sizeof(desc->chip->mask[0]) * 8) + 1)) - 1ULL);
 				int nmask = desc->chip->max_bit / (sizeof(desc->chip->mask[0]) * 8);
 				desc->chip->mask[nmask++] &= mask;
-				while (nmask < (sizeof(desc->chip->mask) / sizeof(desc->chip->mask[0])))
+				while (nmask < mask_array_size)
 					desc->chip->mask[nmask++] = 0;
 			}
 			else
