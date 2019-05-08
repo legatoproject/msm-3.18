@@ -27,6 +27,7 @@
 #include <linux/crc32.h>
 
 #include <mach/sierra_smem.h>
+#include <sierra/api/ssmemudefs.h>
 
 int sierra_smem_get_download_mode(void)
 {
@@ -219,3 +220,17 @@ uint32_t sierra_smem_get_hwconfig(void)
 	return hwconfig;
 }
 EXPORT_SYMBOL(sierra_smem_get_hwconfig);
+
+uint8_t *ssmem_keys_get(int* sizep)
+{
+  return (uint8_t*) ssmem_get(SSMEM_RG_ID_KEYS,
+                              SSMEM_FRAMEWORK_VERSION,
+                              sizep);
+}
+EXPORT_SYMBOL(ssmem_keys_get);
+
+boolean ssmem_keys_release()
+{
+  return ssmem_release(SSMEM_RG_ID_KEYS);
+}
+EXPORT_SYMBOL(ssmem_keys_release);

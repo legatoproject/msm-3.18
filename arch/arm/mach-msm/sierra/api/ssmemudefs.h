@@ -62,6 +62,10 @@
 #define SSMEM_PADDING_SZ                        0x08
 #define SSMEM_ALIGN_SZ                          0x10
 
+#define SEC_KEY_ID_LENGTH   (4)
+#define SEC_OEM_KEY_LENGTH  (40)
+#define SEC_OEM_KEY_MAX     (16)
+
 /************
  *
  * Name:     ssmem_region_id_e
@@ -212,6 +216,37 @@ struct ssmem_ioctl_req_s
   uint32_t         user_size;     /* length of user data      */
   uint8_t         *user_datap;    /* buffer for user data     */
 };
+
+/************
+ *
+ * Name:     sec_ssmem_key_hdr_s
+ *
+ * Purpose:  describe key header structure on flash
+ *
+ * Notes:    FileHold #41110272
+ *
+ ************/
+typedef PACKED struct PACKED_POST
+{
+    uint8_t     version;                /* key version
+                                             - 0: OEM key
+                                             - 1: multiple key supported
+                                         */
+
+    uint8_t     type;                   /* key type
+                                             - 0: public key sha256 digest
+                                             - 1: public key DER encoded
+                                             - 2: public key PEM format
+                                         */
+
+    uint16_t    length;                 /* key length */
+
+    char        id[SEC_KEY_ID_LENGTH];  /* key id
+                                             - "IMA0" - IMA .system key
+                                             - "RFS0" - Rootfs dm-verity key
+                                             - "LGT0" - Legato dm-verity key
+                                         */
+} sec_ssmem_key_hdr_s;
 
 #define SSMEM_IOCTL_ACQUIRE          _IOWR('S', 0x10, struct ssmem_ioctl_req_s)
 #define SSMEM_IOCTL_GET              _IOWR('S', 0x11, struct ssmem_ioctl_req_s)
