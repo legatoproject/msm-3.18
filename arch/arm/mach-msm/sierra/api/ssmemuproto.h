@@ -30,6 +30,11 @@ extern void ssmem_mpss_up_notification(void);
 /* export this function temporary, it should be internal */
 extern uint8_t *ssmem_smem_base_addr_get(void);
 
+/* shared memory keys data retrieve function */
+extern uint8_t *ssmem_keys_get(int* sizep);
+
+/* shared memory keys data release function */
+extern boolean ssmem_keys_release(void);
 
 
 
