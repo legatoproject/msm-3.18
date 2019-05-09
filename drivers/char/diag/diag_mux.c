@@ -110,7 +110,7 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 		       proc, err);
 		return err;
 	}
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 
 	md_logger.ops[proc] = ops;

@@ -119,7 +119,7 @@ void diag_usb_exit(int id)
 	return;
 }
 #endif
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 
 #endif

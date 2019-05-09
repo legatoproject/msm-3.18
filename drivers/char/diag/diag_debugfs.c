@@ -480,7 +480,7 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 	return ret;
 }
 #endif
-#endif
+#endif /* SIERRA */
 /* SWISTART */
 
 static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
@@ -977,7 +977,7 @@ const struct file_operations diag_dbgfs_usbinfo_ops = {
 const struct file_operations diag_dbgfs_usbinfo_ops = {
 	.read = diag_dbgfs_read_usbinfo,
 };
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 
 const struct file_operations diag_dbgfs_dcistats_ops = {
@@ -1038,7 +1038,7 @@ int diag_debugfs_init(void)
 				    &diag_dbgfs_usbinfo_ops);
 	if (!entry)
 		goto err;
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 
 	entry = debugfs_create_file("dci_stats", 0444, diag_dbgfs_dent, 0,

@@ -737,6 +737,8 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 	return;
 }
 
+/* SWISTART */
+#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 static int diag_compute_real_time(int idx)
 {
 	int real_time = MODE_REALTIME;
@@ -753,12 +755,7 @@ static int diag_compute_real_time(int idx)
 		 * connection.
 		 */
 		real_time = MODE_REALTIME;
-	}
-
-/* SWISTART */
-#if CONFIG_SIERRA
-#ifdef CONFIG_DIAG_OVER_USB
-	else if (driver->usb_connected) {
+	} else if (driver->usb_connected) {
 		/*
 		 * If USB is connected, check individual process. If Memory
 		 * Device Mode is active, set the mode requested by Memory
@@ -769,25 +766,7 @@ static int diag_compute_real_time(int idx)
 			real_time = MODE_NONREALTIME;
 		else
 			real_time = MODE_REALTIME;
-	}
-#endif
-#else
-	else if (driver->usb_connected) {
-		/*
-		 * If USB is connected, check individual process. If Memory
-		 * Device Mode is active, set the mode requested by Memory
-		 * Device process. Set to realtime mode otherwise.
-		 */
-		if ((driver->proc_rt_vote_mask[idx] &
-						DIAG_PROC_MEMORY_DEVICE) == 0)
-			real_time = MODE_NONREALTIME;
-		else
-			real_time = MODE_REALTIME;
-	}
-#endif
-/* SWISTOP */
-
-	else {
+	} else {
 		/*
 		 * We come here if USB is not connected and the active
 		 * processes are voting for Non realtime mode.
@@ -796,6 +775,8 @@ static int diag_compute_real_time(int idx)
 	}
 	return real_time;
 }
+#endif /* #if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA)) */
+/* SWISTOP */
 
 static void diag_create_diag_mode_ctrl_pkt(unsigned char *dest_buf,
 					   int real_time)

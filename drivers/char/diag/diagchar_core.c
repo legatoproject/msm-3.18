@@ -3291,7 +3291,7 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			return -EIO;
 		}
 	}
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 
 	payload_buf = buf + sizeof(int);
@@ -3332,7 +3332,7 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		if (pkt_type && driver->logging_mode == DIAG_USB_MODE &&
 		    !driver->usb_connected)
 			return err;
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 	}
 

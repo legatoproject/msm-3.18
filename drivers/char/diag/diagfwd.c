@@ -840,6 +840,8 @@ int diag_check_common_cmd(struct diag_pkt_header_t *header)
 	return 0;
 }
 
+/* SWISTART */
+#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 static int diag_cmd_chk_stats(unsigned char *src_buf, int src_len,
 			      unsigned char *dest_buf, int dest_len)
 {
@@ -925,6 +927,8 @@ static int diag_cmd_disable_hdlc(unsigned char *src_buf, int src_len,
 
 	return write_len;
 }
+#endif /* #if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA)) */
+/* SWISTOP */
 
 void diag_send_error_rsp(unsigned char *buf, int len,
 			int pid)
@@ -1297,7 +1301,7 @@ static int diagfwd_mux_open(int id, int mode)
 #endif
 #else
 		driver->usb_connected = 1;
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
@@ -1338,7 +1342,7 @@ static int diagfwd_mux_close(int id, int mode)
 #endif
 #else
 		driver->usb_connected = 0;
-#endif
+#endif /* SIERRA */
 /* SWISTOP */
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:

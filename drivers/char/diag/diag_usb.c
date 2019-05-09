@@ -30,6 +30,9 @@
 #include "diag_mux.h"
 #include "diagmem.h"
 #include "diag_ipc_logging.h"
+
+/* SWISTART */
+#if CONFIG_SIERRA
 #ifdef CONFIG_DIAG_OVER_USB
 
 #define DIAG_USB_STRING_SZ	10
@@ -689,8 +692,6 @@ void diag_usb_exit(int id)
 	ch->read_buf = NULL;
 }
 #else
-/* SWISTART */
-#if CONFIG_SIERRA
 int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 {
 	return 0;
@@ -716,6 +717,5 @@ void diag_usb_exit(int id)
 	return;
 }
 #endif
+#endif /* SIERRA */
 /* SWISTOP */
-#endif
-
