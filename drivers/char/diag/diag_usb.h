@@ -71,8 +71,7 @@ struct diag_usb_info {
 	struct work_struct disconnect_work;
 	struct workqueue_struct *usb_wq;
 };
-
-#ifdef CONFIG_DIAG_OVER_USB
+#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 extern struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV];
 int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops);
 int diag_usb_queue_read(int id);
@@ -105,6 +104,6 @@ void diag_usb_exit(int id)
 {
 	return;
 }
-#endif
+#endif /* SIERRA */
 
 #endif

@@ -3067,6 +3067,18 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 			return -EIO;
 		}
 	}
+#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
+	if (driver->logging_mode == DIAG_USB_MODE && !driver->usb_connected) {
+		if (!((pkt_type == DCI_DATA_TYPE) ||
+		    (pkt_type == DCI_PKT_TYPE) ||
+		    (pkt_type & DATA_TYPE_DCI_LOG) ||
+		    (pkt_type & DATA_TYPE_DCI_EVENT))) {
+			pr_debug("diag: In %s, Dropping non DCI packet type\n",
+				 __func__);
+			return -EIO;
+		}
+	}
+#endif /* SIERRA */
 
 	payload_buf = buf + sizeof(int);
 	payload_len = count - sizeof(int);
@@ -3098,6 +3110,12 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 		if (pkt_type && driver->logging_mode == DIAG_USB_MODE &&
 		    !driver->usb_connected)
 			return err;
+
+#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
+		if (pkt_type && driver->logging_mode == DIAG_USB_MODE &&
+		    !driver->usb_connected)
+			return err;
+#endif /* SIERRA */
 	}
 
 	switch (pkt_type) {

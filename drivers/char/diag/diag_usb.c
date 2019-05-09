@@ -31,6 +31,10 @@
 #include "diagmem.h"
 #include "diag_ipc_logging.h"
 
+/* SWISTART */
+#if CONFIG_SIERRA
+#ifdef CONFIG_DIAG_OVER_USB
+
 #define DIAG_USB_STRING_SZ	10
 #define DIAG_USB_MAX_SIZE	16384
 
@@ -685,4 +689,31 @@ void diag_usb_exit(int id)
 	kfree(ch->read_buf);
 	ch->read_buf = NULL;
 }
-
+#else
+int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
+{
+	return 0;
+}
+int diag_usb_queue_read(int id)
+{
+	return 0;
+}
+int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
+{
+	return 0;
+}
+void diag_usb_connect_all(void)
+{
+	return;
+}
+void diag_usb_disconnect_all(void)
+{
+	return;
+}
+void diag_usb_exit(int id)
+{
+	return;
+}
+#endif
+#endif /* SIERRA */
+/* SWISTOP */
