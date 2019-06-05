@@ -24,4 +24,6 @@ extern bool bs_support_get (enum bsfeature feature);
 extern int8_t bs_uart_fun_get (uint uart_num);
 extern int8_t bsgetriowner(void);
 extern uint8_t bs_hwrev_get(void);
+
+extern int sierra_smem_get_factory_mode(void);
 #endif /* SIERRA_BSUPROTO_H */

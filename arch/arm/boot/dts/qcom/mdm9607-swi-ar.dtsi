@@ -84,9 +84,80 @@
 		interrupt-names = "vbus_det_irq";
 	};
 
+	sierra_gpio {
+		compatible = "sierra,gpio";
+		alias-1 = <&tlmm_pinmux 15 0>;
+		alias-2 = <&tlmm_pinmux 14 0>;
+		alias-3 = <&tlmm_pinmux 13 0>;
+		alias-4 = <&tlmm_pinmux 12 0>;
+		alias-5 = <&tlmm_pinmux 30 0>;
+		alias-6 = <&tlmm_pinmux 16 0>;
+		alias-7 = <&tlmm_pinmux 17 0>;
+		alias-8 = <&tlmm_pinmux 43 0>;
+		alias-9 = <&tlmm_pinmux 49 0>;
+		alias-10 = <&tlmm_pinmux 50 0>;
+		alias-11 = <&tlmm_pinmux 45 0>;
+		alias-12 = <&tlmm_pinmux 75 0>;
+		alias-13 = <&tlmm_pinmux 37 0>;
+		alias-14 = <&tlmm_pinmux 36 0>;
+		alias-25 = <&tlmm_pinmux 26 0>;
+		alias-26 = <&tlmm_pinmux 44 0>;
+		alias-29 = <&tlmm_pinmux 74 0>;
+		alias-30 = <&tlmm_pinmux 4 0>;
+		alias-31 = <&tlmm_pinmux 5 0>;
+		alias-32 = <&tlmm_pinmux 6 0>;
+		alias-33 = <&tlmm_pinmux 7 0>;
+		alias-34 = <&tlmm_pinmux 11 0>;
+		alias-35 = <&tlmm_pinmux 10 0>;
+		alias-36 = <&tlmm_pinmux 9 0>;
+		alias-37 = <&tlmm_pinmux 8 0>;
+		alias-46 = <&tlmm_pinmux 59 0>;
+		alias-47 = <&tlmm_pinmux 51 0>;
+		alias-48 = <&tlmm_pinmux 25 0>;
+		alias-49 = <&tlmm_pinmux 58 0>;
+		alias-50 = <&tlmm_pinmux 38 0>;
+		alias-RI = <&tlmm_pinmux 35 0>;
+		alias-M1 = <&pm8019_gpios 3 0>;
+		alias-M2 = <&pm8019_gpios 4 0>;
+		alias-M3 = <&pm8019_gpios 6 0>;
+		alias-M4 = <&pm8019_gpios 5 0>;
+	};
+
 	tlmm_pinmux: pinctrl@1000000 {
 		/*undefine use of qcom,tlmm-emmc-boot-select*/
 		qcom,tlmm-emmc-boot-select;
+
+		gpio-bit-map =  <15 0>,
+				<14 1>,
+				<13 2>,
+				<12 3>,
+				<30 4>,
+				<16 5>,
+				<17 6>,
+				<43 7>,
+				<49 8>,
+				<50 9>,
+				<45 10>,
+				<75 11>,
+				<37 12>,
+				<36 13>,
+				<26 24>,
+				<44 25>,
+				<74 28>,
+				<4 29>,
+				<5 30>,
+				<6 31>,
+				<7 32>,
+				<11 33>,
+				<10 34>,
+				<9 35>,
+				<8 36>,
+				<59 45>,
+				<51 46>,
+				<25 47>,
+				<58 48>,
+				<38 49>;
+		gpio-RI = <35>;
 
 		uart_console_sleep: uart_console_sleep {
 			mux {

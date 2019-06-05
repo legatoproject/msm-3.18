@@ -4331,7 +4331,7 @@ static int smack_key_permission(key_ref_t key_ref,
 	int rc;
 
 	/*
-	 * Validate requested permissons
+	 * Validate requested permissions
 	 */
 	if (perm & ~KEY_NEED_ALL)
 		return -EINVAL;

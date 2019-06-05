@@ -80,6 +80,7 @@ struct gpio_desc {
 #ifdef CONFIG_SIERRA
 #define FLAG_IS_UP      10      /* GPIO pull type */
 #define FLAG_IRQ_WAKEUP 11      /* IRQ wakeup enabled */
+#define FLAG_RING_INDIC 12	/* GPIO is Ring Indicator RI */
 #endif
 /* SWISTOP*/
 
@@ -88,11 +89,19 @@ struct gpio_desc {
 #define GPIO_FLAGS_MASK		((1 << ID_SHIFT) - 1)
 #define GPIO_TRIGGER_MASK	(BIT(FLAG_TRIG_FALL) | BIT(FLAG_TRIG_RISE))
 
+#ifdef CONFIG_SIERRA
+	u16			bit_in_mask;		/* bit to test if bitmask is valid */
+	u16			owned_by_app_proc;	/* function: APP or BUSY/MODEM */
+#endif
 	const char		*label;
 };
 
 int gpiod_request(struct gpio_desc *desc, const char *label);
 void gpiod_free(struct gpio_desc *desc);
+
+#ifdef CONFIG_SIERRA
+struct class *gpio_class_get(void);
+#endif
 
 /*
  * Return the GPIO number of the passed descriptor relative to its chip

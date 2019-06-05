@@ -11,16 +11,11 @@
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
+#include <../base/base.h>
 #include <linux/sierra_gpio.h>
-#include <linux/sierra_bsudefs.h>
 
-/* for RI PIN owner flag*/
-#define RI_OWNER_MODEM      0
-#define RI_OWNER_APP        1
-
-static int gRmode = -1;
-static int gpio_ri = -1;
-#endif /*CONFIG_SIERRA*/
+static struct class gpio_class;
+#endif
 /*SWISTOP*/
 
 static DEFINE_IDR(dirent_idr);
@@ -51,386 +46,6 @@ static DEFINE_MUTEX(sysfs_lock);
  *      * also affects existing and subsequent "falling" and "rising"
  *        /edge configuration
  */
-
-#ifdef CONFIG_SIERRA
-/* Product specific assignments in gpiolib_sysfs_init() */
-static struct ext_gpio_map *ext_gpio = NULL;
-static struct gpio_chip gpio_ext_chip = {
-		.label  = "msmextgpio",
-		.base   = 1,
-};
-
-/* GPIOs in this table must only be given the FUNCTION_EMBEDDED_HOST
- * property by default if they are not configurable through other methods.
- */
-static struct ext_gpio_map ext_gpio_ar[]={
-	{"1", 15,FUNCTION_UNALLOCATED},
-	{"2", 14,FUNCTION_UNALLOCATED},
-	{"3", 13,FUNCTION_UNALLOCATED},
-	{"4", 12,FUNCTION_UNALLOCATED},
-	{"5", 30,FUNCTION_EMBEDDED_HOST},
-	{"6", 16,FUNCTION_UNALLOCATED},
-	{"7", 17,FUNCTION_UNALLOCATED},
-	{"8", 43,FUNCTION_UNALLOCATED},
-	{"9", 49,FUNCTION_UNALLOCATED},
-	{"10", 50,FUNCTION_UNALLOCATED},
-	{"11", 45,FUNCTION_UNALLOCATED},
-	{"12", 75,FUNCTION_UNALLOCATED},
-	{"13", 37,FUNCTION_UNALLOCATED},
-	{"14", 36,FUNCTION_UNALLOCATED},
-	{"15", -1,FUNCTION_EMBEDDED_HOST},
-	{"16", -1,FUNCTION_EMBEDDED_HOST},
-	{"17", -1,FUNCTION_EMBEDDED_HOST},
-	{"18", -1,FUNCTION_EMBEDDED_HOST},
-	{"19", -1,FUNCTION_EMBEDDED_HOST},
-	{"20", -1,FUNCTION_EMBEDDED_HOST},
-	{"21", -1,FUNCTION_EMBEDDED_HOST},
-	{"22", -1,FUNCTION_EMBEDDED_HOST},
-	{"23", -1,FUNCTION_EMBEDDED_HOST},
-	{"24", -1,FUNCTION_EMBEDDED_HOST},
-	{"25", 26,FUNCTION_EMBEDDED_HOST},
-	{"26", 44,FUNCTION_EMBEDDED_HOST},
-	{"27", -1,FUNCTION_EMBEDDED_HOST},
-	{"28", -1,FUNCTION_EMBEDDED_HOST},
-	{"29", 74,FUNCTION_EMBEDDED_HOST},
-	{"30", -1,FUNCTION_EMBEDDED_HOST},
-	{"31", -1,FUNCTION_EMBEDDED_HOST},
-	{"32", -1,FUNCTION_EMBEDDED_HOST},
-	{"33", -1,FUNCTION_EMBEDDED_HOST},
-	{"34", 11,FUNCTION_EMBEDDED_HOST},
-	{"35", 10,FUNCTION_EMBEDDED_HOST},
-	{"36", -1,FUNCTION_EMBEDDED_HOST},
-	{"37", -1,FUNCTION_EMBEDDED_HOST},
-	{"38", -1,FUNCTION_EMBEDDED_HOST},
-	{"39", -1,FUNCTION_EMBEDDED_HOST},
-	{"40", -1,FUNCTION_EMBEDDED_HOST},
-	{"41", -1,FUNCTION_EMBEDDED_HOST},
-	{"42", -1,FUNCTION_EMBEDDED_HOST},
-	{"43", -1,FUNCTION_EMBEDDED_HOST},
-	{"44", -1,FUNCTION_EMBEDDED_HOST},
-	{"45", -1,FUNCTION_EMBEDDED_HOST},
- /* SWI_TBD [Kinbo:2016-07-27]: QTI9X28-312, GPIO46 is used by HSIC, but control HSIC need GPIO API*/
-	{"46", 59,FUNCTION_UNALLOCATED},
-	{"M1", 1020,FUNCTION_UNALLOCATED},
-	{"M2", 1021,FUNCTION_UNALLOCATED},
-	{"M3", 1023,FUNCTION_UNALLOCATED},
-	{"M4", 1022,FUNCTION_UNALLOCATED},
-	{GPIO_NAME_RI,35,FUNCTION_UNALLOCATED}
-};
-
-/* GPIOs in this table must only be given the FUNCTION_EMBEDDED_HOST
- * property by default if they are not configurable through other methods.
- */
-static struct ext_gpio_map ext_gpio_wp[]={
-	{"1", -1,FUNCTION_UNALLOCATED},
-	{"2", 38,FUNCTION_UNALLOCATED},
-	{"3", -1,FUNCTION_UNALLOCATED},
-	{"4", 30,FUNCTION_UNALLOCATED},
-	{"5", -1,FUNCTION_UNALLOCATED},
-	{"6", 1022,FUNCTION_UNALLOCATED},
-	{"7", 16,FUNCTION_UNALLOCATED},
-	{"8", 58,FUNCTION_UNALLOCATED},
-	{"9", -1,FUNCTION_UNALLOCATED},
-	{"10", -1,FUNCTION_UNALLOCATED},
-	{"11", -1,FUNCTION_UNALLOCATED},
-	{"12", -1,FUNCTION_UNALLOCATED},
-	{"13", 76,FUNCTION_UNALLOCATED},
-	{"14", -1,FUNCTION_UNALLOCATED},
-	{"15", -1,FUNCTION_UNALLOCATED},
-	{"16", -1,FUNCTION_UNALLOCATED},
-	{"17", -1,FUNCTION_UNALLOCATED},
-	{"18", -1,FUNCTION_UNALLOCATED},
-	{"19", -1,FUNCTION_UNALLOCATED},
-	{"20", -1,FUNCTION_UNALLOCATED},
-	{"21", 8,FUNCTION_UNALLOCATED},
-	{"22", 9,FUNCTION_UNALLOCATED},
-	{"23", 10,FUNCTION_UNALLOCATED},
-	{"24", 11,FUNCTION_UNALLOCATED},
-	{"25", 51,FUNCTION_UNALLOCATED},
-	{"26", -1,FUNCTION_UNALLOCATED},
-	{"27", -1,FUNCTION_UNALLOCATED},
-	{"28", 45,FUNCTION_UNALLOCATED},
-	{"29", 46,FUNCTION_UNALLOCATED},
-	{"30", 47,FUNCTION_UNALLOCATED},
-	{"31", 48,FUNCTION_UNALLOCATED},
-	{"32", 77,FUNCTION_UNALLOCATED},
-	{"33", 78,FUNCTION_UNALLOCATED},
-	{"34", -1,FUNCTION_UNALLOCATED},
-	{"35", 37,FUNCTION_UNALLOCATED},
-#ifdef CONFIG_GPIO_SWIMCU
-	{"36", SWIMCU_GPIO_TO_SYS(0),FUNCTION_EMBEDDED_HOST},
-	{"37", SWIMCU_GPIO_TO_SYS(1),FUNCTION_EMBEDDED_HOST},
-	{"38", SWIMCU_GPIO_TO_SYS(2),FUNCTION_EMBEDDED_HOST},
-	{"39", -1,FUNCTION_UNALLOCATED},
-	{"40", SWIMCU_GPIO_TO_SYS(3),FUNCTION_EMBEDDED_HOST},
-	{"41", SWIMCU_GPIO_TO_SYS(4),FUNCTION_EMBEDDED_HOST},
-#else /* CONFIG_GPIO_SWIMCU */
-	{"36", -1,FUNCTION_UNALLOCATED},
-	{"37", -1,FUNCTION_UNALLOCATED},
-	{"38", -1,FUNCTION_UNALLOCATED},
-	{"39", -1,FUNCTION_UNALLOCATED},
-	{"40", -1,FUNCTION_UNALLOCATED},
-	{"41", -1,FUNCTION_UNALLOCATED},
-#endif /* !CONFIG_GPIO_SWIMCU */
-	{"42", 79,FUNCTION_UNALLOCATED},
-	{"43", -1,FUNCTION_UNALLOCATED},
-	{"44", -1,FUNCTION_UNALLOCATED},
-	{"45", -1,FUNCTION_UNALLOCATED},
-	{"46", -1,FUNCTION_UNALLOCATED},
-	{"M1", -1,FUNCTION_UNALLOCATED},
-	{"M2", -1,FUNCTION_UNALLOCATED},
-	{"M3", -1,FUNCTION_UNALLOCATED},
-	{"M4", -1,FUNCTION_UNALLOCATED},
-	{GPIO_NAME_RI,25,FUNCTION_UNALLOCATED}
-};
-
-/* GPIOs in this table must only be given the FUNCTION_EMBEDDED_HOST
- * property by default if they are not configurable through other methods.
- */
-static struct ext_gpio_map ext_gpio_mft[]={
-	{"0", 0,FUNCTION_UNALLOCATED},
-	{"1", 1,FUNCTION_UNALLOCATED},
-	{"2", 2,FUNCTION_UNALLOCATED},
-	{"3", 3,FUNCTION_UNALLOCATED},
-	{"4", 4,FUNCTION_UNALLOCATED},
-	{"5", 5,FUNCTION_UNALLOCATED},
-	{"6", 6,FUNCTION_UNALLOCATED},
-	{"7", 7,FUNCTION_UNALLOCATED},
-	{"8", 8,FUNCTION_UNALLOCATED},
-	{"9", 9,FUNCTION_UNALLOCATED},
-	{"10", 10,FUNCTION_UNALLOCATED},
-	{"11", 11,FUNCTION_UNALLOCATED},
-	{"12", 12,FUNCTION_UNALLOCATED},
-	{"13", 13,FUNCTION_UNALLOCATED},
-	{"14", 14,FUNCTION_UNALLOCATED},
-	{"15", 15,FUNCTION_UNALLOCATED},
-	{"16", 16,FUNCTION_UNALLOCATED},
-	{"17", 17,FUNCTION_UNALLOCATED},
-	{"18" ,18,FUNCTION_UNALLOCATED},
-	{"19", 19,FUNCTION_UNALLOCATED},
-	{"20", 20,FUNCTION_UNALLOCATED},
-	{"21", 21,FUNCTION_UNALLOCATED},
-	{"22", 22,FUNCTION_UNALLOCATED},
-	{"23", 23,FUNCTION_UNALLOCATED},
-	{"24", 24,FUNCTION_UNALLOCATED},
-	{"25", 25,FUNCTION_UNALLOCATED},
-	{"26", 26,FUNCTION_UNALLOCATED},
-	{"27", 27,FUNCTION_UNALLOCATED},
-	{"28", 28,FUNCTION_UNALLOCATED},
-	{"29", 29,FUNCTION_UNALLOCATED},
-	{"30", 30,FUNCTION_UNALLOCATED},
-	{"31", 31,FUNCTION_UNALLOCATED},
-	{"32", 32,FUNCTION_UNALLOCATED},
-	{"33", 33,FUNCTION_UNALLOCATED},
-	{"34", 34,FUNCTION_UNALLOCATED},
-	{"35", 35,FUNCTION_UNALLOCATED},
-	{"36", 36,FUNCTION_UNALLOCATED},
-	{"37", 37,FUNCTION_UNALLOCATED},
-	{"38" ,38,FUNCTION_UNALLOCATED},
-	{"39", 39,FUNCTION_UNALLOCATED},
-	{"40", 40,FUNCTION_UNALLOCATED},
-	{"41", 41,FUNCTION_UNALLOCATED},
-	{"42", 42,FUNCTION_UNALLOCATED},
-	{"43", 43,FUNCTION_UNALLOCATED},
-	{"44", 44,FUNCTION_UNALLOCATED},
-	{"45", 45,FUNCTION_UNALLOCATED},
-	{"46", 46,FUNCTION_UNALLOCATED},
-	{"47", 47,FUNCTION_UNALLOCATED},
-	{"48", 48,FUNCTION_UNALLOCATED},
-	{"49", 49,FUNCTION_UNALLOCATED},
-	{"50", 50,FUNCTION_UNALLOCATED},
-	{"51", 51,FUNCTION_UNALLOCATED},
-	{"52", 52,FUNCTION_UNALLOCATED},
-	{"53", 53,FUNCTION_UNALLOCATED},
-	{"54", 54,FUNCTION_UNALLOCATED},
-	{"55", 55,FUNCTION_UNALLOCATED},
-	{"56", 56,FUNCTION_UNALLOCATED},
-	{"57", 57,FUNCTION_UNALLOCATED},
-	{"58" ,58,FUNCTION_UNALLOCATED},
-	{"59", 59,FUNCTION_UNALLOCATED},
-	{"60", 60,FUNCTION_UNALLOCATED},
-	{"61", 61,FUNCTION_UNALLOCATED},
-	{"62", 62,FUNCTION_UNALLOCATED},
-	{"63", 63,FUNCTION_UNALLOCATED},
-	{"64", 64,FUNCTION_UNALLOCATED},
-	{"65", 65,FUNCTION_UNALLOCATED},
-	{"66", 66,FUNCTION_UNALLOCATED},
-	{"67", 67,FUNCTION_UNALLOCATED},
-	{"68" ,68,FUNCTION_UNALLOCATED},
-	{"69", 69,FUNCTION_UNALLOCATED},
-	{"70", 70,FUNCTION_UNALLOCATED},
-	{"71", 71,FUNCTION_UNALLOCATED},
-	{"72", 72,FUNCTION_UNALLOCATED},
-	{"73", 73,FUNCTION_UNALLOCATED},
-	{"74", 74,FUNCTION_UNALLOCATED},
-	{"75", 75,FUNCTION_UNALLOCATED},
-	{"76", 76,FUNCTION_UNALLOCATED},
-	{"77", 77,FUNCTION_UNALLOCATED},
-	{"78", 78,FUNCTION_UNALLOCATED},
-	{"79", 79,FUNCTION_UNALLOCATED},
-	{"80", 1020,FUNCTION_UNALLOCATED},
-	{"81", 1021,FUNCTION_UNALLOCATED},
-	{"82", 1023,FUNCTION_UNALLOCATED},
-	{"83", 1022,FUNCTION_UNALLOCATED}
-
-};
-
-/**
- * getap_multiplex_gpio() - set the gpio ownership/function in AP
- *                          based on the mask retrieved from modem
- *
- * Returns nothing
- *
- */
-static void getap_multiplex_gpio(void)
-{
-	int i;
-
-	for(i = 0; i < gpio_ext_chip.ngpio; i++)
-	{
-		if (gpio_ext_chip.mask & (0x1ULL << i))
-			ext_gpio[i].function = FUNCTION_EMBEDDED_HOST;
-	}
-}
-
-/**
- * gpio_map_name_to_num() - Return the internal GPIO number for an
- *                         external GPIO name
- * @*buf: The external GPIO name (may include a trailing <lf>)
- * @*alias: pointer to return whether this name is an alias for another table entry
- * Context: After gpiolib_sysfs_init has setup the gpio device
- *
- * Returns a negative number if the gpio_name is not mapped to a number
- * or if the access to the GPIO is prohibited.
- *
- */
-static int gpio_map_name_to_num(const char *buf, bool *alias)
-{
-	int i;
-	int gpio_num = -1;
-	char gpio_name[GPIO_NAME_MAX+1];
-	int len;
-
-	len = min( strlen(buf), sizeof(gpio_name)-1 );
-	memcpy(gpio_name, buf, len);
-	if ((len > 0) && (gpio_name[len-1] < 0x20))
-		len--; /* strip trailing <0x0a> from buf for compare ops */
-	gpio_name[len] = 0;
-
-	if (ext_gpio != NULL)
-	{
-		for(i = 0; i < gpio_ext_chip.ngpio; i++)
-		{
-			if( strncasecmp( gpio_name, ext_gpio[i].gpio_name, GPIO_NAME_MAX ) == 0 )
-			{
-				/* the multi-function GPIO is used as another feature, cannot export */
-				if(FUNCTION_EMBEDDED_HOST != ext_gpio[i].function)
-				{
-					return -1;
-				}
-				gpio_num = ext_gpio[i].gpio_num;
-				pr_debug("%s: find GPIO %d\n", __func__, gpio_num);
-				return gpio_num;
-			}
-		}
-	}
-	pr_debug("%s: Can not find GPIO %s\n", __func__, gpio_name);
-	return -1;
-}
-
-/**
- * gpio_map_num_to_name() - Return the external GPIO name for an
- *                         internal GPIO number
- * @gpio_num: The internal (i.e. MDM) GPIO pin number
- * @alias: Return the second entry if 2 names are mapped to the same internal GPIO number
- * Context: After gpiolib_sysfs_init has setup the gpio device
- *
- * Returns NULL if the gpio_num is not mapped to a name
- * or if the access to the GPIO is prohibited.
- *
- */
-static char *gpio_map_num_to_name(int gpio_num, bool alias)
-{
-	int i;
-
-	if (ext_gpio != NULL)
-	{
-		for(i = 0; i < gpio_ext_chip.ngpio; i++)
-		{
-			if(gpio_num == ext_gpio[i].gpio_num)
-			{
-				if(FUNCTION_EMBEDDED_HOST != ext_gpio[i].function)
-				{
-					return NULL;
-				}
-				return ext_gpio[i].gpio_name;
-			}
-		}
-	}
-	pr_debug("%s: Can not find GPIO %d\n", __func__, gpio_num);
-	return NULL;
-}
-/**
- * gpio_sync_ri() - sync gpio RI function with riowner
- * Context: After ext_gpio and gpio_ri have been set.
- *
- * Returns 1 if apps, 0 if modem, or -1 if RI not found.
- */
-static int gpio_sync_ri(void)
-{
-	int ri_owner = -1;
-
-	if (gpio_ri >= 0) {
-		/* Check if RI gpio is owned by APP core
-		 * In this case, set that gpio for RI management
-		 * RI owner: 1 APP , 0 Modem. See AT!RIOWNER
-		 */
-		ri_owner = bsgetriowner();
-		if (RI_OWNER_APP == ri_owner) {
-			pr_debug("%s: RI owner is APP\n", __func__);
-			ext_gpio[gpio_ri].function = FUNCTION_EMBEDDED_HOST;
-		} else {
-			pr_debug("%s: RI owner is Modem\n", __func__);
-			ext_gpio[gpio_ri].function = FUNCTION_UNALLOCATED;
-		}
-	}
-
-	return ri_owner;
-}
-
-/**
- * gpio_set_map_table()
- *
- * Purpose: set gpio mapping table according smem
- *
- * Returns: no return
- */
-static void gpio_set_map_table( void )
-{
-	gRmode = sierra_smem_get_factory_mode();
-	if(gRmode == 1)
-	{
-		ext_gpio = ext_gpio_mft;
-		gpio_ext_chip.ngpio = NR_EXT_GPIOS_MFT;
-	}
-	else
-	{
-		if ( bs_support_get (BSFEATURE_WP) )
-		{
-			gpio_sync_ri();
-			ext_gpio = ext_gpio_wp;
-			gpio_ext_chip.ngpio = NR_EXT_GPIOS_WP;
-		}
-		else
-		{
-			ext_gpio = ext_gpio_ar;
-			gpio_ext_chip.ngpio = NR_EXT_GPIOS_AR;
-		}
-	}
-}
-
-#endif /*CONFIG_SIERRA*/
-
 
 static ssize_t gpio_direction_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -854,27 +469,52 @@ static ssize_t chip_ngpio_show(struct device *dev,
 	return sprintf(buf, "%u\n", chip->ngpio);
 }
 static DEVICE_ATTR(ngpio, 0444, chip_ngpio_show, NULL);
-/*SWISTART*/
+
 #ifdef CONFIG_SIERRA
 static ssize_t chip_mask_show(struct device *dev,
 			       struct device_attribute *attr, char *buf)
 {
 	const struct gpio_chip	*chip = dev_get_drvdata(dev);
+	u64 mask = 0;
 
-	return sprintf(buf, "0x%08x%08x\n", (u32)(chip->mask>>32)&0xFFFFFFFF, (u32)chip->mask&0xFFFFFFFF);
+	if (chip->bitmask_valid)
+		mask = chip->mask[0];
+	return sprintf(buf, "0x%08x%08x\n", (u32)(mask >> 32), (u32)mask);
 }
 static DEVICE_ATTR(mask, 0444, chip_mask_show, NULL);
+
+/**
+ * chip_mask_v2_show() - Display the GPIO chip mask in v2 format
+ * @dev: The device
+ * @buf: The buffer (1 page) to put the GPIO chip mask
+ *
+ * Returns the number of characters to display
+ */
+static ssize_t chip_mask_v2_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+       const struct gpio_chip	*chip = dev_get_drvdata(dev);
+       int			len = 0;
+       int			i;
+       size_t			nbit = sizeof(u64) * 8;
+
+	for (i = 0; i < chip->ngpio; i += 8) {
+		len += sprintf(buf + len, "%02llx ",
+				(chip->bitmask_valid ?
+					(chip->mask[i / nbit] >> (i % nbit)) & 0xff : 0xff));
+	}
+	return len + sprintf(buf + len, "\n");
+}
+static DEVICE_ATTR(mask_v2, 0444, chip_mask_v2_show, NULL);
 #endif
-/*SWISTOP*/
+
 static struct attribute *gpiochip_attrs[] = {
 	&dev_attr_base.attr,
 	&dev_attr_label.attr,
 	&dev_attr_ngpio.attr,
-/*SWISTART*/
 #ifdef CONFIG_SIERRA
 	&dev_attr_mask.attr,
+	&dev_attr_mask_v2.attr,
 #endif
-/*SWISTOP*/
 	NULL,
 };
 ATTRIBUTE_GROUPS(gpiochip);
@@ -894,23 +534,17 @@ static ssize_t export_store(struct class *class,
 	int			status;
 
 #ifdef CONFIG_SIERRA
-	bool alias = false;
-
-	gpio_set_map_table();
-
-	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: Export GPIO: %ld\n", __func__,gpio);
+	status = gpio_map_name_to_num(buf, len, false, &gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
-
 	if (status < 0)
 		goto done;
 
 	desc = gpio_to_desc(gpio);
 	/* reject invalid GPIOs */
 	if (!desc) {
-		pr_warn("%s: Invalid GPIO %ld\n", __func__, gpio);
+		pr_err("%s: invalid GPIO %ld\n", __func__, gpio);
 		return -EINVAL;
 	}
 
@@ -933,7 +567,7 @@ static ssize_t export_store(struct class *class,
 
 done:
 	if (status)
-		pr_debug("%s: Status %d\n", __func__, status);
+		pr_debug("%s: status %d\n", __func__, status);
 	return status ? : len;
 }
 
@@ -944,26 +578,24 @@ static ssize_t unexport_store(struct class *class,
 	long			gpio;
 	struct gpio_desc	*desc;
 	int			status;
+#ifdef CONFIG_SIERRA
+	const char		*ioname;
+	char			ioname_buf[128];
+	int			index = 0;
+#endif
 
 #ifdef CONFIG_SIERRA
-	bool alias = false;
-
-	gpio_set_map_table();
-
-	status = gpio = gpio_map_name_to_num(buf, &alias);
-	pr_debug("%s: Uexport GPIO: %ld\n", __func__,gpio);
+	status = gpio_map_name_to_num(buf, len, false, &gpio);
 #else
 	status = kstrtol(buf, 0, &gpio);
 #endif /*CONFIG_SIERRA*/
-
-
 	if (status < 0)
 		goto done;
 
 	desc = gpio_to_desc(gpio);
 	/* reject bogus commands (gpio_unexport ignores them) */
 	if (!desc) {
-		pr_warn("%s: Invalid GPIO %ld\n", __func__, gpio);
+		pr_warn("%s: invalid GPIO %ld\n", __func__, gpio);
 		return -EINVAL;
 	}
 
@@ -977,9 +609,19 @@ static ssize_t unexport_store(struct class *class,
 		status = 0;
 		gpiod_free(desc);
 	}
+
+#ifdef CONFIG_SIERRA
+	gpio_remove_alias_link(desc);
+
+	while ((ioname = gpio_map_num_to_name(desc_to_gpio(desc), true, &index))) {
+		snprintf(ioname_buf, sizeof(ioname_buf), "gpio%s", ioname);
+		sysfs_remove_link(&gpio_class.p->subsys.kobj, ioname_buf);
+	}
+#endif
+
 done:
 	if (status)
-		pr_debug("%s: Status %d\n", __func__, status);
+		pr_debug("%s: status %d\n", __func__, status);
 	return status ? : len;
 }
 
@@ -1020,11 +662,10 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	const char		*ioname = NULL;
 	struct device		*dev;
 	int			offset;
-/*SWISTART*/
 #ifdef CONFIG_SIERRA
-	char ioname_buf[IONAME_MAX+1] = IONAME_PREFIX;
+	char			ioname_buf[128];
+	int			index = 0;
 #endif
-/*SWISTOP*/
 
 	/* can't export until sysfs is available ... */
 	if (!gpio_class.p) {
@@ -1067,15 +708,14 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 	if (desc->chip->names && desc->chip->names[offset])
 		ioname = desc->chip->names[offset];
 
-/*SWISTART*/
 #ifdef CONFIG_SIERRA
-	gpio_set_map_table();
-	strncat(ioname_buf, gpio_map_num_to_name(desc_to_gpio(desc), false), GPIO_NAME_MAX);
+	ioname = gpio_map_num_to_name(desc_to_gpio(desc), true, &index);
+	if (ioname)
+		snprintf(ioname_buf, sizeof(ioname_buf), "gpio%s", ioname);
+	else
+		snprintf(ioname_buf, sizeof(ioname_buf), "gpio_raw%u", desc_to_gpio(desc));
 	ioname = ioname_buf;
-	pr_debug("%s: sierra--find GPIO,chipdev = %d,chipngpio = %d,chipbase = %d\n",
-	__func__, (int)desc->chip->dev, (int)desc->chip->ngpio, (int)desc->chip->base);
 #endif /*CONFIG_SIERRA*/
-/*SWISTOP*/
 
 	dev = device_create_with_groups(&gpio_class, desc->chip->dev,
 					MKDEV(0, 0), desc, gpio_groups,
@@ -1098,6 +738,15 @@ int gpiod_export(struct gpio_desc *desc, bool direction_may_change)
 		if (status)
 			goto fail_remove_attr_direction;
 	}
+
+#ifdef CONFIG_SIERRA
+	gpio_create_alias_link(desc, dev);
+
+	while ((ioname = gpio_map_num_to_name(desc_to_gpio(desc), true, &index))) {
+		snprintf(ioname_buf, sizeof(ioname_buf), "gpio%s", ioname);
+		status = sysfs_create_link(&gpio_class.p->subsys.kobj, &dev->kobj, ioname_buf);
+	}
+#endif
 
 	set_bit(FLAG_EXPORT, &desc->flags);
 	mutex_unlock(&sysfs_lock);
@@ -1275,6 +924,10 @@ int gpiochip_export(struct gpio_chip *chip)
 	chip->exported = (status == 0);
 	mutex_unlock(&sysfs_lock);
 
+#ifdef CONFIG_SIERRA
+	if (!status)
+		gpiochip_add_export_v2(dev, chip);
+#endif
 	if (status)
 		chip_dbg(chip, "%s: status %d\n", __func__, status);
 
@@ -1291,6 +944,9 @@ void gpiochip_unexport(struct gpio_chip *chip)
 	mutex_lock(&sysfs_lock);
 	dev = class_find_device(&gpio_class, NULL, chip, match_export);
 	if (dev) {
+#ifdef CONFIG_SIERRA
+		gpiochip_del_unexport_v2(dev, chip);
+#endif
 		put_device(dev);
 		device_unregister(dev);
 		/* prevent further gpiod exports */
@@ -1311,65 +967,23 @@ void gpiochip_unexport(struct gpio_chip *chip)
 	}
 }
 
+#ifdef CONFIG_SIERRA
+struct class *gpio_class_get(void)
+{
+	return &gpio_class;
+}
+EXPORT_SYMBOL_GPL(gpio_class_get);
+#endif
+
 static int __init gpiolib_sysfs_init(void)
 {
 	int		status;
 	unsigned long	flags;
 	struct gpio_chip *chip;
-/*SWISTART*/
-#ifdef CONFIG_SIERRA
-	unsigned int gpio;
-#endif /*CONFIG_SIERRA*/
-/*SWISTOP*/
 
 	status = class_register(&gpio_class);
 	if (status < 0)
 		return status;
-
-/*SWISTART*/
-#ifdef CONFIG_SIERRA
-	/* Assign product specific GPIO mapping */
-	gpio_set_map_table();
-
-	/* bsgetgpioflag retrieves modem configurable mask */
-	gpio_ext_chip.mask = bsgetgpioflag();
-
-	/* This loop does two things:
-	 *  1. Update the mask for any GPIO set to EMBEDDED_HOST in the
-	 *     default table, which means that pin is EMBEDDED_HOST-only.
-	 *  2. Adds EMBEDDED_HOST function to any GPIO in the modem mask
-	 *
-	 *  Note that GPIO set to EMBEDDED_HOST by default in the map tables
-	 *  cannot be used for other functions.
-	 */
-	for (gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++) {
-		long ext_num;
-		if (kstrtol(ext_gpio[gpio].gpio_name, 0, &ext_num) == 0) {
-			if (ext_gpio[gpio].function == FUNCTION_EMBEDDED_HOST)
-				gpio_ext_chip.mask |= (0x1ULL << (ext_num - 1));
-			else if (gpio_ext_chip.mask & (0x1ULL << (ext_num - 1)))
-				ext_gpio[gpio].function = FUNCTION_EMBEDDED_HOST;
-			else
-				ext_gpio[gpio].function = FUNCTION_UNALLOCATED;
-		}
-		if (strcasecmp(ext_gpio[gpio].gpio_name, GPIO_NAME_RI) == 0) {
-			gpio_ri = gpio;
-			gpio_sync_ri();
-			break;
-		}
-	}
-
-	getap_multiplex_gpio();
-	status = gpiochip_export(&gpio_ext_chip);
-
-	/* we move sierra code away from gpio_lock here because the code
-	 * don't acquire a mutex or spin lock.
-	 *
-	 * __might_sleep() will dump out the error stack if sleeping function
-	 *  is called from invaid context(spin_lock). e.g. bsreadhwconfig()
-	 */
-#endif /*CONFIG_SIERRA*/
-/*SWISTOP*/
 
 	/* Scan and register the gpio_chips which registered very
 	 * early (e.g. before the class_register above was called).

@@ -111,4 +111,5 @@ obj-$(CONFIG_MSM_SMP2P)         += gpio-msm-smp2p.o
 # SWISTART
 obj-$(CONFIG_SIERRA_GPIO_WAKEN) += sierra_gpio_wake_n.o
 obj-$(CONFIG_GPIO_SWIMCU)	+= gpio-swimcu.o
+obj-$(CONFIG_SIERRA)		+= sierra_gpio.o
 # SWISTOP
