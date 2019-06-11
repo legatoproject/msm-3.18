@@ -400,8 +400,6 @@ static ssize_t diag_dbgfs_read_mempool(struct file *file, char __user *ubuf,
 	return ret;
 }
 
-#if CONFIG_SIERRA
-#ifdef CONFIG_DIAG_OVER_USB
 static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 				       size_t count, loff_t *ppos)
 {
@@ -478,9 +476,6 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 	kfree(buf);
 	return ret;
 }
-#endif
-#endif /* SIERRA */
-/* SWISTART */
 
 static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
 				       size_t count, loff_t *ppos)
@@ -965,11 +960,9 @@ const struct file_operations diag_dbgfs_mempool_ops = {
 	.read = diag_dbgfs_read_mempool,
 };
 
-#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 const struct file_operations diag_dbgfs_usbinfo_ops = {
 	.read = diag_dbgfs_read_usbinfo,
 };
-#endif /* SIERRA */
 
 const struct file_operations diag_dbgfs_dcistats_ops = {
 	.read = diag_dbgfs_read_dcistats,
@@ -1015,12 +1008,11 @@ int diag_debugfs_init(void)
 				    &diag_dbgfs_mempool_ops);
 	if (!entry)
 		goto err;
-#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
+
 	entry = debugfs_create_file("usbinfo", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_usbinfo_ops);
 	if (!entry)
 		goto err;
-#endif /* SIERRA */
 
 	entry = debugfs_create_file("dci_stats", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_dcistats_ops);

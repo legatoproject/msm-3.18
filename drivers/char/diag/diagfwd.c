@@ -785,8 +785,6 @@ int diag_check_common_cmd(struct diag_pkt_header_t *header)
 	return 0;
 }
 
-/* SWISTART */
-#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 static int diag_cmd_chk_stats(unsigned char *src_buf, int src_len,
 			      unsigned char *dest_buf, int dest_len)
 {
@@ -872,8 +870,6 @@ static int diag_cmd_disable_hdlc(unsigned char *src_buf, int src_len,
 
 	return write_len;
 }
-#endif /* #if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA)) */
-/* SWISTOP */
 
 void diag_send_error_rsp(unsigned char *buf, int len)
 {
@@ -1220,10 +1216,8 @@ static int diagfwd_mux_open(int id, int mode)
 	unsigned long flags;
 
 	switch (mode) {
-#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 	case DIAG_USB_MODE:
 		driver->usb_connected = 1;
-#endif /* SIERRA */
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		break;
@@ -1255,10 +1249,8 @@ static int diagfwd_mux_close(int id, int mode)
 	uint8_t i;
 
 	switch (mode) {
-#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 	case DIAG_USB_MODE:
 		driver->usb_connected = 0;
-#endif /* SIERRA */
 		break;
 	case DIAG_MEMORY_DEVICE_MODE:
 		break;

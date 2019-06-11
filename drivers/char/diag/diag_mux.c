@@ -98,8 +98,6 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 	if (proc < 0 || proc >= NUM_MUX_PROC)
 		return 0;
 
-
-#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 	/* Register with USB logger */
 	usb_logger.ops[proc] = ops;
 	err = diag_usb_register(proc, ctx, ops);
@@ -108,7 +106,6 @@ int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops)
 		       proc, err);
 		return err;
 	}
-#endif /* SIERRA */
 
 	md_logger.ops[proc] = ops;
 	err = diag_md_register(proc, ctx, ops);

@@ -739,8 +739,6 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 	return;
 }
 
-/* SWISTART */
-#if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA))
 static int diag_compute_real_time(int idx)
 {
 	int real_time = MODE_REALTIME;
@@ -777,8 +775,6 @@ static int diag_compute_real_time(int idx)
 	}
 	return real_time;
 }
-#endif /* #if ((defined(CONFIG_DIAG_OVER_USB) && CONFIG_SIERRA) || (!CONFIG_SIERRA)) */
-/* SWISTOP */
 
 static void diag_create_diag_mode_ctrl_pkt(unsigned char *dest_buf,
 					   int real_time)
