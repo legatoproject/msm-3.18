@@ -1612,23 +1612,27 @@ static int ks8851_probe(struct spi_device *spi)
 	ks->vdd_io = devm_regulator_get(&spi->dev, "vdd-io");
 	if (IS_ERR(ks->vdd_io)) {
 		ret = PTR_ERR(ks->vdd_io);
+		goto err_reg_io;
 	}
 
 	ret = regulator_enable(ks->vdd_io);
 	if (ret) {
 		dev_err(&spi->dev, "regulator vdd_io enable fail: %d\n",
 			ret);
+		goto err_reg_io;
 	}
 
 	ks->vdd_reg = devm_regulator_get(&spi->dev, "vdd");
 	if (IS_ERR(ks->vdd_reg)) {
 		ret = PTR_ERR(ks->vdd_reg);
+		goto err_reg;
 	}
 
 	ret = regulator_enable(ks->vdd_reg);
 	if (ret) {
 		dev_err(&spi->dev, "regulator vdd enable fail: %d\n",
 			ret);
+		goto err_reg;
 	}
 
 	if (gpio_is_valid(gpio)) {
