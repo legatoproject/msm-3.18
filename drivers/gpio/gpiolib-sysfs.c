@@ -11,7 +11,7 @@
 
 /*SWISTART*/
 #ifdef CONFIG_SIERRA
-#include <../base/base.h>
+#include "../base/base.h"
 #include <linux/sierra_gpio.h>
 
 static struct class gpio_class;

@@ -27,7 +27,7 @@
 #include <linux/crc32.h>
 
 #include <mach/sierra_smem.h>
-#include <sierra/api/ssmemudefs.h>
+#include "sierra/api/ssmemudefs.h"
 
 int sierra_smem_get_download_mode(void)
 {
