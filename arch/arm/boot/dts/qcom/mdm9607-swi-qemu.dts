@@ -1,0 +1,67 @@
+/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "mdm9607-wp76xx.dtsi"
+
+/ {
+    flash: flash@A0000000 {
+        compatible = "cfi-flash";
+        bank-width = <4>;
+        reg = <0xA0000000 0x20000000>; /* flash of 512 MB */
+        system@0 {
+            label = "system";
+            reg = <0 0x1e00000>;
+        };
+        lefwkro@0x1e00000 {
+            label = "lefwkro";
+            reg = <0x1e00000 0x8c0000>;
+        };
+        swirw@0x26c0000 {
+            label = "swirw";
+            reg = <0x26c0000 0x1900000>;
+        };
+        userapp@0x3fc0000 {
+            label = "userapp";
+            reg = <0x3fc0000 0x8300000>;
+        };
+        reserved@0xc2c0000 {
+            label = "reserved";
+            reg = <0xc2c0000 0x3680000>;
+        };
+        slot_2@0xf940000 {
+            label = "slot_2";
+            reg = <0xf940000 0x2180000>;
+        };
+        slot_1@0x11ac0000 {
+            label = "slot_1";
+            reg = <0x11ac0000 0x2180000>;
+        };
+        slot_0@0x13c40000 {
+            label = "slot_0";
+            reg = <0x13c40000 0x2180000>;
+        };
+    };
+
+    ethernet_1: ethernet@8f00000 {
+        compatible = "smsc,lan91c111";
+        reg = <0x8f00000 0x10000>;
+        interrupts = <0 150 0>;
+    };
+};
+
+/ {
+	model = "Sierra Wireless, Inc. MDM 9607 WP series QEMU";
+	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
+	qcom,board-id = <8 0x85>;
+};

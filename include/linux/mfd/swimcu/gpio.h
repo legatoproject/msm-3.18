@@ -81,6 +81,11 @@ int swimcu_gpio_get(struct swimcu *swimcu, int action, int gpio, int *value);
 
 int swimcu_gpio_set(struct swimcu *swimcu, int action, int gpio, int value);
 
+#ifndef CONFIG_MSM_SWI_QEMU
 void swimcu_gpio_work(struct swimcu *swimcu, enum swimcu_gpio_irq_index irq);
+#else
+/* This function doesn't exist for QEMU - just fake it. */
+static inline void swimcu_gpio_work(struct swimcu *swimcu, enum swimcu_gpio_irq_index irq) {}
+#endif
 
 #endif

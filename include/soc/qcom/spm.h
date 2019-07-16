@@ -80,7 +80,11 @@ static inline int msm_spm_enable_fts_lpm(int cpu, uint32_t mode)
 #else /* defined(CONFIG_MSM_SPM) */
 static inline int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm)
 {
-	return -ENOSYS;
+#ifndef CONFIG_MSM_SWI_QEMU
+    return -ENOSYS;
+#else
+    return 0;
+#endif
 }
 
 static inline void msm_spm_set_rpm_hs(bool allow_rpm_hs)
