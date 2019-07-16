@@ -231,6 +231,7 @@ EXPORT_SYMBOL(ssmem_keys_get);
 
 boolean ssmem_keys_release()
 {
-  return ssmem_release(SSMEM_RG_ID_KEYS);
+  /* do nothing, keys remains in shared memory */
+  return TRUE;
 }
 EXPORT_SYMBOL(ssmem_keys_release);
