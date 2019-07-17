@@ -343,7 +343,7 @@ int sierra_ks_if_scrape_keystore_keys(void)
 
     int offset = SEC_OEM_KEY_LENGTH;
     uint8_t* keysp;
-    int size;
+    int size = 0;
     //SMAC here is your decision point of whether to have shared memory or flash reads.
     // the items are coming in raw, so it doesn't matter from where on a data point.
     // comes in raw and then is populated into the ks driver. ks driver serves it up.
@@ -354,6 +354,11 @@ int sierra_ks_if_scrape_keystore_keys(void)
     keysp = ssmem_keys_get(&size);
     //#endif
     pr_notice("keysp %p size %d", keysp, size);
+
+    if (keysp == NULL)
+    {
+        return -1;
+    }
 
     SIERRA_KS_IF_DEBUG(TRUE, "Scraping keystore keys...\n");
 
