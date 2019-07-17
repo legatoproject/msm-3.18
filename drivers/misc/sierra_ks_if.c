@@ -53,6 +53,9 @@
 /* Keystore read init delay (in ms) */
 #define SIERRA_KS_IF_KEYSTORE_INITIAL_READ_DELAY_MS  (300)
 
+/* Keystore maximum number of read attempts to retry */
+#define SIERRA_KS_IF_KEYSTORE_MAX_READ_ATTEMPTS  (2)
+
 /* Structures */
 
 /* Keystore read state. */
@@ -243,6 +246,7 @@ int sierra_ks_if_set_keystore_read_timer(void)
 void sierra_ks_if_get_keystore_keys_callback(unsigned long state)
 {
     unsigned char delete_timer = 0;
+    static int no_of_read_attempts = 0;
 
     switch(state) {
 
@@ -250,6 +254,7 @@ void sierra_ks_if_get_keystore_keys_callback(unsigned long state)
         {
             /* Try to get the data. */
             pr_warning("Trying to get keystore data...\n");
+            no_of_read_attempts++;
             if( sierra_ks_if_scrape_keystore_keys() == 0 ) {
                 pr_warning("Keystore data available.\n");
                 sierra_ks_if_read_timer.data =
@@ -281,7 +286,9 @@ void sierra_ks_if_get_keystore_keys_callback(unsigned long state)
         break;
     }
 
-    if(delete_timer > 0) {
+    if ((delete_timer > 0) ||
+        (no_of_read_attempts > SIERRA_KS_IF_KEYSTORE_MAX_READ_ATTEMPTS))
+    {
         pr_warning("Deleting keystore read timer.");
         sierra_ks_if_clear_keystore_read_timer();
     }
@@ -346,7 +353,7 @@ int sierra_ks_if_scrape_keystore_keys(void)
 
     int offset = SEC_OEM_KEY_LENGTH;
     uint8_t* keysp;
-    int size;
+    int size = 0;
     //SMAC here is your decision point of whether to have shared memory or flash reads.
     // the items are coming in raw, so it doesn't matter from where on a data point.
     // comes in raw and then is populated into the ks driver. ks driver serves it up.
@@ -357,6 +364,11 @@ int sierra_ks_if_scrape_keystore_keys(void)
     keysp = ssmem_keys_get(&size);
     //#endif
     pr_notice("keysp %p size %d", keysp, size);
+
+    if (keysp == NULL)
+    {
+        return -1;
+    }
 
     SIERRA_KS_IF_DEBUG(TRUE, "Scraping keystore keys...\n");
 
