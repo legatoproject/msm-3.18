@@ -87,7 +87,6 @@ static DEFINE_PER_CPU(struct lpm_cluster*, cpu_cluster);
 static bool suspend_in_progress;
 static struct hrtimer lpm_hrtimer;
 static struct lpm_debug *lpm_debug;
-static phys_addr_t lpm_debug_phys;
 
 DEFINE_PER_CPU(struct clk *, cpu_clocks);
 static struct clk *l2_clk;
@@ -1379,7 +1378,6 @@ static void lpm_clk_init(struct platform_device *pdev)
 static int lpm_probe(struct platform_device *pdev)
 {
 	int ret;
-	int size;
 	struct kobject *module_kobj = NULL;
 
 	get_online_cpus();
@@ -1427,9 +1425,12 @@ static int lpm_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_DEBUG_FS
-	size = num_dbg_elements * sizeof(struct lpm_debug);
-	lpm_debug = dma_alloc_coherent(&pdev->dev, size,
-			&lpm_debug_phys, GFP_KERNEL);
+	{
+		int size = num_dbg_elements * sizeof(struct lpm_debug);
+		phys_addr_t lpm_debug_phys;
+		lpm_debug = dma_alloc_coherent(&pdev->dev, size,
+				&lpm_debug_phys, GFP_KERNEL);
+	}
 #endif
 
 	register_cluster_lpm_stats(lpm_root_node, NULL);

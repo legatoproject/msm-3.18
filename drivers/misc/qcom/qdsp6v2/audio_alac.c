@@ -271,7 +271,6 @@ static int audio_open(struct inode *inode, struct file *file)
 	int rc = 0;
 
 	/* 4 bytes represents decoder number, 1 byte for terminate string */
-	char name[sizeof "msm_alac_" + 5];
 	audio = kzalloc(sizeof(struct q6audio_aio), GFP_KERNEL);
 
 	if (!audio) {
@@ -339,11 +338,14 @@ static int audio_open(struct inode *inode, struct file *file)
 	}
 
 #ifdef CONFIG_DEBUG_FS
-	snprintf(name, sizeof(name), "msm_alac_%04x", audio->ac->session);
-	audio->dentry = config_debugfs_create_file(name, (void *)audio);
+	{
+		char name[sizeof "msm_alac_" + 5];
+		snprintf(name, sizeof(name), "msm_alac_%04x", audio->ac->session);
+		audio->dentry = config_debugfs_create_file(name, (void *)audio);
 
-	if (IS_ERR_OR_NULL(audio->dentry))
-		pr_debug("debugfs_create_file failed\n");
+		if (IS_ERR_OR_NULL(audio->dentry))
+			pr_debug("debugfs_create_file failed\n");
+	}
 #endif
 	pr_debug("%s:alacdec success mode[%d]session[%d]\n", __func__,
 						audio->feedback,

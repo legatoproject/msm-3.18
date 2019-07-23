@@ -980,6 +980,7 @@ static int pmic_arb_intr_priv_data(struct spmi_controller *ctrl,
 	return 0;
 }
 
+#ifdef CONFIG_DEBUG_FS
 static int pmic_arb_mapping_data_show(struct seq_file *file, void *unused)
 {
 	struct spmi_pmic_arb_dev *pmic_arb = file->private;
@@ -1000,7 +1001,6 @@ static int pmic_arb_mapping_data_show(struct seq_file *file, void *unused)
 	return 0;
 }
 
-#ifdef CONFIG_DEBUG_FS
 static int pmic_arb_mapping_data_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, pmic_arb_mapping_data_show, inode->i_private);
