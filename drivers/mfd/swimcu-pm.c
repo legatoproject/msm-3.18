@@ -685,13 +685,23 @@ static ssize_t update_store(struct kobject *kobj,
 	return ret;
 };
 
+static ssize_t available_show(
+	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_firmware_kobj);
+	bool available;
+
+	available = (swimcu->version_major != 0) || (swimcu->version_minor != 0);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", available);
+}
+
 static ssize_t version_show(
 	struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	struct swimcu *swimcu = container_of(kobj, struct swimcu, pm_firmware_kobj);
 
 	if (MCI_PROTOCOL_STATUS_CODE_SUCCESS == swimcu_ping(swimcu)) {
-	  (void) swimcu_pm_sysfs_opt_update(swimcu);
+		(void) swimcu_pm_sysfs_opt_update(swimcu);
 	}
 
 	return scnprintf(buf, PAGE_SIZE, "%03d.%03d\n", swimcu->version_major, swimcu->version_minor);
@@ -979,6 +989,9 @@ static const struct kobj_attribute fw_update_attr = __ATTR_WO(update);
 /* sysfs entry to read current mcu firmware version */
 static const struct kobj_attribute fw_version_attr = __ATTR_RO(version);
 
+/* sysfs entry to show MCU available without firmware version query */
+static const struct kobj_attribute fw_available_attr = __ATTR_RO(available);
+
 static const struct kobj_attribute pm_adc_trig_attr[] = {
 	__ATTR(below,
 		S_IRUGO | S_IWUSR | S_IWGRP,
@@ -1094,6 +1107,13 @@ int swimcu_pm_sysfs_init(struct swimcu *swimcu, int func_flags)
 			ret = -ENOMEM;
 			goto sysfs_add_exit;
 		}
+
+		ret = sysfs_create_file(&swimcu->pm_firmware_kobj, &fw_available_attr.attr);
+		if (ret) {
+			pr_err("%s: cannot create MCUFW available: ret=%d\n", __func__, -ret);
+			goto sysfs_add_exit;
+		}
+
 		kobject_uevent(&swimcu->pm_firmware_kobj, KOBJ_ADD);
 	}
 
