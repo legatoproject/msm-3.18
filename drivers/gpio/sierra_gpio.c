@@ -25,7 +25,7 @@
 #include <linux/kdev_t.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
-#include <../base/base.h>
+#include "../base/base.h"
 
 #include "gpiolib.h"
 

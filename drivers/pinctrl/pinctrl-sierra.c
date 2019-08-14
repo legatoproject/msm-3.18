@@ -20,7 +20,7 @@
 #include <linux/sierra_bsudefs.h>
 #include <linux/gpio.h>
 #include <linux/gpio/driver.h>
-#include <../gpio/gpiolib.h>
+#include "../gpio/gpiolib.h"
 
 int sierra_pinctrl_probe(struct platform_device *pdev)
 {

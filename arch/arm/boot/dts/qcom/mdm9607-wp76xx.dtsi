@@ -94,6 +94,7 @@
 		qcom,tlmm-emmc-boot-select;
 
 		gpio-bit-map =  <38 1>,
+				<30 3>,
 				<16 6>,
 				<58 7>,
 				<76 12>,
@@ -332,7 +333,8 @@
 	sierra_gpio {
 		compatible = "sierra,gpio";
 		alias-2 = <&tlmm_pinmux 38 0>;
-		alias-6 = <&pm8019_gpios 6 0>;
+		alias-4 = <&tlmm_pinmux 30 0>;
+		alias-6 = <&pm8019_gpios 5 0>;
 		alias-7 = <&tlmm_pinmux 16 0>;
 		alias-8 = <&tlmm_pinmux 58 0>;
 		alias-13 = <&tlmm_pinmux 76 0>;
