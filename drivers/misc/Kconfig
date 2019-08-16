@@ -602,6 +602,14 @@ config SIERRA_TZDEV
 	help
 	  This driver provides TrustZone Crypto Engine secure storage
 	  service to generate keyblob, seal data and unseal data.
+
+config SIERRA_KS_IF
+	tristate "Sierra Wireless keystore interface driver"
+	default y
+	help
+	  This driver provides access to the keystore necessary for
+	  proper device operation. This driver will also export
+	  keys to userland to applications with proper permissions.
 #SWISTOP
 
 source "drivers/misc/c2port/Kconfig"
