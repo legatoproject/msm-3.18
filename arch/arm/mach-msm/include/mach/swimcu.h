@@ -26,4 +26,18 @@
 #define SWIMCU_ADC_TO_SYS(mcu_adc)      (mcu_adc + SWIMCU_ADC_BASE)
 #define SWIMCU_NR_ADCS                  2
 
+/* DM: This is not used, and it's here for information only. GPIOs are moved
+   to fx30 dtsi file. */
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+
+/* Macro assumes FX30EXP GPIOs (columbia gpio expander) start at 0 */
+#define FX30EXP_GPIO_BASE               996
+#define FX30EXP_GPIO_TO_SYS(exp_gpio)   (exp_gpio + FX30EXP_GPIO_BASE)
+
+/* Macro assumes FX30EXP GPIOs (columbia gpio expander) start at 0 */
+#define FX30SEXP_GPIO_BASE              988
+#define FX30SEXP_GPIO_TO_SYS(exp_gpio)  (exp_gpio + FX30SEXP_GPIO_BASE)
+
+#endif
+
 #endif /*__ARCH_ARM_MACH_MSM_SWIMCU_H*/

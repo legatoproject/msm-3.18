@@ -1,0 +1,90 @@
+/*
+ * mdm9607-fx30.dtsi
+ *
+ *  Additional dts configuration for the FX30
+ *
+ * Copyright (c) 2016 - 2019 Sierra Wireless, Inc.
+ *
+ *  This program is free software; you can redistribute  it and/or modify it
+ *  under  the terms of  the GNU General  Public License as published by the
+ *  Free Software Foundation;  either version 2 of the  License, or (at your
+ *  option) any later version.
+ *
+ */
+
+&i2c_4 {
+	iot_adc@48 {
+		compatible = "ads1015";
+		reg = <0x48>;
+	};
+
+	tca6416: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	tca6424: gpio@22 {
+		compatible = "ti,tca6424";
+		reg = <0x22>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+// FX30 GPIO pins which are not defined in WP76 baseline or must be
+// overridden.
+&sierra_gpio {
+
+	// This is GPIO extension for WP77 based FX30.
+	// DM, FIXME: For now, assume that device is not defined
+	// anywhere in device tree. We have to fix this later.
+	// This assumes that we need to know GPIO base address,
+	// instead of using pinctrl.
+	alias-43_FX30S = <988 0>;
+	alias-44_FX30S = <989 0>;
+	alias-45_FX30S = <990 0>;
+	alias-46_FX30S = <991 0>;
+	alias-47_FX30S = <992 0>;
+	alias-48_FX30S = <993 0>;
+	alias-49_FX30S = <994 0>;
+	alias-50_FX30S = <995 0>;
+	alias-51_FX30S = <996 0>;
+	alias-52_FX30S = <997 0>;
+	alias-53_FX30S = <998 0>;
+	alias-54_FX30S = <999 0>;
+	alias-55_FX30S = <1000 0>;
+	alias-56_FX30S = <1001 0>;
+	alias-57_FX30S = <1002 0>;
+	alias-58_FX30S = <1003 0>;
+	alias-59_FX30S = <1004 0>;
+	alias-60_FX30S = <1005 0>;
+	alias-61_FX30S = <1006 0>;
+	alias-62_FX30S = <1007 0>;
+	alias-63_FX30S = <1008 0>;
+	alias-64_FX30S = <1009 0>;
+	alias-65_FX30S = <1010 0>;
+	alias-66_FX30S = <1011 0>;
+
+	// DM, FIXME: For now, assume that device is not defined
+	// anywhere in device tree. We have to fix this later.
+	// This assumes that we need to know GPIO base address,
+	// instead of using pinctrl.
+	alias-43 = <996 0>;
+	alias-44 = <997 0>;
+	alias-45 = <998 0>;
+	alias-46 = <999 0>;
+	alias-47 = <1000 0>;
+	alias-48 = <1001 0>;
+	alias-49 = <1002 0>;
+	alias-50 = <1003 0>;
+	alias-51 = <1004 0>;
+	alias-52 = <1005 0>;
+	alias-53 = <1006 0>;
+	alias-54 = <1007 0>;
+	alias-55 = <1008 0>;
+	alias-56 = <1009 0>;
+	alias-57 = <1010 0>;
+	alias-58 = <1011 0>;
+};

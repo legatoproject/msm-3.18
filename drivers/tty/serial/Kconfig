@@ -1092,6 +1092,13 @@ config SERIAL_MSM_HSL
 	help
 	  Select this module to enable MSM high speed UART driver.
 
+config SIERRA_MSM_HSL_RS485
+	bool "Support RS485 mode in MSM UART Legacy mode Serial Driver (Very Experimental)"
+	depends on ARM && ARCH_MSM && SERIAL_MSM_HSL && SIERRA_AIRLINK_COLUMBIA
+	default n
+	help
+	  Select this module to enable runtime switch between RS232 and RS485.
+
 config SERIAL_MSM_HSL_CONSOLE
 	bool "MSM High speed serial legacy mode console support"
 	depends on SERIAL_MSM_HSL=y

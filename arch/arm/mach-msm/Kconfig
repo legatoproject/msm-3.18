@@ -354,5 +354,11 @@ config SIERRA
 	help
 	  All Sierra Wireless changes are controlled by this define
 	default y
+
+config SIERRA_AIRLINK_COLUMBIA
+	bool "Enable Sierra Wireless AirLink Columbia-X features (Very Experimental)"
+	default n
+	help
+	  Support for AirLink Columbia-X features.
 #SWISTOP
 endif

@@ -15,6 +15,11 @@
 
 #include "mdm9607-wp76xx.dtsi"
 
+// Override data in mdm9607-wp76xx.dtsi (must come after).
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+#include "mdm9607-fx30.dtsi"
+#endif
+
 / {
 	model = "Sierra Wireless, Inc. MDM 9607 WP series";
 	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";

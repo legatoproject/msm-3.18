@@ -12,6 +12,12 @@
  */
 /*Inherit the shared DTS and overlay the difference */
 #include "mdm9607-wp76xx.dtsi"
+
+// Override data in mdm9607-wp76xx.dtsi (must come after).
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+#include "mdm9607-fx30.dtsi"
+#endif
+
 #include "mdm9206.dtsi"
 
 &modem_adsp_mem {

@@ -123,6 +123,8 @@ enum bsfeature
  *           BS_UART_FUNC_AT - UART reserved for AT service
  *           BS_UART_FUNC_DM - UART reserved for DM service
  *           BS_UART_FUNC_NMEA - UART reserved for NMEA service
+ *           BS_UART_FUNC_RS485 - UART used for Linux application using RS485
+ *           BS_UART_FUNC_RS232_FC - UART used for Linux application using RS232 with Hardware flow control
  *           BS_UART_FUNC_CONSOLE - UART reserved for CONSOLE service
  *           BS_UART_FUNC_APP - UART open for all application usage
  *           BS_UART_FUNC_APP - used for bounds checking
@@ -137,6 +139,8 @@ enum bs_uart_func_e
   BS_UART_FUNC_AT       = 1,
   BS_UART_FUNC_DM       = 2,
   BS_UART_FUNC_NMEA     = 4,
+  BS_UART_FUNC_RS485    = 14,
+  BS_UART_FUNC_RS232_FC = 15,
   BS_UART_FUNC_CONSOLE  = 16,
   BS_UART_FUNC_APP      = 17,
   BS_UART_FUNC_MAX,

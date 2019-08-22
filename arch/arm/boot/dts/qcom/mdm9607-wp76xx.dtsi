@@ -330,7 +330,7 @@
 		clock-names = "wm8944_sysclk";
 	};
 
-	sierra_gpio {
+	sierra_gpio: sierra_gpio {
 		compatible = "sierra,gpio";
 		alias-2 = <&tlmm_pinmux 38 0>;
 		alias-4 = <&tlmm_pinmux 30 0>;
