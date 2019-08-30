@@ -272,9 +272,11 @@ dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-mtp.dtb \
 	mdm9607-wp76xx-default.dtb \
 	mdm9607-wp76xx-mangoh-green.dtb \
 	mdm9607-wp76xx-mangoh-red.dtb \
+	mdm9607-wp76xx-mangoh-yellow.dtb \
 	mdm9206-wp77xx-default.dtb \
 	mdm9206-wp77xx-mangoh-green.dtb \
-	mdm9206-wp77xx-mangoh-red.dtb
+	mdm9206-wp77xx-mangoh-red.dtb \
+	mdm9206-wp77xx-mangoh-yellow.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
