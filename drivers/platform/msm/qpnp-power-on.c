@@ -2126,6 +2126,7 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 				pon->spmi->sid,
 				qpnp_poff_reason[index]);
 	}
+        poff_reason = index;
 
 	if (pon->pon_trigger_reason == PON_SMPL ||
 		pon->pon_power_off_reason == QPNP_POFF_REASON_UVLO) {
