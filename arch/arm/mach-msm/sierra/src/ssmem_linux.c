@@ -532,10 +532,8 @@ static void __exit sierra_ssmem_exit(void)
 	platform_driver_unregister(&ssmem_plat_driver);
 }
 
-module_init(sierra_ssmem_init);
+device_initcall(sierra_ssmem_init);
 module_exit(sierra_ssmem_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Sierra SSMEM driver");
-
-
