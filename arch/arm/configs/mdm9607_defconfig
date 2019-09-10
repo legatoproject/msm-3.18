@@ -523,7 +523,6 @@ CONFIG_BLK_DEV_DM_BUILTIN=y
 CONFIG_HIBERNATION=y
 CONFIG_CRYPTO_SHA256=y
 CONFIG_MSM_FORCE_WDOG_BITE_ON_PANIC=y
-# SWISTOP
 
 
 ########################
@@ -629,9 +628,8 @@ CONFIG_HOSTAP=m
 CONFIG_HOSTAP_FIRMWARE=y
 CONFIG_HOSTAP_FIRMWARE_NVRAM=y
 
-# Additional suport for QCA9377 BT
+# Additional support for QCA9377 BT
 CONFIG_BT_HIDP=m
-
 
 # Audit
 CONFIG_AUDIT=y
@@ -645,3 +643,4 @@ CONFIG_EVM_EXTRA_SMACK_XATTRS=y
 # is accessed. The default is set to 'n', so we need to
 # set it to 'y'.
 CONFIG_IMA_FORCE_MEASUREMENT=y
+# SWISTOP
