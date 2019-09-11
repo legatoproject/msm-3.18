@@ -47,8 +47,11 @@
 /* Device minor will be automatically selected by the system. */
 #define SIERRA_KS_IF_MINOR (MISC_DYNAMIC_MINOR)
 
-/* Keystore read timeout (in ms) */
+/* Keystore read retry timeout (in ms) */
 #define SIERRA_KS_IF_KEYSTORE_READ_TOUT_MS  (5000)
+
+/* Keystore read init delay (in ms) */
+#define SIERRA_KS_IF_KEYSTORE_INITIAL_READ_DELAY_MS  (300)
 
 /* Structures */
 
@@ -226,7 +229,7 @@ int sierra_ks_if_set_keystore_read_timer(void)
 
     /* Arm pin state timer. */
     ret = mod_timer(&sierra_ks_if_read_timer,
-                    jiffies + msecs_to_jiffies(SIERRA_KS_IF_KEYSTORE_READ_TOUT_MS));
+                    jiffies + msecs_to_jiffies(SIERRA_KS_IF_KEYSTORE_INITIAL_READ_DELAY_MS));
     if (ret) {
         ret = -EPERM;
     }
