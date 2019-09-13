@@ -69,7 +69,6 @@ xmit on the receiving path.
 
 #ifdef CONFIG_SIERRA_MSM_HSL_RS485
 #include <linux/gpio/driver.h>
-#include "mach/swimcu.h"
 
 enum serial_rs_mode {
 	SERIAL_RS232, /* Default serial communication mode*/
@@ -85,10 +84,16 @@ enum rs485_term_mode {
 };
 
 /* DM, FIXME: Some of this need to be reworked to fit into new GPIO framework. */
+/* Macro assumes FX30EXP GPIOs (columbia gpio expander) start at 0 */
+#define FX30SEXP_GPIO_BASE              988
+#define FX30SEXP_GPIO_TO_SYS(exp_gpio)  (exp_gpio + FX30SEXP_GPIO_BASE)
+
 #define MSM_GPIO_RS485_OUT_EN_N       (47)
 #define MSM_GPIO_RS485_IN_EN          (48)
 #define MSM_GPIOEXP_FORCEOFF_RS232_N  FX30SEXP_GPIO_TO_SYS(16)
 #define MSM_GPIOEXP_RS485_TERM_N      FX30SEXP_GPIO_TO_SYS(20)
+#define FX30SEXP_GPIO_0               FX30SEXP_GPIO_TO_SYS(0)
+
 
 static unsigned int gpioexp_forceoff_rs232  = ARCH_NR_GPIOS;
 static unsigned int gpioexp_rs483_term      = ARCH_NR_GPIOS;
@@ -2795,8 +2800,8 @@ static int __init msm_hsl_rs485_gpioexp_init(void)
 
 	struct gpio_chip *chip = NULL;
 	/* Look for FX30S by matching GPIO expander base GIOP value */
-	if (((chip = gpiod_to_chip(gpio_to_desc(FX30SEXP_GPIO_TO_SYS(0)))) != NULL)
-		&& (chip->base == FX30SEXP_GPIO_TO_SYS(0))) {
+	if (((chip = gpiod_to_chip(gpio_to_desc(FX30SEXP_GPIO_0))) != NULL)
+		&& (chip->base == FX30SEXP_GPIO_0)) {
 
 		pr_info("HSL Driver found FX30S\n");
 		/* Update GPIO values for FX30S */
