@@ -18,6 +18,8 @@
 #include <keys/system_keyring.h>
 #include "module-internal.h"
 
+#include <../sierra/api/ssmem_keystore.h>
+
 struct key *system_trusted_keyring;
 EXPORT_SYMBOL_GPL(system_trusted_keyring);
 
@@ -50,18 +52,27 @@ static __init int system_trusted_keyring_init(void)
 device_initcall(system_trusted_keyring_init);
 
 /*
- * Load the compiled-in list of X.509 certificates.
+ * Load the system list of X.509 certificates.
  */
 static __init int load_system_certificate_list(void)
 {
 	key_ref_t key;
 	const u8 *p, *end;
 	size_t plen;
+	void *ptr;
 
-	pr_notice("Loading compiled-in X.509 certificates\n");
+	ptr = (void *)keystore_init();
 
-	p = system_certificate_list;
-	end = p + system_certificate_list_size;
+	if (ptr != NULL) {
+		pr_notice("Loading keystore X.509 certificates list\n");
+		p = keystore_list(ptr);
+		end = p + keystore_size(ptr);
+	} else {
+		pr_notice("Loading compiled-in X.509 certificates list\n");
+		p = system_certificate_list;
+		end = p + system_certificate_list_size;
+	}
+
 	while (p < end) {
 		/* Each cert begins with an ASN.1 SEQUENCE tag and must be more
 		 * than 256 bytes in size.
