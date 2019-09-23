@@ -22,7 +22,7 @@ config KEYS
 
 config KEYS_KEYSTORE
 	bool "Load system keys from keystore"
-	depends on !SYSTEM_TRUSTED_KEYRING && KEYS
+	depends on SYSTEM_TRUSTED_KEYRING && KEYS && SIERRA
 	help
 	  Load system keys from non-volatile secure storage device.
 
