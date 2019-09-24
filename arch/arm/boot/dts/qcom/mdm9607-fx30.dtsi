@@ -136,7 +136,7 @@
 	/* GPIO44 */
 	alias-FX30S-NETWORK_LED_GRN = <&tca6424 1 0>;
 	/* GPIO45 */
-	alias-FX30S-NETWORK_LED_GRN = <&tca6424 2 0>;
+	alias-FX30S-SIGNAL_LED_RED = <&tca6424 2 0>;
 	/* GPIO46 */
 	alias-FX30S-SIGNAL_LED_GRN = <&tca6424 3 0>;
 	/* GPIO47 */
