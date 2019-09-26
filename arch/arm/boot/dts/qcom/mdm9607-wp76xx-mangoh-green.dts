@@ -16,10 +16,5 @@
 /* Chipset and module description */
 #include "mdm9607-wp76xx.dtsi"
 
-// Override data in mdm9607-wp76xx.dtsi (must come after).
-#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
-#include "mdm9607-fx30.dtsi"
-#endif
-
 /* Board description */
 #include "swi-wp-mangoh-green.dtsi"

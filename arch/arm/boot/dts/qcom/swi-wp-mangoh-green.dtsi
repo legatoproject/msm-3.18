@@ -14,7 +14,7 @@
 / {
 	model = "Sierra Wireless, Inc. MDM WP7xxx series MangOH Green";
 	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
-	qcom,board-id = <8 0x81>;
+	qcom,board-id = <8 0x83>;
 };
 
 &sdhc_2 {

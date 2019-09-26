@@ -609,3 +609,8 @@
 		wlf,gpio_defaults = <0x0003 0xC000>;
 	};
 };
+
+/* Overrides for AirLink Columbia (must come last). */
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+#include "mdm9607-fx30.dtsi"
+#endif

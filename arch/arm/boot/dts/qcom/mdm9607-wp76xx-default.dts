@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,10 +10,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-/*Inherit the shared DTS and overlay the difference */
-#include "mdm9607-wp76xx.dtsi"
-#include "mdm9206.dtsi"
 
-&modem_adsp_mem {
-	reg = <0x82a00000 0x3100000>;
+/dts-v1/;
+
+/* Chipset and module description */
+#include "mdm9607-wp76xx.dtsi"
+
+/* Board description */
+/ {
+        model = "Sierra Wireless, Inc. MDM WP7xxx series";
+        compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
+        qcom,board-id = <8 0x81>;
 };
