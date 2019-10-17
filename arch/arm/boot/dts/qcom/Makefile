@@ -266,10 +266,23 @@ dtb-$(CONFIG_ARCH_SDM450) += sdm450-rcm.dtb \
 	sdm450-pmi8937-mtp.dtb \
 	sdm450-iot-mtp.dtb
 
+#SWISTART
+# Not all device trees are needed. Only keep the needed for MDM9607
+#dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-rumi.dtb \
+#	mdm9607-cdp.dtb \
+#	mdm9607-mtp.dtb \
+#	mdm9607-rcm.dtb \
+#	mdm9607-mtp-sdcard.dtb \
+#	mdm9206-mtp.dtb \
+#	mdm9206-cdp.dtb \
+#	mdm9206-mtp-sdcard.dtb \
+#	mdm9206-rcm.dtb \
+#	mdm9207c-mtp.dtb
 dtb-$(CONFIG_ARCH_MDM9607) += mdm9607-mtp.dtb \
 	mdm9607-swi-ar.dtb \
 	mdm9607-wp76xx-mangoh-green.dtb \
 	mdm9206-wp77xx-mangoh-green.dtb
+#SWISTOP
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
