@@ -113,7 +113,7 @@
 				<79 41>;
 		gpio-RI = <25>;
 
-        uart1_console_sleep: uart1_console_sleep {
+		uart1_console_sleep: uart1_console_sleep {
 			mux {
 				pins = "gpio12", "gpio13";
 				function = "blsp_uart1";
@@ -330,7 +330,7 @@
 		clock-names = "wm8944_sysclk";
 	};
 
-	sierra_gpio {
+	sierra_gpio: sierra_gpio {
 		compatible = "sierra,gpio";
 		alias-2 = <&tlmm_pinmux 38 0>;
 		alias-4 = <&tlmm_pinmux 30 0>;
@@ -609,3 +609,8 @@
 		wlf,gpio_defaults = <0x0003 0xC000>;
 	};
 };
+
+/* Overrides for AirLink Columbia (must come last). */
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+#include "mdm9607-fx30.dtsi"
+#endif

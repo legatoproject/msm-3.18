@@ -1,0 +1,81 @@
+/*
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/ {
+	model = "Sierra Wireless, Inc. MDM 9xxx WP series - MangOH Red";
+	compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
+	qcom,board-id = <8 0x82>;
+};
+
+&sdhc_2 {
+	status = "ok";
+	ti,non-removable;
+	ti,needs-special-hs-handling;
+	cap-power-off-card;
+	keep-power-in-suspend;
+	wlcore: wlcore@0 {
+		compatible = "ti,wlcore";
+		reg = <2>;
+	};
+};
+
+&soc {
+	sierra_gpio {
+		alias-BATTGAUGE_INT = <300 0>;
+		alias-BATTCHRGR_INT = <301 0>;
+		/* No GPIO 2 */
+		alias-GPIO_EXP_RPI_1 = <303 0>;
+		alias-GPIO_EXP_RPI_2 = <304 0>;
+		alias-MTK_TO_WP_UART_EN = <305 0>;
+		alias-WIFI_UART1_TX = <306 0>;
+		alias-GPIO_EXP_RPI_3 = <307 0>;
+		alias-LED_CARD_DETECT_IOT0 = <308 0>;
+		alias-SDIO_SEL = <309 0>;
+		alias-POWER_FAIL_INDIC = <310 0>;
+		alias-SENSOR_INT1 = <311 0>;
+		alias-SENSOR_INT2 = <312 0>;
+		alias-PCM_EXP1_SEL = <313 0>;
+		alias-GENERIC_PUSH_BUTTON = <314 0>;
+		alias-CONS_DIR = <315 0>;
+	};
+};
+
+&i2c_4 {
+	ioexp-mux@71 {
+		// IO expander is below the I2C switch PCA9546
+		compatible = "nxp,pca9546";
+		reg = <0x71>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		i2c@4 {
+			// IO expander 1: channel 2
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <2>;
+			ioexp1_gpios: io_exp@3e {
+				#gpio-cells = <2>;
+				gpio-controller;
+				compatible = "sx1509q";
+				reg = <0x3e>;
+				sx150x,pullup_ena = <0x0>;
+				sx150x,pulldn_ena = <0x0>;
+				sx150x,float_ena = <0x0>;
+				sx150x,polarity = <0x0>;
+				label = "ioexp1-gpio";
+				sx150x,gpio_base = <300>;
+			};
+		};
+	};
+};
+

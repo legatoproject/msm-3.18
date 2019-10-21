@@ -25,6 +25,8 @@ const static char dm_func_string[] = "DM\n";
 const static char nmea_func_string[] = "NMEA\n";
 const static char cons_func_string[] = "CONSOLE\n";
 const static char app_func_string[] = "APP\n";
+const static char rs232_func_string[] = "RS232\n";
+const static char rs485_func_string[] = "RS485\n";
 const static char inv_func_string[] = "UNAVAILABLE\n";
 const static char dis_func_string[] = "DISABLED\n";
 
@@ -72,7 +74,7 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 
 	uart_func = bs_uart_fun_get(line);
 
-	pr_info(" uart_func_init(), line=%d, uart_type=%d, uart_func=%d\n", line, uart_type, uart_func);
+	pr_info(" uart_func_init(), line=%d, uart_type=%d, uart_func=%d", line, uart_type, uart_func);
 
 	if ( (uart_func < BS_UART_FUNC_DISABLED)
 		|| (uart_func >= BS_UART_FUNC_MAX) ) {
@@ -83,7 +85,11 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 			switch (uart_func) {
 				case BS_UART_FUNC_AT:
 				case BS_UART_FUNC_NMEA:
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+				case BS_UART_FUNC_RS232_FC:
+#else
 				case BS_UART_FUNC_APP:
+#endif
 				case BS_UART_FUNC_DISABLED:
 					break;
 				default:
@@ -96,6 +102,10 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 			switch (uart_func) {
 				case BS_UART_FUNC_CONSOLE:
 				case BS_UART_FUNC_DM:
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+				case BS_UART_FUNC_APP:
+				case BS_UART_FUNC_RS485:
+#endif
 					break;
 				default:
 					uart_func = BS_UART_FUNC_DISABLED;
@@ -118,6 +128,10 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 			switch (uart_func) {
 				case BS_UART_FUNC_DM:
 				case BS_UART_FUNC_CONSOLE:
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+				case BS_UART_FUNC_RS485:
+				case BS_UART_FUNC_RS232_FC:
+#endif
 					break;
 				default:
 					/* UART2 is set to disable by default if the mapping is invalid */
@@ -129,7 +143,7 @@ static void uart_func_init(uint8_t line, uint8_t uart_type)
 		}
 	}
 
-	pr_info(" uart_func_init(), line=%d, uart_type=%d, uart_func=%d\n", line, uart_type, uart_func);
+	pr_info(" uart_func_init(), line=%d, uart_type=%d, uart_func=%d", line, uart_type, uart_func);
 	uart_func_tbl[uart_type][line] = uart_func;
 }
 
@@ -182,6 +196,16 @@ int8_t uart_config_set(uint8_t line, uint8_t uart_type)
 			pr_info("%s could be used as generic serial port.\n", uart_name_tbl[uart_type][line]);
 			uart_func_str_pt[line] = (char *)app_func_string;
 			break;
+#ifdef CONFIG_SIERRA_AIRLINK_COLUMBIA
+		case BS_UART_FUNC_RS485:
+			pr_info("%s could be used as RS485 serial port.\n", uart_name_tbl[uart_type][line]);
+			uart_func_str_pt[line] = (char *)rs485_func_string;
+			break;
+		case BS_UART_FUNC_RS232_FC:
+			pr_info("%s could be used as RS232 serial port.\n", uart_name_tbl[uart_type][line]);
+			uart_func_str_pt[line] = (char *)rs232_func_string;
+			break;
+#endif
 		case BS_UART_FUNC_CONSOLE:
 			pr_info("%s is reserved for CONSOLE service.\n", uart_name_tbl[uart_type][line]);
 			uart_func_str_pt[line] = (char *)cons_func_string;

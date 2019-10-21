@@ -17,4 +17,8 @@
 #include "mdm9206-wp77xx.dtsi"
 
 /* Board description */
-#include "swi-wp-mangoh-green.dtsi"
+/ {
+        model = "Sierra Wireless, Inc. MDM WP7xxx series";
+        compatible = "qcom,mdm9607-mtp", "qcom,mdm9607", "qcom,mtp";
+        qcom,board-id = <8 0x81>;
+};

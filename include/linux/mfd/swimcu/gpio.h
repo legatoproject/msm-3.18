@@ -104,5 +104,11 @@ void swimcu_gpio_irq_event_handle(struct swimcu *swimcu, int port, int pin, int 
 
 void swimcu_gpio_module_init(struct swimcu *,
 	bool (*irq_handler)(struct swimcu *, enum swimcu_gpio_irq_index));
+#ifndef CONFIG_MSM_SWI_QEMU
+void swimcu_gpio_work(struct swimcu *swimcu, enum swimcu_gpio_irq_index irq);
+#else
+/* This function doesn't exist for QEMU - just fake it. */
+static inline void swimcu_gpio_work(struct swimcu *swimcu, enum swimcu_gpio_irq_index irq) {}
+#endif
 
 #endif

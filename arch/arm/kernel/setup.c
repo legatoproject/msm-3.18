@@ -114,6 +114,11 @@ EXPORT_SYMBOL(boot_reason);
 unsigned int cold_boot;
 EXPORT_SYMBOL(cold_boot);
 
+#ifdef CONFIG_QPNP_POWER_ON
+unsigned int poff_reason;
+EXPORT_SYMBOL(poff_reason);
+#endif
+
 #ifdef MULTI_CPU
 struct processor processor __read_mostly;
 #endif
