@@ -417,7 +417,7 @@
 	*/
 	gpio@c000 { /* GPIO 1 */
 		qcom,mode = <0>;         /* Digital input */
-		qcom,vin-sel = <2>;      /* 1.8V (L11) */
+		qcom,vin-sel = <2>;      /* VIN2, 1.8V (L11) */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,pull = <4>;         /* QPNP_PIN_PULL_DOWN */
 		qcom,master-en = <0>;    /* Disable to prevent current leaks*/
@@ -427,7 +427,7 @@
 	/* VBUS detect */
 	gpio@c100 { /* GPIO 2 */
 		qcom,mode = <0>;        /* Digital input */
-		qcom,vin-sel = <3>;     /* 1.8V (L11) */
+		qcom,vin-sel = <2>;     /* VIN2, 1.8V (L11) */
 		qcom,src-sel = <0>;     /* QPNP_PIN_SEL_FUNC_CONSTANT */
 		qcom,pull = <1>;        /* NO PULL */
 		qcom,master-en = <1>;
@@ -439,7 +439,7 @@
 	*/
 	gpio@c200 { /* GPIO 3 */
 		qcom,mode = <0>;         /* Digital input */
-		qcom,vin-sel = <2>;      /* 1.8V (L11) */
+		qcom,vin-sel = <2>;      /* VIN2, 1.8V (L11) */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,pull = <4>;         /* QPNP_PIN_PULL_DOWN */
 		qcom,master-en = <0>;    /* Disable to prevent current leaks*/
@@ -449,7 +449,7 @@
 	gpio@c300 { /* GPIO 4 */
 		qcom,mode = <1>;         /* Digital output*/
 		qcom,pull = <4>;         /* Pulldown 10uA */
-		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,vin-sel = <2>;      /* VIN2, 1.8V (L11) */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
@@ -459,7 +459,7 @@
 	gpio@c400 { /* GPIO 5 */
 		qcom,mode = <1>;         /* Digital output*/
 		qcom,pull = <4>;         /* Pulldown 10uA */
-		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,vin-sel = <2>;      /* VIN2, 1.8V (L11) */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <1>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
@@ -469,7 +469,7 @@
 	gpio@c500 { /* GPIO 6 */
 		qcom,mode = <1>;         /* Digital output*/
 		qcom,pull = <4>;         /* Pulldown 10uA */
-		qcom,vin-sel = <2>;      /* VIN2 */
+		qcom,vin-sel = <2>;      /* VIN2, 1.8V (L11) */
 		qcom,src-sel = <0>;      /* GPIO */
 		qcom,invert = <0>;       /* Invert */
 		qcom,master-en = <1>;    /* Enable GPIO */
