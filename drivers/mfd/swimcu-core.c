@@ -802,7 +802,9 @@ int swimcu_device_init(struct swimcu *swimcu)
 	}
 
 	if(pdata->func_flags & SWIMCU_FUNC_FLAG_EVENT) {
+		swimcu->ignore_gpio_irq_during_init = 1;
 		ret = swimcu_process_events(swimcu);
+		swimcu->ignore_gpio_irq_during_init = 0;
 		if (ret != 0) {
 			dev_err(swimcu->dev, "process events failed: %d\n", ret);
 			goto exit;
