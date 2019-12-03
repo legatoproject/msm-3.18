@@ -810,6 +810,14 @@ void swimcu_gpio_irq_event_handle(struct swimcu *swimcu, int port, int pin, int 
 
 	mutex_lock(&swimcu->gpio_irq_lock);
 
+	if (swimcu_gpio_cfg[gpio].params.input.irqc_type == MCI_PIN_IRQ_DISABLED)
+	{
+		/* should not handle as the pin has not enabled IRQ */
+		swimcu_gpio_cfg[gpio].level = level;
+		mutex_unlock(&swimcu->gpio_irq_lock);
+		return;
+	}
+
 	/* MCU disabled IRQ on its triggering */
 	swimcu_gpio_cfg[gpio].params.input.irqc_type = MCI_PIN_IRQ_DISABLED;
 	swimcu_gpio_cfg[gpio].level = level;
