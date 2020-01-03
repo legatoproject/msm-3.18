@@ -3348,6 +3348,8 @@ static void  msm_serial_hs_rt_init(struct uart_port *uport)
 /* SWISTART */
 #ifndef CONFIG_SIERRA 
 	pm_runtime_set_autosuspend_delay(uport->dev, 100);
+#else
+	pm_runtime_set_autosuspend_delay(uport->dev, 5000);
 #endif /* CONFIG_SIERRA */	
 /* SWISTOP */	
 	pm_runtime_use_autosuspend(uport->dev);
