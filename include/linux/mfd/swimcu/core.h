@@ -183,8 +183,6 @@ struct swimcu {
 	/* Client devices */
 	struct swimcu_gpio gpio;
 	struct swimcu_hwmon hwmon;
-
-	int ignore_gpio_irq_during_init;
 };
 
 /**

@@ -206,15 +206,7 @@ bool swimcu_gpio_irq_work(struct swimcu *swimcu, enum swimcu_gpio_irq_index irq)
 		return false;
 	}
 
-	if (swimcu->ignore_gpio_irq_during_init)
-	{
-		pr_err("%s: ignore gpio irq(%d) during initialization\n", __func__, irq);
-		return true;
-	}
-	else
-	{
-		return handle_nested_irq(swimcu->gpio_irq_base + irq);
-	}
+	return handle_nested_irq(swimcu->gpio_irq_base + irq);
 }
 
 static inline int sys_irq_to_swimcu_irq(struct swimcu *swimcu, int irq)
