@@ -231,7 +231,13 @@ static struct srcu_struct bam_dmux_srcu;
 /* A2 power collaspe */
 #define UL_TIMEOUT_DELAY 1000	/* in ms */
 #define UL_FAST_TIMEOUT_DELAY 100 /* in ms */
-#define SHUTDOWN_TIMEOUT_MS	500
+/* SWISTART */
+#ifndef CONFIG_SIERRA
+#define SHUTDOWN_TIMEOUT_MS    500
+#else /* CONFIG_SIERRA */
+#define SHUTDOWN_TIMEOUT_MS    5000
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 #define UL_WAKEUP_TIMEOUT_MS	2000
 static uint32_t ul_timeout_delay = UL_TIMEOUT_DELAY;
 static void toggle_apps_ack(void);
@@ -2075,6 +2081,13 @@ static void disconnect_to_bam(void)
 			log_rx_timestamp();
 			ssrestart_check();
 		}
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+    else {
+      DMUX_LOG_KERR("%s: shutdown completion time was: %u msec\n", __func__, jiffies_to_msecs(time_remaining));
+    }
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	}
 
 	bam_connection_is_active = 0;
