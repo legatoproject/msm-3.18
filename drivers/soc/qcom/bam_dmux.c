@@ -2083,9 +2083,9 @@ static void disconnect_to_bam(void)
 		}
 /* SWISTART */
 #ifdef CONFIG_SIERRA
-    else {
-      DMUX_LOG_KERR("%s: shutdown completion time was: %u msec\n", __func__, jiffies_to_msecs(time_remaining));
-    }
+		else {
+			BAM_DMUX_LOG("%s: shutdown completion time was: %u msec\n", __func__, jiffies_to_msecs(time_remaining));
+		}
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	}
