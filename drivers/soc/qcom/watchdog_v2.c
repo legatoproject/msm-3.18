@@ -124,7 +124,7 @@ module_param(ipi_opt_en, int, 0);
  */
 static int stop_kick_watchdog = 1;
 #define MAX_MSM_DOGS	6	/* Maximum number of msm_watchdog devices */
-#define msm_softdog_num  3
+#define msm_softdog_num  4
 static unsigned int soft_margin = 60;	/* Default is 60 seconds */
 static struct class *msm_softdog_class;
 static dev_t msm_softdog_devt;
