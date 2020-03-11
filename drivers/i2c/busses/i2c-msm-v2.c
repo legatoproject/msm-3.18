@@ -108,12 +108,36 @@ static void i2c_msm_dbg_dump_diag(struct i2c_msm_ctrl *ctrl,
 	}
 
 	/* dump xfer details */
+#ifdef CONFIG_SIERRA
+	/* QTI9X07-1278:
+	 * I2C NACK is not a critical error, so dump it using dev_dbg instead of dev_err.
+	 * It is the way it is managed by other platforms (NXP, Samsung, HiSilicon, Broadcom, ...).
+	 * This will solve garbage display issues on serial console and dmesg log flooding
+	 * when using i2cdetect tool or when talking to slave devices that wake up on I2C
+	 * activity (NACKing the first I2C message).
+	 */
+	if (xfer->err == I2C_MSM_ERR_NACK)
+		dev_dbg(ctrl->dev,
+			"%s: msgs(n:%d cur:%d %s) bc(rx:%zu tx:%zu) mode:%s slv_addr:0x%0x MSTR_STS:0x%08x OPER:0x%08x\n",
+			str, xfer->msg_cnt, xfer->cur_buf.msg_idx,
+			xfer->cur_buf.is_rx ? "rx" : "tx", xfer->rx_cnt, xfer->tx_cnt,
+			i2c_msm_mode_str_tbl[xfer->mode_id], xfer->msgs->addr,
+			status, qup_op);
+	else
+		dev_err(ctrl->dev,
+			"%s: msgs(n:%d cur:%d %s) bc(rx:%zu tx:%zu) mode:%s slv_addr:0x%0x MSTR_STS:0x%08x OPER:0x%08x\n",
+			str, xfer->msg_cnt, xfer->cur_buf.msg_idx,
+			xfer->cur_buf.is_rx ? "rx" : "tx", xfer->rx_cnt, xfer->tx_cnt,
+			i2c_msm_mode_str_tbl[xfer->mode_id], xfer->msgs->addr,
+			status, qup_op);
+#else /* !CONFIG_SIERRA */
 	dev_err(ctrl->dev,
 		"%s: msgs(n:%d cur:%d %s) bc(rx:%zu tx:%zu) mode:%s slv_addr:0x%0x MSTR_STS:0x%08x OPER:0x%08x\n",
 		str, xfer->msg_cnt, xfer->cur_buf.msg_idx,
 		xfer->cur_buf.is_rx ? "rx" : "tx", xfer->rx_cnt, xfer->tx_cnt,
 		i2c_msm_mode_str_tbl[xfer->mode_id], xfer->msgs->addr,
 		status, qup_op);
+#endif /* CONFIG_SIERRA */
 }
 
 static u32 i2c_msm_reg_io_modes_out_blk_sz(u32 qup_io_modes)
