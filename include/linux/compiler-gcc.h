@@ -262,3 +262,26 @@
  * code
  */
 #define uninitialized_var(x) x = x
+
+/*
+ * __has_attribute is supported on gcc >= 5, clang >= 2.9 and icc >= 17.
+ * In the meantime, to support 4.6 <= gcc < 5, we implement __has_attribute
+ * by hand.
+ */
+#ifndef __has_attribute
+# define __has_attribute(x) __GCC4_has_attribute_##x
+# define __GCC4_has_attribute___copy__                0
+#endif
+
+/*
+ * Optional: only supported since gcc >= 9
+ * Optional: not supported by clang
+ * Optional: not supported by icc
+ *
+ *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-copy-function-attribute
+ */
+#if __has_attribute(__copy__)
+# define __copy(symbol)                 __attribute__((__copy__(symbol)))
+#else
+# define __copy(symbol)
+#endif

@@ -33,6 +33,7 @@
 #include <linux/crypto.h>
 #include <linux/qcrypto.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
 
 
 // Include file that contains the command structure definitions.
@@ -86,8 +87,72 @@ struct scm_cmd_buf_s
 #define TZDEV_IOCTL_SEAL_REQ            _IOWR(TZDEV_IOCTL_MAGIC, 0x17, struct tzdev_op_req)
 #define TZDEV_IOCTL_UNSEAL_REQ          _IOWR(TZDEV_IOCTL_MAGIC, 0x18, struct tzdev_op_req)
 
+#define SCM_SYM_ID_CMD         0x3
+
 static int sierra_tzdev_open_times = 0; /* record device open times, for shared resources using */
 
+static struct crypto_clock {
+  char *name;
+  struct clk *clk;
+} crypto_clk_list[] = {
+  {"crypto_clk_src", NULL},
+  {"gcc_crypto_clk", NULL},
+  {"gcc_crypto_axi_clk", NULL},
+  {"gcc_crypto_ahb_clk", NULL}
+};
+
+static void tzdev_clock_deinit(void)
+{
+  int i;
+  for (i = 0; i < ARRAY_SIZE(crypto_clk_list); i++) {
+    struct crypto_clock *clock = &(crypto_clk_list[i]);
+    if (clock->clk)
+      clk_put(clock->clk);
+  }
+}
+
+static int tzdev_clock_init(void)
+{
+  int i;
+  for (i = 0; i < ARRAY_SIZE(crypto_clk_list); i++) {
+    struct crypto_clock *clock = &(crypto_clk_list[i]);
+    if (!clock->clk) {
+      /* get clock */
+      clock->clk = clk_get_sys(NULL, clock->name);
+      if (IS_ERR(clock->clk)) {
+        pr_err("%s, unknown clock %s\n", __func__, clock->name);
+        clock->clk = NULL;
+        goto fail_release_clocks;
+      }
+    }
+  }
+  return 0;
+
+fail_release_clocks:
+  tzdev_clock_deinit();
+  return -ENODEV;
+}
+
+static void tzdev_clock_prepare_enable(void)
+{
+  int i;
+  for (i = 0; i < ARRAY_SIZE(crypto_clk_list); i++) {
+    int ret;
+    struct crypto_clock *clock = &(crypto_clk_list[i]);
+    BUG_ON(!clock->clk);
+    ret = clk_prepare_enable(clock->clk);
+  }
+}
+
+static void tzdev_clock_disable_unprepare(void)
+{
+  int i;
+  for (i = 0; i < ARRAY_SIZE(crypto_clk_list); i++) {
+    struct crypto_clock *clock = &(crypto_clk_list[i]);
+    BUG_ON(!clock->clk);
+    clk_disable_unprepare(clock->clk);
+  }
+}
 
 static int tzdev_storage_service_generate_key(uint8_t *key_material, uint32_t* key_size )
 {
@@ -96,7 +161,6 @@ static int tzdev_storage_service_generate_key(uint8_t *key_material, uint32_t* k
   tz_storage_service_gen_key_resp_t *gen_key_respp = NULL;
   int rc = 0;
   int key_material_len = *key_size;
-  struct scm_cmd_buf_s scm_cmd_buf;
 
   gen_key_reqp = kmalloc(sizeof(tz_storage_service_gen_key_cmd_t), GFP_KERNEL);
   gen_key_respp = kmalloc(sizeof(tz_storage_service_gen_key_resp_t), GFP_KERNEL);
@@ -107,17 +171,10 @@ static int tzdev_storage_service_generate_key(uint8_t *key_material, uint32_t* k
     goto end;
   }
 
-  memset(&scm_cmd_buf, 0, sizeof(scm_cmd_buf));
   memset(key_material, 0, key_material_len);
   memset(gen_key_reqp, 0, sizeof(tz_storage_service_gen_key_cmd_t));
   memset(gen_key_respp, 0, sizeof(tz_storage_service_gen_key_resp_t));
 
-
-  // Populate scm command structure.
-  scm_cmd_buf.req_addr = SCM_BUFFER_PHYS(gen_key_reqp);
-  scm_cmd_buf.req_size = SCM_BUFFER_SIZE(tz_storage_service_gen_key_cmd_t);
-  scm_cmd_buf.resp_addr = SCM_BUFFER_PHYS(gen_key_respp);
-  scm_cmd_buf.resp_size = SCM_BUFFER_SIZE(tz_storage_service_gen_key_resp_t);
 
   // Populate generate key request structure.
   gen_key_reqp->cmd_id = TZ_STOR_SVC_GENERATE_KEY;
@@ -130,11 +187,31 @@ static int tzdev_storage_service_generate_key(uint8_t *key_material, uint32_t* k
   dmac_flush_range(gen_key_respp, ((void *)gen_key_respp + (sizeof(tz_storage_service_gen_key_resp_t))));
 
   // Call into TZ
-  rc = scm_call(TZ_SVC_CRYPTO, TZ_CRYPTO_SERVICE_SYM_ID,
-          (void *)&scm_cmd_buf,
-          SCM_BUFFER_SIZE(scm_cmd_buf),
-          NULL,
-          0);
+  if (is_scm_armv8()) {
+    struct scm_desc desc = {0};
+    desc.arginfo = SCM_ARGS(4, SCM_RW, SCM_VAL, SCM_RW, SCM_VAL);
+    desc.args[0] = SCM_BUFFER_PHYS(gen_key_reqp);
+    desc.args[1] = SCM_BUFFER_SIZE(tz_storage_service_gen_key_cmd_t);
+    desc.args[2] = SCM_BUFFER_PHYS(gen_key_respp);
+    desc.args[3] = SCM_BUFFER_SIZE(tz_storage_service_gen_key_resp_t);
+
+    tzdev_clock_prepare_enable();
+    rc = scm_call2(SCM_SIP_FNID(SCM_SVC_CRYPTO, SCM_SYM_ID_CMD), &desc);
+    tzdev_clock_disable_unprepare();
+  } else {
+    struct scm_cmd_buf_s scm_cmd_buf = {0};
+    // Populate scm command structure.
+    scm_cmd_buf.req_addr = SCM_BUFFER_PHYS(gen_key_reqp);
+    scm_cmd_buf.req_size = SCM_BUFFER_SIZE(tz_storage_service_gen_key_cmd_t);
+    scm_cmd_buf.resp_addr = SCM_BUFFER_PHYS(gen_key_respp);
+    scm_cmd_buf.resp_size = SCM_BUFFER_SIZE(tz_storage_service_gen_key_resp_t);
+
+    rc = scm_call(TZ_SVC_CRYPTO, TZ_CRYPTO_SERVICE_SYM_ID,
+            (void *)&scm_cmd_buf,
+            SCM_BUFFER_SIZE(scm_cmd_buf),
+            NULL,
+            0);
+  }
 
   // Check return value
   if (rc)
@@ -188,7 +265,6 @@ static int tzdev_seal_data_using_aesccm(uint8_t *plain_data, uint32_t plain_data
   tz_storage_service_seal_data_resp_t *seal_data_respp = NULL;
   uint32_t sealed_len = *sealed_data_len;
   int rc = 0;
-  struct scm_cmd_buf_s scm_cmd_buf;
 
   seal_data_reqp = kmalloc(sizeof(tz_storage_service_seal_data_cmd_t), GFP_KERNEL);
   seal_data_respp = kmalloc(sizeof(tz_storage_service_seal_data_resp_t), GFP_KERNEL);
@@ -199,15 +275,8 @@ static int tzdev_seal_data_using_aesccm(uint8_t *plain_data, uint32_t plain_data
     goto end;
   }
 
-  memset(&scm_cmd_buf, 0, sizeof(scm_cmd_buf));
   memset(seal_data_reqp, 0, sizeof(tz_storage_service_seal_data_cmd_t));
   memset(seal_data_respp, 0, sizeof(tz_storage_service_seal_data_resp_t));
-
-  // Populate scm command structure.
-  scm_cmd_buf.req_addr = SCM_BUFFER_PHYS(seal_data_reqp);
-  scm_cmd_buf.req_size = SCM_BUFFER_SIZE(tz_storage_service_seal_data_cmd_t);
-  scm_cmd_buf.resp_addr = SCM_BUFFER_PHYS(seal_data_respp);
-  scm_cmd_buf.resp_size = SCM_BUFFER_SIZE(tz_storage_service_seal_data_resp_t);
 
   memset(sealed_buffer, 0, sealed_len);
 
@@ -231,11 +300,31 @@ static int tzdev_seal_data_using_aesccm(uint8_t *plain_data, uint32_t plain_data
   dmac_flush_range(seal_data_respp, ((void *)seal_data_respp + (sizeof(tz_storage_service_seal_data_resp_t))));
 
   // Call into TZ
-  rc = scm_call(TZ_SVC_CRYPTO, TZ_CRYPTO_SERVICE_SYM_ID,
-      (void *)&scm_cmd_buf,
-      SCM_BUFFER_SIZE(scm_cmd_buf),
-      NULL,
-      0);
+  if (is_scm_armv8()) {
+    struct scm_desc desc = {0};
+    desc.arginfo = SCM_ARGS(4, SCM_RW, SCM_VAL, SCM_RW, SCM_VAL);
+    desc.args[0] = SCM_BUFFER_PHYS(seal_data_reqp);
+    desc.args[1] = SCM_BUFFER_SIZE(tz_storage_service_seal_data_cmd_t);
+    desc.args[2] = SCM_BUFFER_PHYS(seal_data_respp);
+    desc.args[3] = SCM_BUFFER_SIZE(tz_storage_service_seal_data_resp_t);
+
+    tzdev_clock_prepare_enable();
+    rc = scm_call2(SCM_SIP_FNID(SCM_SVC_CRYPTO, SCM_SYM_ID_CMD), &desc);
+    tzdev_clock_disable_unprepare();
+  } else {
+    struct scm_cmd_buf_s scm_cmd_buf = {0};
+    // Populate scm command structure.
+    scm_cmd_buf.req_addr = SCM_BUFFER_PHYS(seal_data_reqp);
+    scm_cmd_buf.req_size = SCM_BUFFER_SIZE(tz_storage_service_seal_data_cmd_t);
+    scm_cmd_buf.resp_addr = SCM_BUFFER_PHYS(seal_data_respp);
+    scm_cmd_buf.resp_size = SCM_BUFFER_SIZE(tz_storage_service_seal_data_resp_t);
+
+    rc = scm_call(TZ_SVC_CRYPTO, TZ_CRYPTO_SERVICE_SYM_ID,
+        (void *)&scm_cmd_buf,
+        SCM_BUFFER_SIZE(scm_cmd_buf),
+        NULL,
+        0);
+  }
 
   // Check return value
   if (rc)
@@ -289,7 +378,6 @@ static int tzdev_unseal_data_using_aesccm(uint8_t *sealed_buffer, uint32_t seale
   tz_storage_service_unseal_data_resp_t *unseal_datarespp;
   uint32_t output_len_unseal = *unseal_len;
   int rc = 0;
-  struct scm_cmd_buf_s scm_cmd_buf;
 
   unseal_datareqp = kmalloc(sizeof(tz_storage_service_unseal_data_cmd_t), GFP_KERNEL);
   unseal_datarespp = kmalloc(sizeof(tz_storage_service_unseal_data_resp_t), GFP_KERNEL);
@@ -300,15 +388,8 @@ static int tzdev_unseal_data_using_aesccm(uint8_t *sealed_buffer, uint32_t seale
     goto end;
   }
 
-  memset(&scm_cmd_buf, 0, sizeof(scm_cmd_buf));
   memset(unseal_datareqp, 0, sizeof(tz_storage_service_unseal_data_cmd_t));
   memset(unseal_datarespp, 0, sizeof(tz_storage_service_unseal_data_resp_t));
-
-  // Populate scm command structure.
-  scm_cmd_buf.req_addr = SCM_BUFFER_PHYS(unseal_datareqp);
-  scm_cmd_buf.req_size = SCM_BUFFER_SIZE(tz_storage_service_unseal_data_cmd_t);
-  scm_cmd_buf.resp_addr = SCM_BUFFER_PHYS(unseal_datarespp);
-  scm_cmd_buf.resp_size = SCM_BUFFER_SIZE(tz_storage_service_unseal_data_resp_t);
 
   memset(output_buffer_unseal, 0, output_len_unseal);
 
@@ -333,11 +414,31 @@ static int tzdev_unseal_data_using_aesccm(uint8_t *sealed_buffer, uint32_t seale
   dmac_flush_range(unseal_datarespp, ((void *)unseal_datarespp + (sizeof(tz_storage_service_unseal_data_resp_t))));
 
   // Call into TZ
-  rc = scm_call(TZ_SVC_CRYPTO, TZ_CRYPTO_SERVICE_SYM_ID,
-      (void *)&scm_cmd_buf,
-      SCM_BUFFER_SIZE(scm_cmd_buf),
-      NULL,
-      0);
+  if (is_scm_armv8()) {
+    struct scm_desc desc = {0};
+    desc.arginfo = SCM_ARGS(4, SCM_RW, SCM_VAL, SCM_RW, SCM_VAL);
+    desc.args[0] = SCM_BUFFER_PHYS(unseal_datareqp);
+    desc.args[1] = SCM_BUFFER_SIZE(tz_storage_service_unseal_data_cmd_t);
+    desc.args[2] = SCM_BUFFER_PHYS(unseal_datarespp);
+    desc.args[3] = SCM_BUFFER_SIZE(tz_storage_service_unseal_data_resp_t);
+
+    tzdev_clock_prepare_enable();
+    rc = scm_call2(SCM_SIP_FNID(SCM_SVC_CRYPTO, SCM_SYM_ID_CMD), &desc);
+    tzdev_clock_disable_unprepare();
+  } else {
+    struct scm_cmd_buf_s scm_cmd_buf = {0};
+    // Populate scm command structure.
+    scm_cmd_buf.req_addr = SCM_BUFFER_PHYS(unseal_datareqp);
+    scm_cmd_buf.req_size = SCM_BUFFER_SIZE(tz_storage_service_unseal_data_cmd_t);
+    scm_cmd_buf.resp_addr = SCM_BUFFER_PHYS(unseal_datarespp);
+    scm_cmd_buf.resp_size = SCM_BUFFER_SIZE(tz_storage_service_unseal_data_resp_t);
+
+    rc = scm_call(TZ_SVC_CRYPTO, TZ_CRYPTO_SERVICE_SYM_ID,
+        (void *)&scm_cmd_buf,
+        SCM_BUFFER_SIZE(scm_cmd_buf),
+        NULL,
+        0);
+  }
 
   // Check return value
   if (rc)
@@ -783,12 +884,14 @@ static struct miscdevice sierra_tzdev_misc = {
 
 static int __init sierra_tzdev_init(void)
 {
+  tzdev_clock_init();
   return misc_register(&sierra_tzdev_misc);
 }
 
 static void __exit sierra_tzdev_exit(void)
 {
   misc_deregister(&sierra_tzdev_misc);
+  tzdev_clock_deinit();
 }
 
 module_init(sierra_tzdev_init);
