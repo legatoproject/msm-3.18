@@ -2045,26 +2045,7 @@ static void msm_hs_sps_rx_callback(struct sps_event_notify *notify)
  */
 static unsigned int msm_hs_get_mctrl_locked(struct uart_port *uport)
 {
-/* SWISTART */
-#ifndef CONFIG_SIERRA
 	return TIOCM_DSR | TIOCM_CAR | TIOCM_CTS;
-#else
-	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
-	int isr;
-
-	isr = msm_hs_read(uport, UART_DM_ISR);
-	if (UARTDM_ISR_CURRENT_CTS_BMSK & isr)
-	{
-		MSM_HS_INFO("%s: UARTDM_ISR_CURRENT_CTS_BMSK, isr is true, ISR 0x%xn", __func__, isr);
-		return TIOCM_DSR | TIOCM_CAR | TIOCM_CTS;
-	}
-	else
-	{
-		MSM_HS_INFO("%s: UARTDM_ISR_CURRENT_CTS_BMSK, isr is false, ISR 0x%xn",__func__, isr);
-		return TIOCM_DSR | TIOCM_CAR;
-	}
-#endif /* CONFIG_SIERRA */
-/* SWISTOP */
 }
 
 /*
