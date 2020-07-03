@@ -346,3 +346,31 @@ void uart_sysfs_symlink_set(struct device * dev,
 	}
 }
 EXPORT_SYMBOL(uart_sysfs_symlink_set);
+
+/************
+ *
+ * Name:     is_uart1_config_as_cust_linux
+ *
+ * Purpose:  Check whether UART 1 is config as customer Linux App Service
+ *
+ * Parms:    none
+ *
+ * Return:   True, if UART 1 is config as customer Linux App Service; otherwise, fail
+ *
+ * Abort:    none
+ *
+ * Notes:    none
+ *
+ ************/
+bool is_uart1_config_as_cust_linux(void)
+{
+  if (BS_UART_FUNC_APP == uart_config_get(BS_UART1_LINE, BS_UART_TYPE_HS))
+  {
+    return true;
+  }
+  else
+  {
+    return false;
+  }
+}
+EXPORT_SYMBOL(is_uart1_config_as_cust_linux);

@@ -29,4 +29,6 @@ extern int8_t uart_config_get(uint8_t line, uint8_t uart_type);
 
 extern void uart_sysfs_symlink_set(struct device * dev,
 				uint8_t uart_type);
+
+extern bool is_uart1_config_as_cust_linux(void);
 #endif

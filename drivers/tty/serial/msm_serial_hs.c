@@ -71,6 +71,7 @@
 #ifdef CONFIG_SIERRA
 #include <linux/sierra_serial.h>
 #include <linux/hrtimer.h>
+#include <../drivers/gpio/gpiolib.h>
 #endif /*CONFIG_SIERRA*/
 /* SWISTOP */
 
@@ -292,6 +293,18 @@ static struct of_device_id msm_hs_match_table[] = {
 #define BUS_RESET 0
 #define RX_FLUSH_COMPLETE_TIMEOUT 300 /* In jiffies */
 #define BLSP_UART_CLK_FMAX 63160000
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#define DTR_AS_GPIO_NUM     17
+#define DCD_AS_GPIO_NUM     24
+#define RI_AS_GPIO_NUM      25
+#define DSR_AS_GPIO_NUM     36
+
+#define GPIO_HIGH           1
+#define GPIO_LOW            0
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 static struct dentry *debug_base;
 static struct platform_driver msm_serial_hs_platform_driver;
@@ -2030,6 +2043,62 @@ static void msm_hs_sps_rx_callback(struct sps_event_notify *notify)
 	}
 }
 
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static unsigned int get_DTR_TIOCM(void)
+{
+	unsigned int DTR_level = GPIO_LOW;
+	struct gpio_desc	*desc;
+
+	desc = gpio_to_desc(DTR_AS_GPIO_NUM);
+	if (!desc)
+		pr_err("%s: no desc for GPIO %d\n", __func__, DTR_AS_GPIO_NUM);
+	else
+		DTR_level = gpiod_get_value(desc);
+
+	/* DTR signal is active Low */
+	if (DTR_level == GPIO_LOW)
+		return TIOCM_DTR;
+	else
+		return 0;
+}
+
+static void set_DCD_value(int DCD_value)
+{
+	struct gpio_desc	*desc;
+
+	desc = gpio_to_desc(DCD_AS_GPIO_NUM);
+	if (!desc)
+		pr_err("%s: no desc for GPIO %d\n", __func__, DCD_AS_GPIO_NUM);
+	else
+		gpiod_set_value(desc, DCD_value);
+}
+
+static void set_RI_value(int RI_value)
+{
+	struct gpio_desc	*desc;
+
+	desc = gpio_to_desc(RI_AS_GPIO_NUM);
+	if (!desc)
+		pr_err("%s: no desc for GPIO %d\n", __func__, RI_AS_GPIO_NUM);
+	else
+		gpiod_set_value(desc, RI_value);
+}
+
+static void set_DSR_value(int DSR_value)
+{
+	struct gpio_desc	*desc;
+
+	desc = gpio_to_desc(DSR_AS_GPIO_NUM);
+	if (!desc)
+		pr_err("%s: no desc for GPIO %d\n", __func__, DSR_AS_GPIO_NUM);
+	else
+		gpiod_set_value(desc, DSR_value);
+}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 /*
  *  Standard API, Current states of modem control inputs
  *
@@ -2045,7 +2114,34 @@ static void msm_hs_sps_rx_callback(struct sps_event_notify *notify)
  */
 static unsigned int msm_hs_get_mctrl_locked(struct uart_port *uport)
 {
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	return TIOCM_DSR | TIOCM_CAR | TIOCM_CTS;
+#else
+	unsigned int current_TIOCM_DTR = 0;
+	unsigned int isr;
+	unsigned int TIOCM_value = 0;
+
+	/* Only read UART pins signal through TIOCMGET when UART 1 is set to Linux */
+	/* APP by AT!MAPUART command */
+	/* If UART 1 is NOT set to Linux APP service, return normal value */
+	if (!is_uart1_config_as_cust_linux()) {
+		pr_warn("%s: UART 1 is NOT Linux APP\n", __func__);
+		return TIOCM_DSR | TIOCM_CAR | TIOCM_CTS;
+	}
+
+	/* Read DTR status */
+	current_TIOCM_DTR = get_DTR_TIOCM();
+	TIOCM_value |= current_TIOCM_DTR;
+
+	/* Read CTS(RTS on PC) status, and note that it is active low signal */
+	isr = msm_hs_read(uport, UART_DM_ISR);
+	if (0 == (UARTDM_ISR_CURRENT_CTS_BMSK & isr)) {
+		TIOCM_value |= TIOCM_CTS;
+	}
+	return TIOCM_value;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 }
 
 /*
@@ -2061,6 +2157,30 @@ void msm_hs_set_mctrl_locked(struct uart_port *uport,
 {
 	unsigned int set_rts;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	unsigned int set_dcd;
+	unsigned int set_dsr;
+	unsigned int set_ri;
+
+	/* Only set UART pins signal through TIOCMSET when UART 1 is set to Linux APP by */
+	/* AT!MAPUART command */
+	if (is_uart1_config_as_cust_linux()) {
+		set_ri = TIOCM_RI & mctrl ? 0 : 1;
+		set_dcd = TIOCM_CD & mctrl ? 0 : 1;
+		set_dsr = TIOCM_DSR & mctrl ? 0 : 1;
+		pr_info("%s: mctrl=0x%04X, set_dcd=%d, set_dsr=%d, set_ri=%d (0 is ON, 1 is OFF)\n",
+						__func__, mctrl, set_dcd, set_dsr, set_ri);
+
+		set_DCD_value(set_dcd);
+		set_RI_value(set_ri);
+		set_DSR_value(set_dsr);
+	}
+	else
+		pr_info("%s: UART 1 is NOT Linux APP\n", __func__);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	if (msm_uport->pm_state != MSM_HS_PM_ACTIVE) {
 		MSM_HS_WARN("%s(): Clocks are off\n", __func__);

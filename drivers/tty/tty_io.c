@@ -105,6 +105,12 @@
 #include <linux/kmod.h>
 #include <linux/nsproxy.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_serial.h>
+#endif /*CONFIG_SIERRA*/
+/* SWISTOP */
+
 #undef TTY_DEBUG_HANGUP
 
 #define TTY_PARANOIA_CHECK 1
@@ -2720,8 +2726,27 @@ static int tty_tiocmset(struct tty_struct *tty, unsigned int cmd,
 		clear = ~val;
 		break;
 	}
+
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	set &= TIOCM_DTR|TIOCM_RTS|TIOCM_OUT1|TIOCM_OUT2|TIOCM_LOOP;
 	clear &= TIOCM_DTR|TIOCM_RTS|TIOCM_OUT1|TIOCM_OUT2|TIOCM_LOOP;
+#else
+	/* Setting the UART 1 pin only when MAPUART setting is set to Linux App */
+	if (is_uart1_config_as_cust_linux()) {
+		pr_info("%s: UART 1 is Linux APP\n", __func__);
+		set &= TIOCM_RTS|TIOCM_RI|TIOCM_CD|TIOCM_DSR|TIOCM_OUT1|TIOCM_OUT2|TIOCM_LOOP;
+		clear &= TIOCM_RTS|TIOCM_RI|TIOCM_CD|TIOCM_DSR|TIOCM_OUT1|TIOCM_OUT2|TIOCM_LOOP;
+	}
+	else {
+		pr_info("%s: UART 1 is NOT Linux APP\n", __func__);
+		set &= TIOCM_DTR|TIOCM_RTS|TIOCM_OUT1|TIOCM_OUT2|TIOCM_LOOP;
+		clear &= TIOCM_DTR|TIOCM_RTS|TIOCM_OUT1|TIOCM_OUT2|TIOCM_LOOP;
+	}
+	pr_info("%s(): set=0x%04X, val=0x%04X, clear=0x%04X.\n", __func__, set, val, clear);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	return tty->ops->tiocmset(tty, set, clear);
 }
 

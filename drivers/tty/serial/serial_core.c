@@ -38,6 +38,12 @@
 #include <asm/irq.h>
 #include <asm/uaccess.h>
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include <linux/sierra_serial.h>
+#endif /*CONFIG_SIERRA*/
+/* SWISTOP */
+
 /*
  * This is used to lock changes in serial line configuration.
  */
@@ -122,7 +128,17 @@ uart_update_mctrl(struct uart_port *port, unsigned int set, unsigned int clear)
 	spin_lock_irqsave(&port->lock, flags);
 	old = port->mctrl;
 	port->mctrl = (old & ~clear) | set;
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	if (old != port->mctrl)
+#else
+	/* Special case, if the pins are all 0, we also need to call set_mctrl, */
+	/* otherwise, this case would be skipped */
+	/* Check the UART 1 pin only when MAPUART setting is set to Linux App */
+	if ((is_uart1_config_as_cust_linux()) && ((old != port->mctrl)
+			|| (port->mctrl == 0)))
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 		port->ops->set_mctrl(port, port->mctrl);
 	spin_unlock_irqrestore(&port->lock, flags);
 }
@@ -966,6 +982,12 @@ static int uart_tiocmget(struct tty_struct *tty)
 	struct uart_port *uport = state->uart_port;
 	int result = -EIO;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	pr_info("%s(), state->uart_port->mctrl=0x%04X.\n",  __func__,
+					state->uart_port->mctrl);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	mutex_lock(&port->mutex);
 	if (!(tty->flags & (1 << TTY_IO_ERROR))) {
 		result = uport->mctrl;
@@ -986,6 +1008,12 @@ uart_tiocmset(struct tty_struct *tty, unsigned int set, unsigned int clear)
 	struct tty_port *port = &state->port;
 	int ret = -EIO;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	pr_info("%s: state->uart_port->mctrl=0x%04X, set=0x%04X, clear=0x%04X\n",
+					__func__, state->uart_port->mctrl, set, clear);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	mutex_lock(&port->mutex);
 	if (!(tty->flags & (1 << TTY_IO_ERROR))) {
 		uart_update_mctrl(uport, set, clear);
@@ -1529,6 +1557,18 @@ static void uart_dtr_rts(struct tty_port *port, int onoff)
 	struct uart_state *state = container_of(port, struct uart_state, port);
 	struct uart_port *uport = state->uart_port;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Check the UART 1 pin only when MAPUART setting is set to Linux App */
+	/* The DTR is an input pin, so it is not controllable in our case */
+	if (is_uart1_config_as_cust_linux())
+		if (onoff)
+			uart_set_mctrl(uport, TIOCM_RTS);
+		else
+			uart_clear_mctrl(uport, TIOCM_RTS);
+	else
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	if (onoff)
 		uart_set_mctrl(uport, TIOCM_DTR | TIOCM_RTS);
 	else
