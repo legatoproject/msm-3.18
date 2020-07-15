@@ -76,6 +76,11 @@ struct nand_flash_dev nand_flash_ids[] = {
 		{ .id = {0xf8, 0xaa, 0x80, 0x11, 0x20, 0x02, 0x00, 0x00} },
 		SZ_4K, SZ_256, SZ_256K, 0, 6, 128, NAND_ECC_INFO(4, SZ_512) },
 
+/* add Winbond W29N04KZxxAH 4Gb 4k page size */
+	{"W29N04KZxxAH 4G 1.8V 8-bit",
+		{ .id = {0xef, 0xac, 0x00, 0x26, 0x62, 0x00, 0x00, 0x00} },
+		SZ_4K, SZ_512, SZ_256K, 0, 5, 256, NAND_ECC_INFO(8, SZ_512) },
+
 	{"MT29RZ2B1DZZHGSP 2G  1.8V 4-bit",
 		{ .id = {0x2c, 0xaa, 0x90, 0x15, 0x00, 0x00, 0x00, 0x00} },
 		SZ_2K, SZ_256, SZ_128K, 0, 4, 64, NAND_ECC_INFO(4, SZ_512) },
@@ -216,6 +221,7 @@ struct nand_manufacturers nand_manuf_ids[] = {
 	{NAND_MFR_SANDISK, "SanDisk"},
 	{NAND_MFR_INTEL, "Intel"},
 	{NAND_MFR_FIDELIX, "Fidelix"},
+	{NAND_MFR_WINBOND, "Winbond"},
 	{0x0, "Unknown"}
 };
 
