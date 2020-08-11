@@ -601,6 +601,14 @@ static uint16_t msm_nand_flash_onfi_crc_check(uint8_t *buffer, uint16_t count)
 struct msm_nand_flash_onfi_data {
 	struct msm_nand_common_cfgs cfg;
 	uint32_t exec;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	uint32_t devcmd1_orig;
+	uint32_t devcmdvld_orig;
+	uint32_t devcmd1_mod;
+	uint32_t devcmdvld_mod;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	uint32_t ecc_bch_cfg;
 };
 
@@ -672,7 +680,13 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	uint32_t onfi_signature = 0;
 
 	/* SPS command/data descriptors */
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	uint32_t total_cnt = 9;
+#else /* !CONFIG_SIERRA */
+	uint32_t total_cnt = 13;
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 	/*
 	 * The following 9 commands are required to get onfi parameters -
 	 * flash, addr0, addr1, cfg0, cfg1, dev0_ecc_cfg,
@@ -691,9 +705,17 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 
 	ret = msm_nand_version_check(info, &nandc_version);
 	if (!ret && !(nandc_version.nand_major == 1 &&
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 			nandc_version.nand_minor >= 5 &&
 			nandc_version.qpic_major == 1 &&
 			nandc_version.qpic_minor >= 5)) {
+#else /* !CONFIG_SIERRA */
+			nandc_version.nand_minor == 1 &&
+			nandc_version.qpic_major == 1 &&
+			nandc_version.qpic_minor == 1)) {
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 		ret = -EPERM;
 		goto out;
 	}
@@ -717,25 +739,57 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 
 	memset(&data, 0, sizeof(struct msm_nand_flash_onfi_data));
 
+/* SWISTAT */
+#ifdef CONFIG_SIERRA
+	ret = msm_nand_flash_rd_reg(info, MSM_NAND_DEV_CMD1(info),
+				&data.devcmd1_orig);
+	if (ret < 0)
+		goto free_dma;
+	ret = msm_nand_flash_rd_reg(info, MSM_NAND_DEV_CMD_VLD(info),
+			&data.devcmdvld_orig);
+	if (ret < 0)
+		goto free_dma;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	/* Lookup the partition to which apps has access to */
 	for (i = 0; i < FLASH_PTABLE_MAX_PARTS_V4; i++) {
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		if (mtd_part[i].name && !strcmp("boot", mtd_part[i].name)) {
+#else /* !CONFIG_SIERRA */
+		if (!strcmp("apps", mtd_part[i].name)) {
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 			page_address = mtd_part[i].offset << 6;
 			break;
 		}
 	}
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	if (!page_address) {
 		pr_info("%s: no apps partition found in smem\n", __func__);
 		ret = -EPERM;
 		goto free_dma;
 	}
 	data.cfg.cmd = MSM_NAND_CMD_PAGE_READ_ONFI;
+#else /* !CONFIG_SIERRA */
+	data.cfg.cmd = MSM_NAND_CMD_PAGE_READ_ALL;
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 	data.exec = 1;
 	data.cfg.addr0 = (page_address << 16) |
 				FLASH_READ_ONFI_PARAMETERS_ADDRESS;
 	data.cfg.addr1 = (page_address >> 16) & 0xFF;
 	data.cfg.cfg0 =	MSM_NAND_CFG0_RAW_ONFI_PARAM_INFO;
 	data.cfg.cfg1 = MSM_NAND_CFG1_RAW_ONFI_PARAM_INFO;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	data.devcmd1_mod = (data.devcmd1_orig & 0xFFFFFF00) |
+				FLASH_READ_ONFI_PARAMETERS_COMMAND;
+	data.devcmdvld_mod = data.devcmdvld_orig & 0xFFFFFFFE;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	data.ecc_bch_cfg = 1 << ECC_CFG_ECC_DISABLE;
 	dma_buffer->flash_status = 0xeeeeeeee;
 
@@ -747,6 +801,18 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 			data.ecc_bch_cfg, 0);
 	cmd++;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
+			data.devcmdvld_mod, 0);
+	cmd++;
+
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
+			data.devcmd1_mod, 0);
+	cmd++;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
+
 	rdata = (0 << 0) | (ONFI_PARAM_INFO_LENGTH << 16) | (1 << 31);
 	msm_nand_prep_single_desc(cmd, MSM_NAND_READ_LOCATION_0(info), WRITE,
 			rdata, 0);
@@ -757,9 +823,28 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	cmd++;
 
 	msm_nand_prep_single_desc(cmd, MSM_NAND_FLASH_STATUS(info), READ,
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		msm_virt_to_dma(chip, &dma_buffer->flash_status),
 		SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
+#else /* !CONFIG_SIERRA */
+		msm_virt_to_dma(chip, &dma_buffer->flash_status), 0);
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 	cmd++;
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD1(info), WRITE,
+			data.devcmd1_orig, 0);
+	cmd++;
+
+	msm_nand_prep_single_desc(cmd, MSM_NAND_DEV_CMD_VLD(info), WRITE,
+			data.devcmdvld_orig,
+			SPS_IOVEC_FLAG_UNLOCK | SPS_IOVEC_FLAG_INT);
+	cmd++;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	BUG_ON(cmd - dma_buffer->cmd > ARRAY_SIZE(dma_buffer->cmd));
 	dma_buffer->xfer.iovec_count = (cmd - dma_buffer->cmd);
@@ -813,9 +898,19 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	}
 
 	ret = msm_nand_put_device(chip->dev);
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	mutex_unlock(&info->lock);
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 	if (ret)
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 		goto free_dma;
+#else /* !CONFIG_SIERRA */
+		goto unlock_mutex;
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 
 	/* Check for flash status errors */
 	if (dma_buffer->flash_status & (FS_OP_ERR | FS_MPU_ERR)) {
@@ -855,6 +950,11 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 					flash->pagesize;
 	flash->oobsize  = onfi_param_page_ptr->number_of_spare_bytes_per_page;
 	flash->density  = onfi_param_page_ptr->number_of_blocks_per_logical_unit
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+				* onfi_param_page_ptr->number_of_logical_units
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 					* flash->blksize;
 	flash->ecc_correctability = onfi_param_page_ptr->
 					number_of_bits_ecc_correctability;
@@ -869,7 +969,13 @@ static int msm_nand_flash_onfi_probe(struct msm_nand_info *info)
 	 */
 	if (!strcmp(onfi_param_page_ptr->device_model, "MT29F4G08ABC"))
 		flash->widebus  = 0;
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	goto free_dma;
+#else /* !CONFIG_SIERRA */
+	goto unlock_mutex;
+#endif /* !CONFIG_SIERRA */
+/* SWISTOP */
 put_dev:
 	msm_nand_put_device(chip->dev);
 unlock_mutex:
