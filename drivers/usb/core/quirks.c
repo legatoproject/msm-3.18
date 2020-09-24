@@ -223,8 +223,12 @@ static const struct usb_device_id usb_quirk_list[] = {
 	/* Acer C120 LED Projector */
 	{ USB_DEVICE(0x1de1, 0xc102), .driver_info = USB_QUIRK_NO_LPM },
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	/* USB3503 */
 	{ USB_DEVICE(0x0424, 0x3503), .driver_info = USB_QUIRK_RESET_RESUME },
+#endif /* SIERRA */
+/* SWISTOP */
 
 	/* ASUS Base Station(T100) */
 	{ USB_DEVICE(0x0b05, 0x17e0), .driver_info =
