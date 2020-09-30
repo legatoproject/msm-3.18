@@ -5213,6 +5213,18 @@ static int msm_otg_runtime_idle(struct device *dev)
 		return -EAGAIN;
 	}
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	if (!atomic_read(&motg->in_lpm) && (phy->state == OTG_STATE_B_SUSPEND)) {
+		/* It can be in the middle of resume. msm_otg_irq()is called but the
+		 * core_irq is not yet received. Return non-zero so that PM core
+		 * will not call msm_otg_runtime_suspend() to suspend the device.
+		*/
+		dev_dbg(dev, "Prevent PM core to suspend this device.\n");
+		return -EPERM;
+	}
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	return 0;
 }
 
