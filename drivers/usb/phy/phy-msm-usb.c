@@ -4775,8 +4775,19 @@ static int msm_otg_probe(struct platform_device *pdev)
 		}
 	}
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	ret = request_irq(motg->async_irq, msm_otg_irq,
 				IRQF_TRIGGER_RISING, "msm_otg", motg);
+#else
+	/* The USB controller fails to give irq if a bus resume happens
+	 * just before it goes into LPM. Enabling IRQF_FORCE_RESUME flag
+	 * allows async_irq re-appear for the subsequent bus reset event.
+	 */
+	ret = request_irq(motg->async_irq, msm_otg_irq,
+				IRQF_TRIGGER_RISING | IRQF_FORCE_RESUME, "msm_otg", motg);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 	if (ret) {
 		dev_err(&pdev->dev, "request irq failed (ASYNC INT)\n");
 		goto free_phy_irq;
@@ -4930,11 +4941,18 @@ static int msm_otg_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
+/* SWISTART */
+#ifndef CONFIG_SIERRA
 	if (motg->pdata->delay_lpm_on_disconnect) {
 		pm_runtime_set_autosuspend_delay(&pdev->dev,
 			lpm_disconnect_thresh);
 		pm_runtime_use_autosuspend(&pdev->dev);
 	}
+#else
+	/* Do not use autosuspend such that usb goes to LPM right after suspend.*/
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 
 	motg->usb_psy.name = "usb";
 	motg->usb_psy.type = POWER_SUPPLY_TYPE_USB;
